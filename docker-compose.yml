@@ -1,0 +1,211 @@
+version: '3.8'
+
+services:
+  callytics:
+    build: .
+    container_name: callytics
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # API Keys (환경 변수에서 가져오거나 기본값 사용)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - HUGGINGFACE_API_TOKEN=${HUGGINGFACE_API_TOKEN:-}
+      
+      # Runtime Configuration
+      - DEVICE=cuda
+      - COMPUTE_TYPE=float16
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb=512
+      
+      # Database Configuration
+      - DATABASE_URL=sqlite:///app/.db/Callytics_new.sqlite
+      
+      # Logging
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./audio:/app/audio
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./Callytics_new.sqlite:/app/Callytics_new.sqlite
+      - ./config:/app/config
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 개발용 서비스 (선택사항)
+  callytics-dev:
+    build: .
+    container_name: callytics-dev
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./audio:/app/audio
+      - ./data:/app/.db
+      - ./logs:/app/logs
+      - ./temp:/app/.temp
+      # 개발 시 코드 변경사항 반영
+      - .:/app
+    environment:
+      # API Keys (개발용)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - HUGGINGFACE_API_TOKEN=${HUGGINGFACE_API_TOKEN:-}
+      
+      # Runtime Configuration
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONPATH=/app
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb=256
+      - PYTORCH_CUDA_MEMORY_FRACTION=0.5
+      - DEVICE=cuda
+      - COMPUTE_TYPE=float16
+      
+      # Database Configuration
+      - DATABASE_URL=sqlite:///app/.db/Callytics_new.sqlite
+      
+      # Logging
+      - LOG_LEVEL=DEBUG
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '1'
+        reservations:
+          memory: 1G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    restart: unless-stopped
+    command: ["python", "-u", "main.py"]
+    profiles:
+      - dev
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    volumes:
+      - ./config/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - callytics-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - TZ=Asia/Seoul
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - callytics-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  node-exporter:
+    image: prom/node-exporter:v1.6.0
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+    networks:
+      - callytics-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - callytics-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+volumes:
+  audio_data:
+    driver: local
+  db_data:
+    driver: local
+  log_data:
+    driver: local
+  temp_data:
+    driver: local
+  model_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  callytics-net:
+    driver: bridge
