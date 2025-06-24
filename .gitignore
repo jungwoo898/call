@@ -17,19 +17,9 @@ dist/
 build/
 .eggs/
 
-# Virtual environments
-venv/
-ENV/
-env/
-.venv/
-
 # Logs
 logs/
 *.log
-
-# SQLite DB
-*.sqlite
-*.sqlite.backup
 
 # OS
 .DS_Store
