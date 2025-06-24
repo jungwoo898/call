@@ -1,0 +1,39 @@
+# Directory
+.idea
+.temp
+.agile
+.data/input
+
+# Extension
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Logs
+logs/
+*.log
+
+# SQLite DB
+*.sqlite
+*.sqlite.backup
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 기타
+*.bak
