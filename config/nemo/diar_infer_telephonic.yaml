@@ -1,0 +1,63 @@
+# NeMo 화자 분리 추론 설정 (통신사 상담 특화)
+name: "SpeakerDiarization_Telephonic"
+
+model:
+  # 화자 분리 모델 설정
+  diarizer:
+    _target_: nemo.collections.asr.models.clustering_diarizer.ClusteringDiarizer
+    cfg:
+      # VAD (Voice Activity Detection) 설정
+      vad:
+        model_path: null # 자동으로 다운로드
+        external_vad_manifest: null
+        parameters:
+          onset: 0.8
+          offset: 0.6
+          pad_onset: 0.05
+          pad_offset: 0.05
+          min_duration_on: 0.2
+          min_duration_off: 0.2
+          filter_speech_first: true
+      
+      # 화자 임베딩 추출 설정
+      speaker_embeddings:
+        model_path: null # 자동으로 다운로드
+        parameters:
+          window_length_in_sec: 0.5
+          shift_length_in_sec: 0.25
+          multiscale_weights: null
+          save_embeddings: false
+      
+      # 클러스터링 설정
+      clustering:
+        parameters:
+          oracle_num_speakers: false
+          max_num_speakers: 8
+          enhanced_count_thres: 80
+          max_rp_threshold: 0.25
+          sparse_search_volume: 30
+          maj_vote_spk_count: false
+          
+      # 후처리 설정
+      post_processing:
+        parameters:
+          overlap_infer_spk_limit: 5
+
+# 데이터 설정
+test_ds:
+  manifest_filepath: ???
+  sample_rate: 16000
+  num_workers: 1
+  batch_size: 1
+
+# 출력 설정
+output_dir: ???
+collar: 0.25
+ignore_overlap: true
+
+# 하이드라 설정
+hydra:
+  run:
+    dir: .
+  job_logging:
+    disable_existing_loggers: false 

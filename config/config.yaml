@@ -251,17 +251,24 @@ complaint_analysis:
 
 # 데이터베이스 설정
 database:
-  path: "Callytics_new.sqlite"                             # 데이터베이스 파일 경로
-  backup_enabled: true
-  backup_interval: 24  # 시간
-  max_backup_count: 7
+  path: "Callytics_new.sqlite"                        # SQLite 데이터베이스 파일 경로
+  timeout: 30                                         # 연결 타임아웃 (초)
+  backup_enabled: true                                # 백업 활성화
+  backup_interval: 24                                 # 백업 간격 (시간)
 
+# 성능 모니터링 설정
+performance:
+  enabled: true
+  log_interval: 60                                    # 로그 간격 (초)
+  memory_threshold: 80                                # 메모리 사용률 임계값 (%)
+  cpu_threshold: 90                                   # CPU 사용률 임계값 (%)
+  
 # 로깅 설정
 logging:
-  level: "INFO"
-  file: "logs/callytics.log"
-  max_file_size: "10MB"
-  backup_count: 5
+  level: "INFO"                                       # 로그 레벨
+  file_path: "logs/callytics.log"                     # 로그 파일 경로
+  max_file_size: "100MB"                              # 최대 파일 크기
+  backup_count: 10                                    # 백업 파일 개수
 
 # 성능 설정
 performance:

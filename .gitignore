@@ -1,6 +1,5 @@
 # Directory
 .idea
-.temp
 .agile
 .data/input
 
@@ -17,9 +16,17 @@ dist/
 build/
 .eggs/
 
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
 # Logs
 logs/
 *.log
+
+
 
 # OS
 .DS_Store
