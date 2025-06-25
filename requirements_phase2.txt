@@ -1,0 +1,21 @@
+# Phase 2: 주요 호환성 문제 해결
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+
+# 호환성 해결
+transformers==4.40.2
+tokenizers==0.19.4
+
+# FastAPI + Pydantic 업그레이드
+fastapi==0.115.13
+pydantic==2.7.4
+gradio==4.19.2
+
+# Audio 스택 업그레이드
+demucs>=4.1.0
+speechbrain>=0.5.16
+
+# NeMo 유지 (추후 검토)
+nemo_toolkit==1.17.0
+numpy==1.23.5

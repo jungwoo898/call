@@ -1,5 +1,5 @@
 # 멀티스테이지 빌드로 이미지 크기 최적화
-FROM nvidia/cuda:12.1-devel-ubuntu20.04 AS builder
+FROM nvidia/cuda:11.8-runtime-ubuntu20.04 AS builder
 
 # 환경 변수 설정
 ENV DEBIAN_FRONTEND=noninteractive
@@ -41,8 +41,8 @@ RUN ln -sf /usr/bin/python3.10 /usr/bin/python
 # pip 업그레이드
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# PyTorch 설치 (CUDA 12.1과 호환되는 버전)
-RUN pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121
+# PyTorch 설치 (CUDA 11.8과 호환되는 버전)
+RUN pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
 
 # 나머지 의존성 설치
 COPY requirements.txt /tmp/requirements.txt
@@ -52,7 +52,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 RUN python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('stopwords', quiet=True)"
 
 # 런타임 스테이지
-FROM nvidia/cuda:12.1-runtime-ubuntu20.04
+FROM nvidia/cuda:11.8-runtime-ubuntu20.04
 
 # 환경 변수 설정
 ENV DEBIAN_FRONTEND=noninteractive

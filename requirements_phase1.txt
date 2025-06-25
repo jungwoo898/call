@@ -1,0 +1,17 @@
+# Phase 1: CRITICAL 이슈만 해결
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+
+# CRITICAL FIX
+transformers==4.40.2
+tokenizers==0.19.4  # CRITICAL: transformers 호환성
+
+# 기존 유지 (일시적)
+fastapi==0.104.1
+pydantic==1.10.12
+gradio==4.19.2  # 충돌 있지만 일시 유지
+nemo_toolkit==1.17.0
+demucs==4.0.1
+speechbrain==0.5.12
+numpy==1.23.5

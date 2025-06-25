@@ -1,0 +1,22 @@
+# Phase 3: 전면 업그레이드
+torch==2.1.2
+torchvision==0.16.2
+torchaudio==2.1.2
+
+# 최신 호환 버전
+transformers==4.45.2
+tokenizers==0.20.0
+
+# 최신 FastAPI 스택
+fastapi==0.115.13
+pydantic==2.7.4
+gradio==4.19.2
+
+# 최신 Audio 스택
+demucs>=4.1.0
+speechbrain>=0.5.16
+
+# NeMo 2.x 고려
+# nemo_toolkit==2.3.1  # 큰 변경 - 신중히 검토
+nemo_toolkit==1.17.0  # 임시 유지
+numpy==1.23.5
