@@ -460,7 +460,7 @@ class IntegratedAudioProcessor:
                 from pyannote.audio import Pipeline
                 # pyannote 모델 로드 일시적으로 비활성화 (토큰 권한 문제)
                 print("⚠️ pyannote 화자 분리를 건너뛰고 NeMo 기반 처리만 사용합니다.")
-                    self.diarization_model = None
+                self.diarization_model = None
                 
                 # if self.diarization_auth_token:
                 #     self.diarization_model = Pipeline.from_pretrained(

@@ -11,6 +11,7 @@ sys.path.insert(0, str(project_root))
 
 from src.audio.processing import IntegratedAudioProcessor
 from src.text.chatgpt_analyzer import ChatGPTAnalyzer
+from src.text.communication_quality_analyzer import CommunicationQualityAnalyzer
 from src.db.manager import DatabaseManager
 from src.utils.performance_monitor import PerformanceMonitor
 
@@ -72,6 +73,9 @@ class IntegratedAnalyzer:
         
         self.db_manager = DatabaseManager(config_path)
         self.performance_monitor = PerformanceMonitor()
+        
+        # 커뮤니케이션 품질 분석기 초기화
+        self.quality_analyzer = CommunicationQualityAnalyzer()
         
         self.logger.info("통합 분석기 초기화 완료")
     
@@ -137,8 +141,12 @@ class IntegratedAnalyzer:
             full_text = " ".join([u['text'] for u in utterances])
             analysis_result = self.consultation_analyzer.analyze_conversation(full_text)
             
-            # 3. 결과 통합
-            self.logger.info("3단계: 결과 통합")
+            # 3. 커뮤니케이션 품질 분석
+            self.logger.info("3단계: 커뮤니케이션 품질 분석 시작")
+            quality_result = self.quality_analyzer.analyze_communication_quality(utterances)
+            
+            # 4. 결과 통합
+            self.logger.info("4단계: 결과 통합")
             integrated_result = {
                 'consultation_id': consultation_id or f"consultation_{int(time.time())}",
                 'audio_path': audio_path,
@@ -155,12 +163,29 @@ class IntegratedAnalyzer:
                     'additional_info': analysis_result.additional_info,
                     'confidence': analysis_result.confidence
                 },
+                'communication_quality': {
+                    'honorific_ratio': quality_result.honorific_ratio,
+                    'positive_word_ratio': quality_result.positive_word_ratio,
+                    'negative_word_ratio': quality_result.negative_word_ratio,
+                    'euphonious_word_ratio': quality_result.euphonious_word_ratio,
+                    'empathy_ratio': quality_result.empathy_ratio,
+                    'apology_ratio': quality_result.apology_ratio,
+                    'total_sentences': quality_result.total_sentences,
+                    'customer_sentiment_early': quality_result.customer_sentiment_early,
+                    'customer_sentiment_late': quality_result.customer_sentiment_late,
+                    'customer_sentiment_trend': quality_result.customer_sentiment_trend,
+                    'avg_response_latency': quality_result.avg_response_latency,
+                    'task_ratio': quality_result.task_ratio,
+                    'suggestions': quality_result.suggestions,
+                    'interruption_count': quality_result.interruption_count,
+                    'analysis_details': quality_result.analysis_details
+                },
                 'processing_time': self.performance_monitor.get_elapsed_time(),
                 'timestamp': time.time()
             }
             
-            # 4. 데이터베이스 저장
-            self.logger.info("4단계: 데이터베이스 저장")
+            # 5. 데이터베이스 저장
+            self.logger.info("5단계: 데이터베이스 저장")
             self._save_to_database(integrated_result)
             
             self.logger.info(f"상담 분석 완료: {len(utterances)}개 발화, {len(integrated_result['analysis'])}개 분석 항목")
@@ -191,7 +216,30 @@ class IntegratedAnalyzer:
             
             self.db_manager.insert_consultation_analysis(consultation_data)
             
-            # 2. 발화 내용 저장
+            # 2. 커뮤니케이션 품질 분석 결과 저장
+            quality_data = {
+                'audio_path': result['audio_path'],
+                'consultation_id': result['consultation_id'],
+                'honorific_ratio': result['communication_quality']['honorific_ratio'],
+                'positive_word_ratio': result['communication_quality']['positive_word_ratio'],
+                'negative_word_ratio': result['communication_quality']['negative_word_ratio'],
+                'euphonious_word_ratio': result['communication_quality']['euphonious_word_ratio'],
+                'empathy_ratio': result['communication_quality']['empathy_ratio'],
+                'apology_ratio': result['communication_quality']['apology_ratio'],
+                'total_sentences': result['communication_quality']['total_sentences'],
+                'customer_sentiment_early': result['communication_quality']['customer_sentiment_early'],
+                'customer_sentiment_late': result['communication_quality']['customer_sentiment_late'],
+                'customer_sentiment_trend': result['communication_quality']['customer_sentiment_trend'],
+                'avg_response_latency': result['communication_quality']['avg_response_latency'],
+                'task_ratio': result['communication_quality']['task_ratio'],
+                'suggestions': result['communication_quality']['suggestions'],
+                'interruption_count': result['communication_quality']['interruption_count'],
+                'analysis_details': result['communication_quality']['analysis_details']
+            }
+            
+            self.db_manager.insert_communication_quality(quality_data)
+            
+            # 3. 발화 내용 저장
             for i, utterance in enumerate(result['utterances']):
                 utterance_data = {
                     'audio_path': result['audio_path'],

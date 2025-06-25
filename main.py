@@ -33,6 +33,7 @@ from src.audio.analysis import WordSpeakerMapper, SentenceSpeakerMapper, Audio
 from src.audio.processing import AudioProcessor, Transcriber, PunctuationRestorer
 from src.text.utils import Annotator
 from src.text.llm import LLMOrchestrator, LLMResultHandler
+from src.text.communication_quality_analyzer import CommunicationQualityAnalyzer
 from src.utils.utils import Cleaner, Watcher
 from src.db.manager import DatabaseManager
 from watchdog.events import FileSystemEventHandler
@@ -234,9 +235,9 @@ async def main(audio_file_path: str):
     # Step 1: Detect Dialogue
     try:
         print("🔍 대화 감지 시작...")
-    has_dialogue = dialogue_detector.process(audio_file_path)
+        has_dialogue = dialogue_detector.process(audio_file_path)
         print(f"🔍 대화 감지 결과: {has_dialogue}")
-    if not has_dialogue:
+        if not has_dialogue:
             print("⚠️ 대화가 감지되지 않아 처리를 중단합니다.")
             return
     except Exception as e:
@@ -399,6 +400,22 @@ async def main(audio_file_path: str):
     # Step 17: Quality Assessment
     quality_result = await llm_handler.generate("QualityAssessment", user_input=ssm)
     annotator.add_quality_assessment(quality_result)
+
+    # Step 17.5: Communication Quality Analysis (새로운 LLM 정성 지표)
+    try:
+        print("📊 커뮤니케이션 품질 분석 시작...")
+        quality_analyzer = CommunicationQualityAnalyzer()
+        quality_analysis_result = await quality_analyzer.analyze_communication_quality(ssm)
+        
+        print(f"📊 커뮤니케이션 품질 분석 완료:")
+        print(f"   - 문제 해결 제안 점수: {quality_analysis_result.suggestions}")
+        print(f"   - 대화 가로채기 횟수: {quality_analysis_result.interruption_count}회")
+        print(f"   - 존댓말 비율: {quality_analysis_result.honorific_ratio:.2f}")
+        print(f"   - 긍정어 비율: {quality_analysis_result.positive_word_ratio:.2f}")
+        
+    except Exception as e:
+        print(f"❌ 커뮤니케이션 품질 분석 실패: {e}")
+        quality_analysis_result = None
 
     # Step 18: Generate JSON Outputs
     # Step 18.1: Basic JSON transcript with analysis
@@ -641,6 +658,60 @@ async def main(audio_file_path: str):
     else:
         print("⚠️ File ID가 없어 상담 분석 결과 저장을 건너뜁니다.")
 
+    # Step 19.4: Insert Communication Quality (새로운 LLM 지표 저장)
+    if last_id is not None and quality_analysis_result:
+        try:
+            print("💾 커뮤니케이션 품질 분석 결과 DB 저장 시작...")
+            
+            # 직접 SQL 실행으로 communication_quality 테이블에 저장
+            import sqlite3
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO communication_quality (
+                        audio_properties_id, consultation_id,
+                        honorific_ratio, positive_word_ratio, negative_word_ratio,
+                        euphonious_word_ratio, empathy_ratio, apology_ratio,
+                        total_sentences, 
+                        customer_sentiment_early, customer_sentiment_late, customer_sentiment_trend,
+                        avg_response_latency, task_ratio,
+                        suggestions, interruption_count,
+                        analysis_details
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    last_id,  # audio_properties_id
+                    f"CONSULT_{last_id}",  # consultation_id
+                    quality_analysis_result.honorific_ratio or 0.0,
+                    quality_analysis_result.positive_word_ratio or 0.0,
+                    quality_analysis_result.negative_word_ratio or 0.0,
+                    quality_analysis_result.euphonious_word_ratio or 0.0,
+                    quality_analysis_result.empathy_ratio or 0.0,
+                    quality_analysis_result.apology_ratio or 0.0,
+                    quality_analysis_result.total_sentences or 0,
+                    quality_analysis_result.customer_sentiment_early or 0.0,
+                    quality_analysis_result.customer_sentiment_late or 0.0,
+                    quality_analysis_result.customer_sentiment_trend or 0.0,
+                    quality_analysis_result.avg_response_latency or 0.0,
+                    quality_analysis_result.task_ratio or 0.0,
+                    quality_analysis_result.suggestions or 0.0,  # 새로운 LLM 지표
+                    quality_analysis_result.interruption_count or 0,  # 새로운 LLM 지표
+                    str(quality_analysis_result.analysis_details or {})
+                ))
+                conn.commit()
+            
+            print(f"✅ 커뮤니케이션 품질 분석 결과 DB 저장 완료")
+            print(f"   - 새로운 LLM 지표: suggestions={quality_analysis_result.suggestions}, interruption_count={quality_analysis_result.interruption_count}")
+            
+        except Exception as e:
+            print(f"❌ 커뮤니케이션 품질 분석 결과 DB 저장 실패: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        if last_id is None:
+            print("⚠️ File ID가 없어 커뮤니케이션 품질 분석 결과 저장을 건너뜁니다.")
+        if not quality_analysis_result:
+            print("⚠️ 품질 분석 결과가 없어 저장을 건너뜁니다.")
+
     # Step 20: Cleanup
     cleaner.cleanup_temp_files(temp_dir)
 
@@ -648,6 +719,16 @@ async def main(audio_file_path: str):
     print(f"📊 처리된 발화 수: {len(ssm)}")
     print(f"🗣️ 감지된 화자 수: {len(set(utterance['speaker'] for utterance in ssm))}")
     print(f"📝 감지된 언어: {detected_language}")
+    
+    # 새로운 LLM 지표 결과 출력
+    if quality_analysis_result:
+        print(f"🎯 커뮤니케이션 품질 분석 결과:")
+        print(f"   - 문제 해결 제안 점수: {quality_analysis_result.suggestions:.2f}")
+        print(f"   - 대화 가로채기 횟수: {quality_analysis_result.interruption_count}회")
+        print(f"   - 존댓말 비율: {quality_analysis_result.honorific_ratio:.2f}")
+        print(f"   - 긍정어 비율: {quality_analysis_result.positive_word_ratio:.2f}")
+        print(f"   - 전체 분석 지표: 13개 (기존 11개 + 새로운 LLM 지표 2개)")
+    
     print(f"📄 생성된 출력 파일:")
     print(f"   - 텍스트 대본: {transcript_output_path}")
     print(f"   - SRT 자막: {srt_output_path}")

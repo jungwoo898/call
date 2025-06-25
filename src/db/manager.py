@@ -200,6 +200,150 @@ class DatabaseManager:
             self.logger.error(f"발화 내용 저장 실패: {e}")
             return False
     
+    def insert_communication_quality(self, data: Dict[str, Any]) -> bool:
+        """
+        커뮤니케이션 품질 분석 결과 저장
+        
+        Parameters
+        ----------
+        data : Dict[str, Any]
+            커뮤니케이션 품질 분석 데이터
+            
+        Returns
+        -------
+        bool
+            저장 성공 여부
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # audio_properties_id를 찾기 위해 file_path로 조회
+                cursor.execute("""
+                    SELECT id FROM audio_properties WHERE file_path = ?
+                """, (data.get('audio_path', ''),))
+                
+                result = cursor.fetchone()
+                if not result:
+                    self.logger.error(f"오디오 파일을 찾을 수 없습니다: {data.get('audio_path', '')}")
+                    return False
+                
+                audio_properties_id = result[0]
+                
+                # 먼저 커뮤니케이션 품질 스키마가 있는지 확인하고 없으면 생성
+                self._ensure_communication_quality_schema()
+                
+                # communication_quality에 품질 분석 결과 저장
+                cursor.execute("""
+                    INSERT INTO communication_quality (
+                        audio_properties_id, consultation_id,
+                        honorific_ratio, positive_word_ratio, negative_word_ratio,
+                        euphonious_word_ratio, empathy_ratio, apology_ratio,
+                        total_sentences, 
+                        customer_sentiment_early, customer_sentiment_late, customer_sentiment_trend,
+                        avg_response_latency, task_ratio,
+                        suggestions, interruption_count,
+                        analysis_details
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    audio_properties_id,
+                    data.get('consultation_id', ''),
+                    data.get('honorific_ratio', 0.0),
+                    data.get('positive_word_ratio', 0.0),
+                    data.get('negative_word_ratio', 0.0),
+                    data.get('euphonious_word_ratio', 0.0),
+                    data.get('empathy_ratio', 0.0),
+                    data.get('apology_ratio', 0.0),
+                    data.get('total_sentences', 0),
+                    data.get('customer_sentiment_early'),
+                    data.get('customer_sentiment_late'),
+                    data.get('customer_sentiment_trend'),
+                    data.get('avg_response_latency'),
+                    data.get('task_ratio'),
+                    data.get('suggestions'),
+                    data.get('interruption_count'),
+                    str(data.get('analysis_details', {}))  # JSON 문자열로 저장
+                ))
+                
+                conn.commit()
+                self.logger.info(f"커뮤니케이션 품질 분석 결과 저장 완료: {data.get('consultation_id', 'unknown')}")
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"커뮤니케이션 품질 분석 결과 저장 실패: {e}")
+            return False
+    
+    def _ensure_communication_quality_schema(self):
+        """커뮤니케이션 품질 스키마가 존재하는지 확인하고 없으면 생성"""
+        try:
+            schema_path = Path("src/db/sql/CommunicationQualitySchema.sql")
+            if schema_path.exists():
+                with sqlite3.connect(self.db_path) as conn:
+                    with open(schema_path, 'r', encoding='utf-8') as f:
+                        schema_sql = f.read()
+                    conn.executescript(schema_sql)
+                    conn.commit()
+                    self.logger.info("커뮤니케이션 품질 스키마 확인/생성 완료")
+        except Exception as e:
+            self.logger.error(f"커뮤니케이션 품질 스키마 생성 실패: {e}")
+    
+    def get_communication_quality(self, consultation_id: str) -> Optional[Dict[str, Any]]:
+        """
+        커뮤니케이션 품질 분석 결과 조회
+        
+        Parameters
+        ----------
+        consultation_id : str
+            상담 ID
+            
+        Returns
+        -------
+        Optional[Dict[str, Any]]
+            커뮤니케이션 품질 분석 결과
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    SELECT 
+                        cq.honorific_ratio, cq.positive_word_ratio, cq.negative_word_ratio,
+                        cq.euphonious_word_ratio, cq.empathy_ratio, cq.apology_ratio,
+                        cq.total_sentences, 
+                        cq.customer_sentiment_early, cq.customer_sentiment_late, cq.customer_sentiment_trend,
+                        cq.avg_response_latency, cq.task_ratio,
+                        cq.suggestions, cq.interruption_count,
+                        cq.analysis_details, cq.created_at
+                    FROM communication_quality cq
+                    WHERE cq.consultation_id = ?
+                """, (consultation_id,))
+                
+                result = cursor.fetchone()
+                if result:
+                    return {
+                        'honorific_ratio': result[0],
+                        'positive_word_ratio': result[1],
+                        'negative_word_ratio': result[2],
+                        'euphonious_word_ratio': result[3],
+                        'empathy_ratio': result[4],
+                        'apology_ratio': result[5],
+                        'total_sentences': result[6],
+                        'customer_sentiment_early': result[7],
+                        'customer_sentiment_late': result[8],
+                        'customer_sentiment_trend': result[9],
+                        'avg_response_latency': result[10],
+                        'task_ratio': result[11],
+                        'suggestions': result[12],
+                        'interruption_count': result[13],
+                        'analysis_details': result[14],
+                        'created_at': result[15]
+                    }
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"커뮤니케이션 품질 분석 결과 조회 실패: {e}")
+            return None
+    
     def get_consultation_analysis(self, consultation_id: str) -> Optional[Dict[str, Any]]:
         """
         상담 분석 결과 조회
