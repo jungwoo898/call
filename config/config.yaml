@@ -166,14 +166,15 @@ complaint_analysis:
   # 임계값 설정
   thresholds:
     confidence_min: 0.5
-    sentiment_threshold: -0.3
-    priority_high: 4
+    sentiment_threshold: -0.2
+    priority_high: 3
     urgency_high: "High"
     
   # LG U+ 업무 분야 설정
   categories:
     - name: "요금 안내"
-      keywords: ["요금제", "안내", "계산", "요금", "문의", "얼마", "비용"]
+      keywords: ["요금제", "안내", "계산", "요금", "문의", "얼마", "비용", 
+                "가격", "금액", "청구", "요금표", "할인", "프로모션"]
     - name: "요금 납부"
       keywords: ["납부", "결제", "입금", "미납", "연체", "납부일", "납부방법"]
     - name: "요금제 변경"
@@ -262,6 +263,9 @@ performance:
   log_interval: 60                                    # 로그 간격 (초)
   memory_threshold: 80                                # 메모리 사용률 임계값 (%)
   cpu_threshold: 90                                   # CPU 사용률 임계값 (%)
+  batch_size: 2           # 1→2 (처리량 증가)
+  max_workers: 6          # 4→6 (병렬 처리 확대)
+  memory_limit: "12GB"    # 8GB→12GB (여유 확보)
   
 # 로깅 설정
 logging:
@@ -270,12 +274,12 @@ logging:
   max_file_size: "100MB"                              # 최대 파일 크기
   backup_count: 10                                    # 백업 파일 개수
 
-# 성능 설정
-performance:
-  batch_size: 1
-  max_workers: 4
-  memory_limit: "8GB"
-  gpu_memory_fraction: 0.8
+# 성능 설정 (통합됨)
+# performance:
+#   batch_size: 1
+#   max_workers: 4
+#   memory_limit: "8GB"
+#   gpu_memory_fraction: 0.8
 
 # API 설정
 api:

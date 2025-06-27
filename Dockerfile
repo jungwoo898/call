@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
-ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:/usr/local/lib
 
 # CUDA 키링 및 저장소 추가
 RUN apt-get update && apt-get install -y \
@@ -32,7 +32,6 @@ RUN apt-get update && apt-get install -y \
     python3.10 \
     python3.10-dev \
     python3.10-distutils \
-    python3-pip \
     build-essential \
     gcc-9 \
     g++-9 \
@@ -59,8 +58,11 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 \
 # Python 심볼릭 링크 설정
 RUN ln -sf /usr/bin/python3.10 /usr/bin/python
 
-# pip 업그레이드
-RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+# pip 설치 (get-pip.py 사용 – Ubuntu/Debian의 ensurepip 비활성화 문제 해결)
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && \
+    python /tmp/get-pip.py "pip==23.3.1" && \
+    python -m pip install --no-cache-dir --upgrade setuptools wheel && \
+    rm /tmp/get-pip.py
 
 # PyTorch 설치 (Demucs 호환성을 위한 안정적인 조합)
 RUN pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
@@ -95,7 +97,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
-ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:/usr/local/lib
 
 # NLTK 데이터 경로 설정 (런타임에서도 필요)
 ENV NLTK_DATA=/usr/local/nltk_data
@@ -113,7 +115,6 @@ RUN apt-get update && apt-get install -y \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y \
     python3.10 \
-    python3-pip \
     ffmpeg \
     libsndfile1 \
     sox \

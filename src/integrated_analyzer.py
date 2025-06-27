@@ -35,7 +35,7 @@ class IntegratedAnalyzer:
     
     def __init__(
         self,
-        config_path: str = "config/config_enhanced.yaml",
+        config_path: str = "config/config.yaml",
         diarization_token: Optional[str] = None
     ):
         """
@@ -92,12 +92,36 @@ class IntegratedAnalyzer:
         self.logger = logging.getLogger(__name__)
     
     def _load_openai_api_key(self) -> str:
-        """설정에서 OpenAI API 키 로드"""
+        """설정에서 OpenAI API 키 로드 (환경 변수 치환 지원)"""
         try:
             import yaml
+            import re
+            
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
-            return config.get('openai', {}).get('api_key') or os.getenv('OPENAI_API_KEY')
+            
+            api_key = config.get('openai', {}).get('api_key')
+            
+            # 환경 변수 치환 처리
+            if api_key and isinstance(api_key, str):
+                # ${VAR_NAME} 형태의 환경 변수 치환
+                env_pattern = r'\$\{([^}]+)\}'
+                matches = re.findall(env_pattern, api_key)
+                
+                for env_var in matches:
+                    env_value = os.getenv(env_var)
+                    if env_value:
+                        api_key = api_key.replace(f'${{{env_var}}}', env_value)
+                    else:
+                        self.logger.warning(f"환경 변수 {env_var}가 설정되지 않았습니다.")
+                        return os.getenv('OPENAI_API_KEY')
+            
+            # 여전히 환경 변수 형태라면 직접 환경 변수에서 가져오기
+            if api_key and api_key.startswith('${'):
+                return os.getenv('OPENAI_API_KEY')
+                
+            return api_key or os.getenv('OPENAI_API_KEY')
+            
         except Exception as e:
             self.logger.warning(f"설정 파일 로드 실패, 환경 변수 사용: {e}")
             return os.getenv('OPENAI_API_KEY')

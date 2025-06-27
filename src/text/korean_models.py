@@ -110,7 +110,7 @@ class APIModelHandler:
                 )
                 
                 if response.status_code == 200:
-                    result = response.model_dump_json()
+                    result = response.json()
                     if isinstance(result, list) and len(result) > 0:
                         return result[0].get("generated_text", "")
                     return str(result)

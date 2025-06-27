@@ -105,7 +105,7 @@ class CommunicationQualityAnalyzer:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             
             # JSON 파싱 및 저장
-            sentiment_data = response.model_dump_json()
+            sentiment_data = response.json()
             
             # 사전 형태로 변환 (단어: polarity)
             self.sentiment_dict = {}
