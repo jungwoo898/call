@@ -5,24 +5,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
 from contextlib import asynccontextmanager
-# PyTorch 2.x + NeMo 1.17 호환성 임시 해결
-import torch
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="torch")
-warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
-
-# NeMo 호환성 설정
-if hasattr(torch, '_C') and hasattr(torch._C, '_set_print_stack_traces_on_fatal_signal'):
-    torch._C._set_print_stack_traces_on_fatal_signal(False)
-
-# CUDA 메모리 최적화
-if torch.cuda.is_available():
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = False
-    # 메모리 할당 최적화
-    torch.cuda.empty_cache()
-
-
 
 # Related third-party imports
 from omegaconf import OmegaConf
@@ -57,7 +39,6 @@ from src.db.manager import DatabaseManager
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 from src.text.korean_models import KoreanModels
-from src.integrated_analyzer import IntegratedAnalyzer
 
 # FastAPI 앱 생성
 app = FastAPI(title="Callytics API", version="1.0.0")

@@ -4,7 +4,7 @@ services:
     container_name: callytics
     restart: unless-stopped
     ports:
-      - "15000:8000"
+      - "8000:8000"
     environment:
       # API Keys (환경 변수에서 가져오거나 기본값 사용)
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
@@ -70,8 +70,6 @@ services:
     ulimits:
       memlock: -1
       stack: 67108864
-    networks:
-      - callytics-net
 
   # 개발용 서비스 (선택사항)
   callytics-dev:
@@ -131,8 +129,6 @@ services:
       stack: 67108864
     restart: unless-stopped
     command: ["python", "-u", "main.py"]
-    networks:
-      - callytics-net
     profiles:
       - dev
 

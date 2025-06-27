@@ -191,7 +191,7 @@ class SpeechEnhancement:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                 self.model = MPSENet.from_pretrained(self.model_name).to(self.device)
-                print(f"✅ MPSENet model loaded: {self.model_name}")
+                    print(f"✅ MPSENet model loaded: {self.model_name}")
             except Exception as e:
                 print(f"Warning: Failed to load MPSENet model: {e}")
                 print("🔄 SpeechEnhancement will run in fallback mode")

@@ -13,25 +13,18 @@ class DatabaseManager:
     데이터베이스 관리자 - 상담 분석 결과 및 발화 내용 저장/조회
     """
     
-    def __init__(self, db_path: str = None, config_path: str = "config/config.yaml"):
+    def __init__(self, config_path: str = "config/config.yaml"):
         """
         데이터베이스 매니저 초기화
         
         Parameters
         ----------
-        db_path : str, optional
-            데이터베이스 파일 경로 (직접 지정 시)
         config_path : str
             설정 파일 경로
         """
         self.logger = logging.getLogger(__name__)
         self.config_path = config_path
-        
-        # db_path가 직접 제공되면 사용, 아니면 설정에서 로드
-        if db_path:
-            self.db_path = db_path
-        else:
-            self.db_path = self._load_db_path()
+        self.db_path = self._load_db_path()
         
         # 데이터베이스 초기화
         self._init_database()
@@ -57,10 +50,6 @@ class DatabaseManager:
         except Exception as e:
             self.logger.warning(f"설정 파일 로드 실패, 기본 경로 사용: {e}")
             return 'Callytics_new.sqlite'
-    
-    def initialize_database(self):
-        """데이터베이스 및 테이블 초기화 - EnhancedSchema.sql 사용 (public 메서드)"""
-        return self._init_database()
     
     def _init_database(self):
         """데이터베이스 및 테이블 초기화 - EnhancedSchema.sql 사용"""

@@ -7,16 +7,16 @@ from typing import Annotated
 # Related third party imports
 # pyannote 문제를 우회하고 항상 안정적인 더미 클래스 사용
 print("🔄 안정적인 fallback 시스템 사용 (pyannote 우회)")
-PYANNOTE_AVAILABLE = False
+    PYANNOTE_AVAILABLE = False
 
-class Pipeline:
-    def __init__(self, pipeline_model):
+    class Pipeline:
+        def __init__(self, pipeline_model):
         self.pipeline_model = pipeline_model
         print(f"✅ 안정적인 Pipeline 생성: {pipeline_model}")
-    
-    def __call__(self, audio_file):
-        return DummyDiarization()
-    
+        
+        def __call__(self, audio_file):
+            return DummyDiarization()
+        
     @classmethod
     def from_pretrained(cls, model_name, use_auth_token=None):
         print(f"✅ Fallback Pipeline 생성: {model_name}")
@@ -85,7 +85,7 @@ class DialogueDetecting:
         
         # 안정적인 Pipeline 초기화 (pyannote 우회)
         print(f"🔄 안정적인 대화 감지 시스템 초기화: {pipeline_model}")
-        self.pipeline = Pipeline(pipeline_model)
+            self.pipeline = Pipeline(pipeline_model)
         print(f"✅ Pipeline 초기화 완료: {type(self.pipeline)}")
 
         if not os.path.exists(self.temp_dir):

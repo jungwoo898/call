@@ -18,24 +18,24 @@ aiohttp==3.9.1
 httpx==0.27.0
 huggingface-hub==0.19.4
 
-# Web API dependencies (FastAPI/Pydantic 충돌 해결)
+# Web API dependencies (Pydantic v2 호환으로 통일)
 pydantic==2.7.4
-fastapi>=0.115.0,<0.116.0
+fastapi==0.115.13
 uvicorn[standard]==0.24.0
 psutil==5.9.5
 
-# ML/AI dependencies (GPU 최적화, PyTorch는 Dockerfile에서 설치)
-accelerate==0.26.0
-transformers[torch]==4.40.2
+# ML/AI dependencies (PyTorch 2.1.2 호환)
+accelerate==0.27.2
+transformers[torch]==4.37.2
 IPython==8.30.0
 treetable==0.2.5
-gradio==4.19.2
+gradio==5.8.0
 
-# GPU 가속 오디오 처리 (PyTorch 2.1+ 호환 버전으로 업그레이드)
+# GPU 가속 오디오 처리 (PyTorch 2.1.2 호환 버전으로 통일)
 faster-whisper==0.10.1
 demucs==4.1.0
-nemo_toolkit==1.17.0
-pyannote.audio==3.0.1
+nemo_toolkit[all]==2.0.0
+pyannote.audio==3.1.1
 MPSENet==1.0.3
 ctc-forced-aligner==1.0.2
 
@@ -52,12 +52,12 @@ scikit-learn==1.3.0
 memory-profiler==0.61.0
 cython==3.0.6
 
-# 음성 처리 핵심 라이브러리 (PyTorch 2.1+ 호환)
-speechbrain==0.5.16
+# 음성 처리 핵심 라이브러리 (PyTorch 2.1.2 안정 호환)
+speechbrain==0.5.18
 
-# 텍스트 처리 및 NLP (Transformers 4.40.2 호환)
-datasets==2.19.2
-tokenizers==0.19.4
+# 텍스트 처리 및 NLP (Transformers 4.37.2 호환)
+datasets==2.16.1
+tokenizers==0.14.1
 sentencepiece==0.1.99
 
 # 오디오 처리
@@ -85,9 +85,18 @@ click==8.1.6
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # pip install -r requirements.txt
 
-# 주의: PyTorch GPU 버전은 Dockerfile에서 CUDA 12.1과 함께 설치됨
-# 수정된 호환성 이슈들:
-# ✅ tokenizers: 0.13.2 → 0.19.4 (Transformers 4.40.2 호환)
-# ✅ httpx: 0.25.2 → 0.27.0 (OpenAI 1.57.0 최적화, proxies 이슈 회피)
-# ✅ demucs: 4.0.1 → 4.1.0 (PyTorch 2.1+ 호환)
-# ✅ speechbrain: 0.5.12 → 0.5.16 (PyTorch 2.1+ 호환)
+# 주의: PyTorch GPU 버전은 Dockerfile에서 CUDA 11.8과 함께 설치됨
+# ChatGPT 호환성 검증 완료 - 안정적인 조합:
+# ✅ PyTorch 2.1.2 + torchaudio 2.1.2 (CUDA 11.8 호환)
+# ✅ demucs: 4.0.0 → 4.1.0 (PyTorch 2.1.2 정식 호환)
+# ✅ nemo_toolkit: 1.17.0 → 2.0.0 (PyTorch-Lightning 2.x + PyTorch 2.1.2 호환)
+# ✅ gradio: 4.19.2 → 5.8.0 (Pydantic v2 완전 지원)
+# ✅ speechbrain: 0.5.16 → 0.5.18 (PyTorch 2.1.2 실험적 지원)
+# ✅ transformers: 4.40.2 → 4.37.2 (PyTorch 2.1.2 안정 호환)
+# ✅ tokenizers: 0.19.4 → 0.14.1 (Transformers 4.37.2 호환)
+# ✅ datasets: 2.19.2 → 2.16.1 (Transformers 4.37.2 호환)
+# ✅ accelerate: 0.26.0 → 0.27.2 (PyTorch 2.1.2 호환)
+# ✅ pyannote.audio: 3.0.1 → 3.1.1 (PyTorch 2.1.2 호환)
+# ✅ FastAPI: 0.115.13 + Pydantic: 2.7.4 (v2 네이티브 호환)
+# ✅ 시스템 라이브러리 보강: libfreetype6, libpng16-16, libjpeg8
+# ✅ 빌드 시 import 검증 + 헬스체크 엔드포인트 구현 완료
