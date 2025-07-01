@@ -4,7 +4,13 @@ import warnings
 from typing import Annotated, Optional
 
 # Related third-party imports
-import demucs.separate
+DEMUCS_AVAILABLE = False
+try:
+    import demucs.separate
+    DEMUCS_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Demucs import failed: {e}")
+    DEMUCS_AVAILABLE = False
 
 
 class DemucsVocalSeparator:
@@ -76,6 +82,11 @@ class DemucsVocalSeparator:
         >>> vocal_path = separator.separate_vocals("path/to/audio/file.mp3", "output_dir")
         Vocal separation successful! Outputs saved in WAV format at 'output_dir' directory.
         """
+        if not DEMUCS_AVAILABLE:
+            print("⚠️ Demucs not available. Using original audio file.")
+            warnings.warn("Demucs vocal separation not available; using the original audio file.", stacklevel=2)
+            return audio_file
+            
         demucs_args = [
             "--two-stems", self.two_stems,
             "-n", self.model_name,

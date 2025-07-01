@@ -1,0 +1,102 @@
+# Core dependencies (GPU 최적화)
+numpy>=1.21.0,<2.0.0
+scipy==1.10.0
+requests==2.32.3
+python-dotenv==1.0.1
+pyyaml==6.0.2
+omegaconf==2.3.0
+hydra-core==1.3.2
+watchdog[watchmedo]==6.0.0
+pydub==0.25.1
+soundfile==0.12.1
+librosa==0.10.2.post1
+noisereduce==3.0.3
+nltk==3.9.1
+openai==1.57.0
+
+# API dependencies
+aiohttp==3.9.1
+httpx==0.27.0
+huggingface-hub==0.32.4
+
+# Web API dependencies
+pydantic==2.7.4
+fastapi==0.115.13
+uvicorn[standard]==0.24.0
+psutil==5.9.5
+
+# ML/AI dependencies (하이브리드 최적화)
+accelerate>=0.26.0
+transformers[torch]==4.44.0  # 최소한만 사용
+IPython==8.30.0
+treetable==0.2.5
+gradio==5.8.0
+
+# 화자 분석 (NeMo 대체)
+# Microsoft SpeechT5 - 화자 분리 + 감정 분석 + 관계 분석 통합
+transformers[torch]==4.44.0  # SpeechT5용
+pyannote.audio==3.1.1        # 백업 화자 분리
+speechbrain==0.5.16          # 감정 분석 백업
+
+# 음성 분리 (Demucs 대체)
+# X-UMX - 4-5트랙 분리 + 노이즈 제거 + GPU 최적화
+xumx-slicq==0.4.0            # Open-Unmix 개선 버전
+noisereduce==3.0.3           # 추가 노이즈 제거
+webrtcvad==2.0.10            # 음성 활동 감지
+
+# 텍스트 분석 (Transformers 대체)
+# BGE + 고급 분석 파이프라인
+sentence-transformers==2.2.2  # 기본 임베딩
+# BGE 모델은 런타임에 다운로드
+datasets==2.19.2
+tokenizers==0.19.3           # 호환성 유지
+sentencepiece==0.1.99
+
+# GPU 가속 오디오 처리
+faster-whisper==1.1.1        # 빠른 음성 인식
+MPSENet==1.0.3               # 음성 향상
+ctc-forced-aligner==1.0.2    # 강제 정렬
+
+# Language detection
+langdetect==1.0.9
+
+# Punctuation restoration
+deepmultilingualpunctuation==1.0.1
+
+# Additional dependencies
+pandas==2.0.3
+matplotlib==3.10.3
+scikit-learn==1.3.0
+memory-profiler==0.61.0
+cython==3.0.6
+
+# AI 및 머신러닝
+langchain==0.2.5
+langchain-openai==0.1.8
+
+# GPU 모니터링 도구
+nvidia-ml-py==12.535.133
+gpustat==1.1.1
+
+# 개발 및 디버깅
+pytest==7.4.0
+black==24.3.0
+isort==5.12.0
+
+# 기타 유틸리티
+tqdm==4.65.0
+rich==13.4.2
+click==8.1.6
+
+# 하이브리드 접근법 최적화
+redis==4.6.0                 # 서비스 간 통신
+celery==5.3.4                # 비동기 작업 처리
+flower==2.0.1                # 작업 모니터링
+
+# 주의: PyTorch GPU 버전은 Dockerfile에서 CUDA 11.8과 함께 설치됨
+# 하이브리드 최적화 조합:
+# ✅ SpeechT5: 화자 분리 + 감정 분석 + 관계 분석 통합
+# ✅ X-UMX: 4-5트랙 분리 + 노이즈 제거 + GPU 최적화
+# ✅ BGE: 한국어 특화 임베딩 + 고급 분석
+# ✅ Transformers: 최소한만 사용 (4.44.0)
+# ✅ GPU 메모리 최적화: FP16, 배치 처리, 캐시 관리 

@@ -75,6 +75,9 @@ class LLaMAModel(LanguageModel):
 
     def __init__(self, config: Annotated[dict, "Configuration for the LLaMA model"]):
         super().__init__(config)
+        
+        # Transformers library is required for LLaMA model
+            
         model_name = config['model_name']
         compute_type = config.get('compute_type')
         torch.cuda.empty_cache()

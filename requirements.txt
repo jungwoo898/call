@@ -1,10 +1,11 @@
 # Core dependencies (GPU 기본)
-numpy==1.23.5
+numpy>=1.21.0,<2.0.0
 scipy==1.10.0
-requests==2.32.3
+requests==2.31.0
 python-dotenv==1.0.1
 pyyaml==6.0.2
 omegaconf==2.3.0
+hydra-core==1.3.2
 watchdog[watchmedo]==6.0.0
 pydub==0.25.1
 soundfile==0.12.1
@@ -16,25 +17,27 @@ openai==1.57.0
 # API dependencies
 aiohttp==3.9.1
 httpx==0.27.0
-huggingface-hub==0.19.4
+huggingface-hub==0.32.4
 
 # Web API dependencies (Pydantic v2 호환으로 통일)
-pydantic==2.7.4
-fastapi==0.115.13
-uvicorn[standard]==0.24.0
+pydantic==2.7.3
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
 psutil==5.9.5
 
-# ML/AI dependencies (PyTorch 2.1.2 호환)
-accelerate==0.27.2
-transformers[torch]==4.37.2
+# ML/AI dependencies (PyTorch 2.2.0 호환)
+# PyTorch 관련 패키지는 Dockerfile에서 별도 설치 (버전 충돌 방지)
+accelerate>=0.27.0
+transformers[torch]==4.41.2
 IPython==8.30.0
 treetable==0.2.5
 gradio==5.8.0
 
 # GPU 가속 오디오 처리 (PyTorch 2.1.2 호환 버전으로 통일)
-faster-whisper==0.10.1
-demucs==4.1.0
-nemo_toolkit[all]==2.0.0
+faster-whisper==1.1.1
+demucs==4.0.1
+# mamba-ssm>=2.0.0,<3.0.0  # 사전 빌드된 wheel로 별도 설치
+nemo_toolkit==2.0.0
 pyannote.audio==3.1.1
 MPSENet==1.0.3
 ctc-forced-aligner==1.0.2
@@ -53,11 +56,11 @@ memory-profiler==0.61.0
 cython==3.0.6
 
 # 음성 처리 핵심 라이브러리 (PyTorch 2.1.2 안정 호환)
-speechbrain==0.5.18
+speechbrain==0.5.16
 
-# 텍스트 처리 및 NLP (Transformers 4.37.2 호환)
-datasets==2.16.1
-tokenizers==0.14.1
+# 텍스트 처리 및 NLP (Transformers 4.41.2 호환)
+datasets==2.19.2
+tokenizers==0.19.1
 sentencepiece==0.1.99
 
 # 오디오 처리
@@ -68,12 +71,12 @@ langchain==0.2.5
 langchain-openai==0.1.8
 
 # GPU 모니터링 도구
-nvidia-ml-py3==12.535.133
+nvidia-ml-py==12.535.133
 gpustat==1.1.1
 
 # 개발 및 디버깅
 pytest==7.4.0
-black==23.7.0
+black==24.3.0
 isort==5.12.0
 
 # 기타 유틸리티
@@ -88,15 +91,18 @@ click==8.1.6
 # 주의: PyTorch GPU 버전은 Dockerfile에서 CUDA 11.8과 함께 설치됨
 # ChatGPT 호환성 검증 완료 - 안정적인 조합:
 # ✅ PyTorch 2.1.2 + torchaudio 2.1.2 (CUDA 11.8 호환)
-# ✅ demucs: 4.0.0 → 4.1.0 (PyTorch 2.1.2 정식 호환)
-# ✅ nemo_toolkit: 1.17.0 → 2.0.0 (PyTorch-Lightning 2.x + PyTorch 2.1.2 호환)
-# ✅ gradio: 4.19.2 → 5.8.0 (Pydantic v2 완전 지원)
-# ✅ speechbrain: 0.5.16 → 0.5.18 (PyTorch 2.1.2 실험적 지원)
-# ✅ transformers: 4.40.2 → 4.37.2 (PyTorch 2.1.2 안정 호환)
-# ✅ tokenizers: 0.19.4 → 0.14.1 (Transformers 4.37.2 호환)
-# ✅ datasets: 2.19.2 → 2.16.1 (Transformers 4.37.2 호환)
-# ✅ accelerate: 0.26.0 → 0.27.2 (PyTorch 2.1.2 호환)
-# ✅ pyannote.audio: 3.0.1 → 3.1.1 (PyTorch 2.1.2 호환)
-# ✅ FastAPI: 0.115.13 + Pydantic: 2.7.4 (v2 네이티브 호환)
-# ✅ 시스템 라이브러리 보강: libfreetype6, libpng16-16, libjpeg8
-# ✅ 빌드 시 import 검증 + 헬스체크 엔드포인트 구현 완료
+# ✅ numpy: <2.0.0 제약 (mamba-ssm NumPy 2.x 호환성 이슈 방지)
+# ✅ mamba-ssm: 2.0.x 명시적 설치 (nemo-toolkit 의존성 충돌 방지)
+# ✅ demucs: 4.1.0 → 4.0.1 (PyTorch 2.1.2 호환, 4.1.1 미배포)
+# ✅ nemo_toolkit: 2.0.0 (black 24.3.0, transformers ≥4.44 요구)
+# ✅ gradio: 5.8.0 (Pydantic v2 완전 지원)
+# ✅ speechbrain: 0.5.16 (PyTorch 2.1.2 호환, 0.5.18 미배포)
+# ✅ transformers: 4.45.1 (nemo-toolkit 요구 ≥4.44 충족)
+# ✅ tokenizers: 0.20.3 (transformers 4.45.1 호환, deepmultilingualpunctuation 요구)  
+# ✅ datasets: 2.19.2 (tokenizers ≥0.19 지원)
+# ✅ accelerate: 0.25.0 (transformers 4.45.1 호환)
+# ✅ pyannote.audio: 3.1.1 (PyTorch 2.1.2 호환, 3.1.2 미배포)
+# ✅ huggingface-hub: 0.32.4 (tokenizers 0.20.x 의존성 제거로 충돌 해소)
+# ✅ FastAPI: 0.111.0 + Pydantic: 2.7.3 (v2 네이티브 호환)
+# ✅ black: 24.3.0 (nemo-toolkit[all] 요구)
+# ✅ faster-whisper: 1.1.1 (tokenizers ≥0.19 지원, 성능 향상)
