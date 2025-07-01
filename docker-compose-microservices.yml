@@ -1,0 +1,289 @@
+version: '3.8'
+
+services:
+  # 🌐 API Gateway (메인 진입점)
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: callytics-api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - AUDIO_PROCESSOR_URL=http://audio-processor:8001
+      - SPEAKER_DIARIZER_URL=http://speaker-diarizer:8002
+      - SPEECH_RECOGNIZER_URL=http://speech-recognizer:8003
+      - PUNCTUATION_RESTORER_URL=http://punctuation-restorer:8004
+      - SENTIMENT_ANALYZER_URL=http://sentiment-analyzer:8005
+      - LLM_ANALYZER_URL=http://llm-analyzer:8006
+      - DATABASE_SERVICE_URL=http://database-service:8007
+    volumes:
+      - ./audio:/app/audio
+      - ./logs:/app/logs
+    depends_on:
+      - audio-processor
+      - speaker-diarizer
+      - speech-recognizer
+      - punctuation-restorer
+      - sentiment-analyzer
+      - llm-analyzer
+      - database-service
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 🎵 오디오 처리 서비스 (CPU 전용)
+  audio-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.audio-processor
+    container_name: callytics-audio-processor
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONPATH=/app
+      - DEVICE=cpu
+    volumes:
+      - ./audio:/app/audio
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 🎤 화자 분리 서비스 (GPU 필수)
+  speaker-diarizer:
+    build:
+      context: .
+      dockerfile: Dockerfile.speaker-diarizer
+    container_name: callytics-speaker-diarizer
+    ports:
+      - "8002:8002"
+    environment:
+      - PYTHONPATH=/app
+      - DEVICE=cuda
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+    volumes:
+      - ./audio:/app/audio
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./config:/app/config
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'
+        reservations:
+          memory: 2G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, utility, compute]
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 🗣️ 음성 인식 서비스 (GPU 필수)
+  speech-recognizer:
+    build:
+      context: .
+      dockerfile: Dockerfile.speech-recognizer
+    container_name: callytics-speech-recognizer
+    ports:
+      - "8003:8003"
+    environment:
+      - PYTHONPATH=/app
+      - DEVICE=cuda
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+    volumes:
+      - ./audio:/app/audio
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '3'
+        reservations:
+          memory: 1G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu, utility, compute]
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 📝 문장 부호 복원 서비스 (CPU 전용)
+  punctuation-restorer:
+    build:
+      context: .
+      dockerfile: Dockerfile.punctuation-restorer
+    container_name: callytics-punctuation-restorer
+    ports:
+      - "8004:8004"
+    environment:
+      - PYTHONPATH=/app
+      - DEVICE=cpu
+    volumes:
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 🧠 감정 분석 서비스 (CPU 전용)
+  sentiment-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile.sentiment-analyzer
+    container_name: callytics-sentiment-analyzer
+    ports:
+      - "8005:8005"
+    environment:
+      - PYTHONPATH=/app
+      - DEVICE=cpu
+    volumes:
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '2'
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 🤖 LLM 분석 서비스 (API 기반)
+  llm-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile.llm-analyzer
+    container_name: callytics-llm-analyzer
+    ports:
+      - "8006:8006"
+    environment:
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+    volumes:
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./config:/app/config
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 🗄️ 데이터베이스 서비스
+  database-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.database-service
+    container_name: callytics-database-service
+    ports:
+      - "8007:8007"
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=sqlite:///app/Callytics_new.sqlite
+    volumes:
+      - ./Callytics_new.sqlite:/app/Callytics_new.sqlite
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 📊 모니터링 서비스
+  monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile.monitoring
+    container_name: callytics-monitoring
+    ports:
+      - "8008:8008"
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 📈 Prometheus (기존)
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus
+    volumes:
+      - ./config/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+  # 📊 Grafana (기존)
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - TZ=Asia/Seoul
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  callytics-net:
+    driver: bridge 

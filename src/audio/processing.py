@@ -2,6 +2,7 @@
 import os
 import re
 import json
+import threading
 from io import TextIOWrapper
 from typing import Annotated, Optional, Tuple, List, Dict, Any
 
@@ -25,6 +26,64 @@ except Exception as e:
 # Local imports
 from src.audio.utils import TokenizerUtils
 
+# GPU 메모리 최적화
+def optimize_gpu_memory():
+    """GPU 메모리 최적화"""
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+        torch.cuda.empty_cache()
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
+
+def cleanup_gpu_memory():
+    """GPU 메모리 정리"""
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
+# 모델 캐싱을 위한 클래스 변수
+_whisper_model_cache = {}
+_diarization_model_cache = None
+_punctuation_model_cache = None
+_cache_lock = threading.Lock()
+
+def get_cached_whisper_model(model_name: str, device: str, compute_type: str):
+    """Whisper 모델 캐싱"""
+    cache_key = f"{model_name}_{device}_{compute_type}"
+    with _cache_lock:
+        if cache_key not in _whisper_model_cache:
+            _whisper_model_cache[cache_key] = faster_whisper.WhisperModel(
+                model_name, device=device, compute_type=compute_type
+            )
+        return _whisper_model_cache[cache_key]
+
+def get_cached_diarization_model(auth_token: str):
+    """화자 분리 모델 캐싱"""
+    global _diarization_model_cache
+    with _cache_lock:
+        if _diarization_model_cache is None:
+            try:
+                from pyannote.audio import Pipeline
+                _diarization_model_cache = Pipeline.from_pretrained(
+                    "pyannote/speaker-diarization-3.1",
+                    use_auth_token=auth_token
+                )
+            except Exception as e:
+                print(f"⚠️ 화자 분리 모델 로드 실패: {e}")
+                _diarization_model_cache = None
+        return _diarization_model_cache
+
+def get_cached_punctuation_model():
+    """문장 부호 복원 모델 캐싱"""
+    global _punctuation_model_cache
+    with _cache_lock:
+        if _punctuation_model_cache is None and PunctuationModel is not None:
+            try:
+                _punctuation_model_cache = PunctuationModel()
+            except Exception as e:
+                print(f"⚠️ 문장 부호 모델 로드 실패: {e}")
+                _punctuation_model_cache = None
+        return _punctuation_model_cache
 
 class AudioProcessor:
     """
@@ -481,34 +540,27 @@ class IntegratedAudioProcessor:
     
     def process_audio(self, audio_path: str) -> List[Dict[str, Any]]:
         """
-        오디오 파일을 처리하여 화자별 발화 내용을 반환
-        
-        Parameters
-        ----------
-        audio_path : str
-            처리할 오디오 파일 경로
-            
-        Returns
-        -------
-        List[Dict[str, Any]]
-            화자별 발화 내용 리스트
+        메모리 효율적인 오디오 처리
         """
         try:
             print(f"오디오 파일 처리 시작: {audio_path}")
             
+            # GPU 메모리 정리
+            optimize_gpu_memory()
+            
             # 0. 오디오 전처리 (노이즈 제거, 음성 강화)
             print("오디오 전처리 수행 중...")
-            processed_audio_path = self._preprocess_audio(audio_path)
+            processed_audio_path = self._preprocess_audio_efficient(audio_path)
             
             # 1. 화자 분리 수행
             self._load_diarization_model()
             
             if self.diarization_model:
                 # 화자 분리 + 음성 인식
-                utterances = self._process_with_diarization(processed_audio_path)
+                utterances = self._process_with_diarization_efficient(processed_audio_path)
             else:
                 # 기본 음성 인식만
-                utterances = self._process_without_diarization(processed_audio_path)
+                utterances = self._process_without_diarization_efficient(processed_audio_path)
             
             print(f"처리 완료: {len(utterances)}개 발화")
             return utterances
@@ -516,6 +568,9 @@ class IntegratedAudioProcessor:
         except Exception as e:
             print(f"오디오 처리 중 오류 발생: {e}")
             return []
+        finally:
+            # 메모리 정리
+            cleanup_gpu_memory()
     
     def _preprocess_audio(self, audio_path: str) -> str:
         """오디오 전처리 (노이즈 제거, 음성 강화)"""
@@ -664,11 +719,7 @@ class Transcriber:
         if not isinstance(compute_type, str):
             raise TypeError("Expected 'compute_type' to be a string.")
 
-        self.model = faster_whisper.WhisperModel(
-            model_name,
-            device=device,
-            compute_type=compute_type
-        )
+        self.model = get_cached_whisper_model(model_name, device, compute_type)
 
     def transcribe(
             self,
@@ -765,7 +816,7 @@ class PunctuationRestorer:
             self.model = None
         else:
             try:
-                self.model = PunctuationModel()
+                self.model = get_cached_punctuation_model()
             except Exception as e:
                 print(f"Warning: Failed to initialize PunctuationModel: {e}")
                 self.model = None
