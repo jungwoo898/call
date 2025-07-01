@@ -27,9 +27,10 @@ if torch.cuda.is_available():
 # Related third-party imports
 from omegaconf import OmegaConf
 
-# NeMo 안전 import
+# NeMo 안전 import (1.23.0 호환)
 NeuralDiarizer = None
 try:
+    # NeMo 1.23.0에서는 import 경로가 변경됨
     from nemo.collections.asr.models.msdd_models import NeuralDiarizer
     print("✅ NeMo NeuralDiarizer imported successfully")
 except ImportError as e:

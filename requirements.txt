@@ -37,7 +37,7 @@ gradio==5.8.0
 faster-whisper==1.1.2
 demucs==4.1.1
 # mamba-ssm>=2.0.0,<3.0.0  # 사전 빌드된 wheel로 별도 설치
-nemo_toolkit==2.0.0
+nemo_toolkit==1.23.0
 pyannote.audio==3.2.1
 MPSENet==1.0.3
 ctc-forced-aligner==1.0.2
@@ -62,6 +62,7 @@ speechbrain==0.5.16
 datasets==2.19.2
 tokenizers==0.19.1
 sentencepiece==0.1.99
+sentence-transformers==2.6.1
 
 # 오디오 처리
 webrtcvad==2.0.10
@@ -94,7 +95,7 @@ click==8.1.6
 # ✅ numpy: <2.0.0 제약 (mamba-ssm NumPy 2.x 호환성 이슈 방지)
 # ✅ mamba-ssm: 2.0.x 명시적 설치 (nemo-toolkit 의존성 충돌 방지)
 # ✅ demucs: 4.0.1 → 4.1.1 (PyTorch 2.2.0 호환, 최신 안정 버전)
-# ✅ nemo_toolkit: 2.0.0 (black 24.3.0, transformers ≥4.44 요구)
+# ✅ nemo_toolkit: 2.0.0 → 1.23.0 (black 24.3.0, transformers ≥4.44 요구)
 # ✅ gradio: 5.8.0 (Pydantic v2 완전 지원)
 # ✅ speechbrain: 0.5.16 (PyTorch 2.2.0 호환, 0.5.18 미배포)
 # ✅ transformers: 4.41.2 (nemo-toolkit 요구 ≥4.44 충족)
@@ -106,3 +107,4 @@ click==8.1.6
 # ✅ FastAPI: 0.111.0 + Pydantic: 2.7.3 (v2 네이티브 호환)
 # ✅ black: 24.3.0 (nemo-toolkit[all] 요구)
 # ✅ faster-whisper: 1.1.1 → 1.1.2 (tokenizers ≥0.19 지원, 성능 향상)
+# ✅ sentence-transformers: 2.6.1 (최신 임베딩 모델 지원)
