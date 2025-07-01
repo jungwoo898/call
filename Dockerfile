@@ -61,7 +61,7 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && \
     rm /tmp/get-pip.py
 
 # PyTorch 설치 (먼저 설치하여 의존성 충돌 방지)
-RUN pip install --no-cache-dir torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.1 --index-url https://download.pytorch.org/whl/cu118
+RUN pip install --no-cache-dir torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cu118
 
 # mamba-ssm 사전 빌드된 wheel 설치 (nvcc 없이 설치 가능)
 RUN pip install --prefer-binary --no-cache-dir \
