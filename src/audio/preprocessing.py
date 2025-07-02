@@ -1,6 +1,14 @@
 # Standard library imports
 import os
-from typing import Annotated
+import asyncio
+import subprocess
+import tempfile
+import shutil
+import time
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Annotated, List, Dict, Optional
+from pathlib import Path
 
 # Related third-party imports
 import librosa
@@ -26,6 +34,171 @@ except Exception as e:
 
 # Local imports
 from src.utils.utils import Logger
+
+
+class AudioPreprocessor:
+    """
+    고성능 오디오 전처리 클래스
+    ffmpeg 병렬 처리, 임시파일 자동 정리, 캐싱 지원
+    """
+    
+    def __init__(self, max_workers: int = 4, cache_dir: str = "/app/.cache/audio"):
+        """
+        AudioPreprocessor 초기화
+        
+        Parameters
+        ----------
+        max_workers : int
+            병렬 처리할 최대 워커 수
+        cache_dir : str
+            캐시 디렉토리 경로
+        """
+        self.max_workers = max_workers
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        self.temp_files = set()
+        self.temp_lock = threading.Lock()
+        
+        # 임시파일 정리 스레드 시작
+        self.cleanup_thread = threading.Thread(target=self._cleanup_temp_files, daemon=True)
+        self.cleanup_thread.start()
+    
+    def _cleanup_temp_files(self):
+        """임시파일 자동 정리 스레드"""
+        while True:
+            try:
+                time.sleep(300)  # 5분마다 정리
+                with self.temp_lock:
+                    current_time = time.time()
+                    files_to_remove = []
+                    
+                    for temp_file in self.temp_files:
+                        if os.path.exists(temp_file):
+                            # 1시간 이상 된 임시파일 삭제
+                            if current_time - os.path.getmtime(temp_file) > 3600:
+                                files_to_remove.append(temp_file)
+                    
+                    for file_path in files_to_remove:
+                        try:
+                            os.remove(file_path)
+                            self.temp_files.remove(file_path)
+                            print(f"🧹 임시파일 정리: {file_path}")
+                        except Exception as e:
+                            print(f"⚠️ 임시파일 삭제 실패: {file_path}, {e}")
+                            
+            except Exception as e:
+                print(f"⚠️ 임시파일 정리 스레드 오류: {e}")
+    
+    def _add_temp_file(self, file_path: str):
+        """임시파일 추적에 추가"""
+        with self.temp_lock:
+            self.temp_files.add(file_path)
+    
+    async def normalize_audio_parallel(self, audio_files: List[str], output_dir: str) -> List[str]:
+        """
+        여러 오디오 파일을 병렬로 정규화
+        
+        Parameters
+        ----------
+        audio_files : List[str]
+            정규화할 오디오 파일 경로 리스트
+        output_dir : str
+            출력 디렉토리
+            
+        Returns
+        -------
+        List[str]
+            정규화된 오디오 파일 경로 리스트
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 병렬 처리 태스크 생성
+        tasks = []
+        for audio_file in audio_files:
+            task = self.executor.submit(self._normalize_single_audio, audio_file, output_dir)
+            tasks.append(task)
+        
+        # 결과 수집
+        results = []
+        for future in as_completed(tasks):
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as e:
+                print(f"⚠️ 오디오 정규화 실패: {e}")
+                results.append(None)
+        
+        return results
+    
+    def _normalize_single_audio(self, audio_file: str, output_dir: str) -> Optional[str]:
+        """
+        단일 오디오 파일 정규화
+        
+        Parameters
+        ----------
+        audio_file : str
+            입력 오디오 파일 경로
+        output_dir : str
+            출력 디렉토리
+            
+        Returns
+        -------
+        Optional[str]
+            정규화된 파일 경로 또는 None
+        """
+        try:
+            # 캐시 확인
+            cache_key = f"{Path(audio_file).stem}_normalized.wav"
+            cache_path = self.cache_dir / cache_key
+            
+            if cache_path.exists():
+                # 캐시에서 복사
+                output_path = os.path.join(output_dir, cache_key)
+                shutil.copy2(cache_path, output_path)
+                return output_path
+            
+            # ffmpeg로 정규화
+            output_filename = f"{Path(audio_file).stem}_normalized.wav"
+            output_path = os.path.join(output_dir, output_filename)
+            
+            cmd = [
+                'ffmpeg', '-i', audio_file,
+                '-acodec', 'pcm_s16le',  # 16비트 PCM
+                '-ar', '16000',          # 16kHz 샘플링
+                '-ac', '1',              # 모노 채널
+                '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',  # 음량 정규화
+                '-y', output_path
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode == 0:
+                # 캐시에 저장
+                shutil.copy2(output_path, cache_path)
+                self._add_temp_file(output_path)
+                return output_path
+            else:
+                print(f"⚠️ ffmpeg 정규화 실패: {result.stderr}")
+                return None
+                
+        except Exception as e:
+            print(f"⚠️ 오디오 정규화 오류: {audio_file}, {e}")
+            return None
+    
+    def cleanup(self):
+        """리소스 정리"""
+        self.executor.shutdown(wait=True)
+        
+        # 모든 임시파일 삭제
+        with self.temp_lock:
+            for temp_file in self.temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except Exception as e:
+                    print(f"⚠️ 임시파일 삭제 실패: {temp_file}, {e}")
+            self.temp_files.clear()
 
 
 class Denoiser:

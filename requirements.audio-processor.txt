@@ -1,0 +1,10 @@
+# 오디오 처리 서비스 전용 의존성
+fastapi==0.104.1
+uvicorn==0.23.2
+pydantic==2.5.0
+numpy
+scipy
+librosa
+soundfile
+noisereduce==3.0.3
+psutil==5.9.5 

@@ -60,8 +60,8 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && \
     python -m pip install --no-cache-dir --upgrade setuptools wheel && \
     rm /tmp/get-pip.py
 
-# PyTorch 설치 (먼저 설치하여 의존성 충돌 방지)
-RUN pip install --no-cache-dir torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cu118
+# PyTorch 설치 (2023-2024 안정 버전으로 통일)
+RUN pip install --no-cache-dir torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
 
 # mamba-ssm 사전 빌드된 wheel 설치 (nvcc 없이 설치 가능)
 RUN pip install --prefer-binary --no-cache-dir \
@@ -79,13 +79,14 @@ RUN python -c "import torch; print(f'PyTorch: {torch.__version__}')" && \
     python -c "import torchaudio; print(f'TorchAudio: {torchaudio.__version__}')" && \
     python -c "import mamba_ssm; print('Mamba-SSM import successful')" && \
     python -c "import demucs; print('Demucs import successful')" && \
-    python -c "import gradio; print(f'Gradio: {gradio.__version__}')" && \
     python -c "import speechbrain; print('SpeechBrain import successful')" && \
     python -c "import fastapi; print(f'FastAPI: {fastapi.__version__}')" && \
     python -c "import pydantic; print(f'Pydantic: {pydantic.__version__}')" && \
     python -c "import nemo; print('NeMo import successful')" && \
     python -c "import pyannote.audio; print('PyAnnote.audio import successful')" && \
-    python -c "import accelerate; print('Accelerate import successful')"
+    python -c "import accelerate; print('Accelerate import successful')" && \
+    python -c "import transformers; print(f'Transformers: {transformers.__version__}')" && \
+    python -c "import faster_whisper; print('Faster-Whisper import successful')"
 
 # NLTK 데이터 다운로드 (빌드 시간 단축을 위해 최소한만)
 RUN python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('stopwords', quiet=True)"

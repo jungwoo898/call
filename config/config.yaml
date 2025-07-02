@@ -252,10 +252,19 @@ complaint_analysis:
 
 # 데이터베이스 설정
 database:
-  path: "Callytics_new.sqlite"                        # SQLite 데이터베이스 파일 경로
+  url: "${DATABASE_URL}"                              # 데이터베이스 URL (환경 변수)
+  path: "Callytics_new.sqlite"                        # SQLite 데이터베이스 파일 경로 (기본값)
   timeout: 30                                         # 연결 타임아웃 (초)
   backup_enabled: true                                # 백업 활성화
   backup_interval: 24                                 # 백업 간격 (시간)
+  
+  # 상담 품질 분석 DB (새로 신설)
+  consultation_quality_db: "data/callytics_consultation_quality.db"
+  
+  # 오디오 분석 DB (기존)
+  audio_analysis_db: "Callytics_new.sqlite"
+  
+  # 환경 변수 우선순위: DATABASE_URL > consultation_quality_db > audio_analysis_db
 
 # 성능 모니터링 설정
 performance:
@@ -288,3 +297,39 @@ api:
   port: 8000
   cors_origins: ["*"]
   rate_limit: 100  # requests per minute 
+
+# 개선 후 (마이크로서비스)
+speech-recognizer:
+  - transformers==4.41.2  # 독립적 버전
+
+speaker-diarizer:
+  - nemo_toolkit==1.23.0  # 독립적 버전
+
+# → 버전 충돌 없음! 개별 업데이트 가능!
+
+# 환경 변수 설정 (환경 변수 우선순위)
+environment:
+  # 필수 환경 변수
+  required:
+    - "OPENAI_API_KEY"                                # OpenAI API 키
+    - "HUGGINGFACE_TOKEN"                             # HuggingFace 인증 토큰
+  
+  # 선택적 환경 변수
+  optional:
+    - "DATABASE_URL"                                  # 데이터베이스 URL (기본값: sqlite:///data/callytics_consultation_quality.db)
+    - "AZURE_OPENAI_API_KEY"                          # Azure OpenAI API 키
+    - "AZURE_OPENAI_API_BASE"                         # Azure OpenAI API 베이스 URL
+    - "AZURE_OPENAI_API_VERSION"                      # Azure OpenAI API 버전
+  
+  # 기본값 설정
+  defaults:
+    DATABASE_URL: "sqlite:///data/callytics_consultation_quality.db"
+    DEVICE: "auto"
+    COMPUTE_TYPE: "auto"
+    LOG_LEVEL: "INFO"
+  
+  # 환경 변수 검증
+  validation:
+    check_on_startup: true                            # 시작 시 환경 변수 검증
+    allow_missing_optional: true                      # 선택적 환경 변수 누락 허용
+    fallback_to_defaults: true                        # 기본값으로 폴백 

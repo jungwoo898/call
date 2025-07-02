@@ -1,0 +1,13 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.llm-analyzer.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ./src/text ./src/text
+COPY ./src/text/llm.py ./main.py
+
+EXPOSE 8006
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8006"] 

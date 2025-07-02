@@ -1,7 +1,12 @@
 # Standard library imports
 import os
 import warnings
-from typing import Annotated, Optional
+import hashlib
+import json
+import time
+import threading
+from typing import Annotated, Optional, Dict, Any
+from pathlib import Path
 
 # Related third-party imports
 DEMUCS_AVAILABLE = False
@@ -11,6 +16,283 @@ try:
 except Exception as e:
     print(f"⚠️ Demucs import failed: {e}")
     DEMUCS_AVAILABLE = False
+
+
+class AdvancedDemucsVocalSeparator:
+    """
+    고성능 보컬 분리 클래스
+    캐싱, 불필요한 분리 생략, 음성 감지 기능 지원
+    """
+    
+    def __init__(self, 
+                 model_name: str = "htdemucs",
+                 two_stems: str = "vocals",
+                 cache_dir: str = "/app/.cache/demucs",
+                 enable_cache: bool = True,
+                 voice_detection_threshold: float = 0.3):
+        """
+        AdvancedDemucsVocalSeparator 초기화
+        
+        Parameters
+        ----------
+        model_name : str
+            Demucs 모델명
+        two_stems : str
+            분리할 스템 타입
+        cache_dir : str
+            캐시 디렉토리
+        enable_cache : bool
+            캐시 활성화 여부
+        voice_detection_threshold : float
+            음성 감지 임계값
+        """
+        self.model_name = model_name
+        self.two_stems = two_stems
+        self.cache_dir = Path(cache_dir)
+        self.enable_cache = enable_cache
+        self.voice_detection_threshold = voice_detection_threshold
+        
+        # 캐시 디렉토리 생성
+        if self.enable_cache:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 캐시 메타데이터 관리
+        self.cache_metadata_file = self.cache_dir / "metadata.json"
+        self.cache_metadata = self._load_cache_metadata()
+        self.cache_lock = threading.Lock()
+        
+        # 음성 감지 모델 (간단한 통계 기반)
+        self.voice_detector = None
+        if DEMUCS_AVAILABLE:
+            try:
+                import librosa
+                self.voice_detector = librosa
+                print("✅ 음성 감지 모델 로드 완료")
+            except Exception as e:
+                print(f"⚠️ 음성 감지 모델 로드 실패: {e}")
+    
+    def _load_cache_metadata(self) -> Dict[str, Any]:
+        """캐시 메타데이터 로드"""
+        try:
+            if self.cache_metadata_file.exists():
+                with open(self.cache_metadata_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"⚠️ 캐시 메타데이터 로드 실패: {e}")
+        return {}
+    
+    def _save_cache_metadata(self):
+        """캐시 메타데이터 저장"""
+        try:
+            with open(self.cache_metadata_file, 'w') as f:
+                json.dump(self.cache_metadata, f, indent=2)
+        except Exception as e:
+            print(f"⚠️ 캐시 메타데이터 저장 실패: {e}")
+    
+    def _get_cache_key(self, audio_file: str) -> str:
+        """캐시 키 생성"""
+        file_hash = hashlib.md5()
+        with open(audio_file, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                file_hash.update(chunk)
+        
+        cache_key = f"{file_hash.hexdigest()}_{self.model_name}_{self.two_stems}"
+        return cache_key
+    
+    def _is_cached(self, audio_file: str) -> Optional[str]:
+        """캐시된 결과 확인"""
+        if not self.enable_cache:
+            return None
+        
+        cache_key = self._get_cache_key(audio_file)
+        
+        with self.cache_lock:
+            if cache_key in self.cache_metadata:
+                cache_info = self.cache_metadata[cache_key]
+                cache_path = self.cache_dir / cache_info["filename"]
+                
+                # 캐시 파일 존재 및 유효성 확인
+                if cache_path.exists():
+                    # 파일 크기 확인
+                    if os.path.getsize(cache_path) > 0:
+                        return str(cache_path)
+                    else:
+                        # 빈 파일이면 캐시에서 제거
+                        del self.cache_metadata[cache_key]
+                        self._save_cache_metadata()
+        
+        return None
+    
+    def _save_to_cache(self, audio_file: str, output_path: str):
+        """결과를 캐시에 저장"""
+        if not self.enable_cache:
+            return
+        
+        try:
+            cache_key = self._get_cache_key(audio_file)
+            cache_filename = f"{cache_key}.wav"
+            cache_path = self.cache_dir / cache_filename
+            
+            # 캐시에 복사
+            import shutil
+            shutil.copy2(output_path, cache_path)
+            
+            # 메타데이터 업데이트
+            with self.cache_lock:
+                self.cache_metadata[cache_key] = {
+                    "filename": cache_filename,
+                    "original_file": audio_file,
+                    "model_name": self.model_name,
+                    "two_stems": self.two_stems,
+                    "created_at": time.time(),
+                    "file_size": os.path.getsize(cache_path)
+                }
+                self._save_cache_metadata()
+            
+            print(f"💾 캐시에 저장: {cache_filename}")
+            
+        except Exception as e:
+            print(f"⚠️ 캐시 저장 실패: {e}")
+    
+    def _detect_voice_content(self, audio_file: str) -> bool:
+        """음성 내용 감지"""
+        if self.voice_detector is None:
+            return True  # 감지 불가능하면 분리 진행
+        
+        try:
+            # 간단한 음성 감지 (RMS 기반)
+            y, sr = self.voice_detector.load(audio_file, sr=None)
+            
+            # RMS 계산
+            rms = self.voice_detector.feature.rms(y=y)
+            rms_mean = rms.mean()
+            
+            # 음성 주파수 대역 필터링 (300Hz-3400Hz)
+            y_filtered = self.voice_detector.effects.preemphasis(y)
+            
+            # 스펙트럼 중심 계산
+            spectral_centroids = self.voice_detector.feature.spectral_centroid(y=y_filtered, sr=sr)
+            centroid_mean = spectral_centroids.mean()
+            
+            # 음성 판정 (RMS와 스펙트럼 중심 기반)
+            is_voice = (rms_mean > self.voice_detection_threshold and 
+                       centroid_mean > 1000 and centroid_mean < 3000)
+            
+            print(f"🎤 음성 감지 결과: RMS={rms_mean:.3f}, Centroid={centroid_mean:.1f}, 음성여부={is_voice}")
+            
+            return is_voice
+            
+        except Exception as e:
+            print(f"⚠️ 음성 감지 실패: {e}")
+            return True  # 실패하면 분리 진행
+    
+    def separate_vocals_advanced(self, audio_file: str, output_dir: str) -> Optional[str]:
+        """
+        고성능 보컬 분리
+        
+        Parameters
+        ----------
+        audio_file : str
+            입력 오디오 파일 경로
+        output_dir : str
+            출력 디렉토리
+            
+        Returns
+        -------
+        Optional[str]
+            분리된 보컬 파일 경로 또는 None
+        """
+        try:
+            # 1. 캐시 확인
+            cached_path = self._is_cached(audio_file)
+            if cached_path:
+                print(f"💾 캐시에서 로드: {cached_path}")
+                # 출력 디렉토리에 복사
+                output_filename = f"{Path(audio_file).stem}_{self.two_stems}.wav"
+                output_path = os.path.join(output_dir, output_filename)
+                import shutil
+                shutil.copy2(cached_path, output_path)
+                return output_path
+            
+            # 2. 음성 내용 감지
+            if not self._detect_voice_content(audio_file):
+                print("🎵 음성 내용이 감지되지 않음. 원본 파일 반환")
+                return audio_file
+            
+            # 3. Demucs 분리 실행
+            if not DEMUCS_AVAILABLE:
+                print("⚠️ Demucs not available. Using original audio file.")
+                return audio_file
+            
+            print(f"🎵 Demucs 보컬 분리 시작: {self.model_name}")
+            
+            # 출력 디렉토리 생성
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Demucs 실행
+            demucs_args = [
+                "--two-stems", self.two_stems,
+                "-n", self.model_name,
+                "-o", output_dir,
+                audio_file
+            ]
+            
+            demucs.separate.main(demucs_args)
+            
+            # 결과 파일 경로 확인
+            output_path = os.path.join(
+                output_dir, self.model_name,
+                os.path.splitext(os.path.basename(audio_file))[0]
+            )
+            vocal_file = os.path.join(output_path, f"{self.two_stems}.wav")
+            
+            if os.path.exists(vocal_file) and os.path.getsize(vocal_file) > 0:
+                print(f"✅ 보컬 분리 완료: {vocal_file}")
+                
+                # 캐시에 저장
+                self._save_to_cache(audio_file, vocal_file)
+                
+                return vocal_file
+            else:
+                print("⚠️ 보컬 분리 실패. 원본 파일 반환")
+                return audio_file
+                
+        except Exception as e:
+            print(f"⚠️ 보컬 분리 오류: {e}")
+            return audio_file
+    
+    def cleanup_cache(self, max_age_hours: int = 24):
+        """오래된 캐시 정리"""
+        try:
+            current_time = time.time()
+            max_age_seconds = max_age_hours * 3600
+            
+            with self.cache_lock:
+                keys_to_remove = []
+                
+                for cache_key, cache_info in self.cache_metadata.items():
+                    if current_time - cache_info["created_at"] > max_age_seconds:
+                        keys_to_remove.append(cache_key)
+                
+                for cache_key in keys_to_remove:
+                    cache_info = self.cache_metadata[cache_key]
+                    cache_path = self.cache_dir / cache_info["filename"]
+                    
+                    try:
+                        if cache_path.exists():
+                            os.remove(cache_path)
+                            print(f"🧹 캐시 정리: {cache_info['filename']}")
+                    except Exception as e:
+                        print(f"⚠️ 캐시 파일 삭제 실패: {cache_path}, {e}")
+                    
+                    del self.cache_metadata[cache_key]
+                
+                if keys_to_remove:
+                    self._save_cache_metadata()
+                    print(f"🧹 {len(keys_to_remove)}개 캐시 파일 정리 완료")
+                    
+        except Exception as e:
+            print(f"⚠️ 캐시 정리 실패: {e}")
 
 
 class DemucsVocalSeparator:

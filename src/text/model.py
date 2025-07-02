@@ -97,12 +97,18 @@ class LLaMAModel(LanguageModel):
             torch_dtype=torch.bfloat16 if torch.cuda.is_available() and compute_type == "float16" else torch.float32,
             low_cpu_mem_usage=True
         )
-        self.pipe = pipeline(
-            "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            device_map="auto",
-        )
+        
+        # Transformers 4.44.0 호환성을 위한 pipeline 설정
+        try:
+            self.pipe = pipeline(
+                "text-generation",
+                model=self.model,
+                tokenizer=self.tokenizer,
+                device_map="auto",
+            )
+        except Exception as e:
+            print(f"Pipeline 생성 실패, 직접 모델 사용: {e}")
+            self.pipe = None
 
     def generate(
             self,
@@ -134,14 +140,41 @@ class LLaMAModel(LanguageModel):
             Generated text.
         """
         prompt = self._format_messages_llama(messages)
-        output = self.pipe(
-            prompt,
-            max_new_tokens=max_new_tokens,
-            truncation=truncation,
-            batch_size=batch_size,
-            pad_token_id=pad_token_id if pad_token_id is not None else self.tokenizer.eos_token_id
-        )
-        return output[0]['generated_text']
+        
+        if self.pipe is not None:
+            # Pipeline 사용 (Transformers 4.44.0 호환)
+            try:
+                output = self.pipe(
+                    prompt,
+                    max_new_tokens=max_new_tokens,
+                    truncation=truncation,
+                    batch_size=batch_size,
+                    pad_token_id=pad_token_id if pad_token_id is not None else self.tokenizer.eos_token_id
+                )
+                return output[0]['generated_text']
+            except Exception as e:
+                print(f"Pipeline 생성 실패, 직접 모델 사용: {e}")
+        
+        # 직접 모델 사용 (fallback)
+        try:
+            inputs = self.tokenizer(prompt, return_tensors="pt", truncation=truncation)
+            if torch.cuda.is_available():
+                inputs = {k: v.cuda() for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    pad_token_id=pad_token_id if pad_token_id is not None else self.tokenizer.eos_token_id,
+                    do_sample=True,
+                    temperature=0.7
+                )
+            
+            generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            return generated_text
+        except Exception as e:
+            print(f"모델 생성 실패: {e}")
+            return "생성 중 오류가 발생했습니다."
 
     @staticmethod
     def _format_messages_llama(messages: Annotated[list, "List of message dictionaries"]) -> Annotated[
@@ -176,7 +209,8 @@ class LLaMAModel(LanguageModel):
         """
         Unload the LLaMA model and release resources.
         """
-        del self.pipe
+        if self.pipe is not None:
+            del self.pipe
         del self.model
         del self.tokenizer
         torch.cuda.empty_cache()

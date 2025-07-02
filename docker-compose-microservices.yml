@@ -239,6 +239,24 @@ services:
       - callytics-net
     restart: unless-stopped
 
+  # 🔴 Redis (메시지 큐 및 캐시)
+  redis:
+    image: redis:7.2-alpine
+    container_name: callytics-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - callytics-net
+    restart: unless-stopped
+
   # 📈 Prometheus (기존)
   prometheus:
     image: prom/prometheus:v2.45.0
@@ -283,6 +301,7 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+  redis_data:
 
 networks:
   callytics-net:

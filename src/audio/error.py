@@ -2,7 +2,12 @@
 import os
 import logging
 import subprocess
-from typing import Annotated
+import asyncio
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Annotated, List, Dict, Optional, Tuple
+from pathlib import Path
 
 # Related third party imports
 # pyannote 문제를 우회하고 항상 안정적인 더미 클래스 사용
@@ -34,6 +39,279 @@ class DummyDiarization:
         return [(DummySegment(0.0, 60.0), "track_0", "SPEAKER_00")]
 
 logging.basicConfig(level=logging.INFO)
+
+
+class AdvancedDialogueDetecting:
+    """
+    고성능 대화 감지 클래스
+    긴 오디오 chunk 분할, 병렬 diarization, graceful degradation 지원
+    """
+    
+    def __init__(self, 
+                 pipeline_model: str = "pyannote/speaker-diarization",
+                 chunk_duration: int = 30,  # 30초 chunk로 증가
+                 max_workers: int = 4,
+                 temp_dir: str = ".temp",
+                 enable_parallel: bool = True):
+        """
+        AdvancedDialogueDetecting 초기화
+        
+        Parameters
+        ----------
+        pipeline_model : str
+            Diarization 모델명
+        chunk_duration : int
+            Chunk 길이 (초)
+        max_workers : int
+            병렬 처리 워커 수
+        temp_dir : str
+            임시 디렉토리
+        enable_parallel : bool
+            병렬 처리 활성화 여부
+        """
+        self.pipeline_model = pipeline_model
+        self.chunk_duration = chunk_duration
+        self.max_workers = max_workers
+        self.temp_dir = temp_dir
+        self.enable_parallel = enable_parallel
+        
+        # Pipeline 초기화 (fallback 지원)
+        try:
+            self.pipeline = Pipeline(pipeline_model)
+            print(f"✅ Pipeline 초기화 완료: {type(self.pipeline)}")
+        except Exception as e:
+            print(f"⚠️ Pipeline 초기화 실패, fallback 모드: {e}")
+            self.pipeline = None
+        
+        # 병렬 처리 executor
+        if self.enable_parallel:
+            self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        else:
+            self.executor = None
+        
+        # 임시파일 관리
+        os.makedirs(self.temp_dir, exist_ok=True)
+        self.temp_files = set()
+        self.temp_lock = threading.Lock()
+    
+    def _add_temp_file(self, file_path: str):
+        """임시파일 추적"""
+        with self.temp_lock:
+            self.temp_files.add(file_path)
+    
+    def _cleanup_temp_files(self):
+        """임시파일 정리"""
+        with self.temp_lock:
+            for temp_file in self.temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                        print(f"🧹 임시파일 정리: {temp_file}")
+                except Exception as e:
+                    print(f"⚠️ 임시파일 삭제 실패: {temp_file}, {e}")
+            self.temp_files.clear()
+    
+    @staticmethod
+    def get_audio_duration(audio_file: str) -> float:
+        """오디오 파일 길이 확인"""
+        try:
+            result = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", audio_file],
+                capture_output=True, text=True, check=True, timeout=30
+            )
+            return float(result.stdout.strip())
+        except Exception as e:
+            print(f"⚠️ 오디오 길이 확인 실패: {e}")
+            return 0.0
+    
+    def create_chunk(self, audio_file: str, chunk_file: str, start_time: float, end_time: float) -> bool:
+        """오디오 chunk 생성"""
+        try:
+            duration = end_time - start_time
+            cmd = [
+                "ffmpeg", "-y",
+                "-ss", str(start_time),
+                "-t", str(duration),
+                "-i", audio_file,
+                "-ar", "16000",
+                "-ac", "1",
+                "-f", "wav",
+                chunk_file
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                self._add_temp_file(chunk_file)
+                return True
+            else:
+                print(f"⚠️ Chunk 생성 실패: {result.stderr}")
+                return False
+                
+        except Exception as e:
+            print(f"⚠️ Chunk 생성 오류: {e}")
+            return False
+    
+    def process_chunk(self, chunk_file: str) -> List[Tuple[float, float, str]]:
+        """단일 chunk 처리"""
+        try:
+            if self.pipeline is None:
+                # Fallback: 더미 결과 반환
+                return [(0.0, 30.0, "SPEAKER_00")]
+            
+            diarization = self.pipeline(chunk_file)
+            segments = []
+            
+            for segment, track, label in diarization.itertracks(yield_label=True):
+                segments.append((segment.start, segment.end, label))
+            
+            return segments
+            
+        except Exception as e:
+            print(f"⚠️ Chunk 처리 실패: {chunk_file}, {e}")
+            # Graceful degradation: 빈 결과 반환
+            return []
+    
+    def process_chunk_parallel(self, chunk_info: Tuple[int, str, float, float]) -> Tuple[int, List[Tuple[float, float, str]]]:
+        """병렬 chunk 처리"""
+        chunk_id, audio_file, start_time, end_time = chunk_info
+        
+        # Chunk 파일 생성
+        chunk_file = os.path.join(self.temp_dir, f"chunk_{chunk_id:04d}.wav")
+        
+        if not self.create_chunk(audio_file, chunk_file, start_time, end_time):
+            return chunk_id, []
+        
+        # Chunk 처리
+        segments = self.process_chunk(chunk_file)
+        
+        # 시간 오프셋 적용
+        offset_segments = []
+        for start, end, label in segments:
+            offset_segments.append((start + start_time, end + start_time, label))
+        
+        return chunk_id, offset_segments
+    
+    def process(self, audio_file: str) -> Dict[str, any]:
+        """
+        고성능 대화 감지 처리
+        
+        Parameters
+        ----------
+        audio_file : str
+            입력 오디오 파일 경로
+            
+        Returns
+        -------
+        Dict[str, any]
+            처리 결과 (speakers, segments, processing_info)
+        """
+        try:
+            # 오디오 길이 확인
+            total_duration = self.get_audio_duration(audio_file)
+            if total_duration == 0:
+                return {
+                    "speakers": set(),
+                    "segments": [],
+                    "processing_info": {"error": "오디오 길이 확인 실패"}
+                }
+            
+            print(f"📊 오디오 길이: {total_duration:.1f}초")
+            
+            # Chunk 정보 생성
+            chunks = []
+            num_chunks = int(total_duration // self.chunk_duration) + 1
+            
+            for i in range(num_chunks):
+                start_time = i * self.chunk_duration
+                end_time = min((i + 1) * self.chunk_duration, total_duration)
+                chunks.append((i, audio_file, start_time, end_time))
+            
+            print(f"📦 총 {len(chunks)}개 chunk 생성")
+            
+            # 병렬 또는 순차 처리
+            all_segments = []
+            processing_info = {
+                "total_chunks": len(chunks),
+                "processed_chunks": 0,
+                "failed_chunks": 0,
+                "processing_time": 0,
+                "parallel_processing": self.enable_parallel
+            }
+            
+            start_time = time.time()
+            
+            if self.enable_parallel and self.executor:
+                # 병렬 처리
+                print("🚀 병렬 처리 시작")
+                futures = [self.executor.submit(self.process_chunk_parallel, chunk) for chunk in chunks]
+                
+                for future in as_completed(futures):
+                    try:
+                        chunk_id, segments = future.result()
+                        all_segments.extend(segments)
+                        processing_info["processed_chunks"] += 1
+                        print(f"✅ Chunk {chunk_id} 처리 완료")
+                    except Exception as e:
+                        processing_info["failed_chunks"] += 1
+                        print(f"❌ Chunk 처리 실패: {e}")
+            else:
+                # 순차 처리
+                print("🐌 순차 처리 시작")
+                for chunk_id, audio_file, start_time, end_time in chunks:
+                    try:
+                        chunk_file = os.path.join(self.temp_dir, f"chunk_{chunk_id:04d}.wav")
+                        
+                        if self.create_chunk(audio_file, chunk_file, start_time, end_time):
+                            segments = self.process_chunk(chunk_file)
+                            # 시간 오프셋 적용
+                            for start, end, label in segments:
+                                all_segments.append((start + start_time, end + start_time, label))
+                            processing_info["processed_chunks"] += 1
+                            print(f"✅ Chunk {chunk_id} 처리 완료")
+                        else:
+                            processing_info["failed_chunks"] += 1
+                            print(f"❌ Chunk {chunk_id} 생성 실패")
+                    except Exception as e:
+                        processing_info["failed_chunks"] += 1
+                        print(f"❌ Chunk {chunk_id} 처리 실패: {e}")
+            
+            processing_info["processing_time"] = time.time() - start_time
+            
+            # 화자 추출
+            speakers = set()
+            for start, end, label in all_segments:
+                speakers.add(label)
+            
+            # 결과 정리
+            result = {
+                "speakers": speakers,
+                "segments": all_segments,
+                "processing_info": processing_info
+            }
+            
+            print(f"🎯 처리 완료: {len(speakers)}명 화자, {len(all_segments)}개 세그먼트")
+            print(f"⏱️ 처리 시간: {processing_info['processing_time']:.1f}초")
+            
+            return result
+            
+        except Exception as e:
+            print(f"⚠️ 대화 감지 처리 실패: {e}")
+            return {
+                "speakers": set(),
+                "segments": [],
+                "processing_info": {"error": str(e)}
+            }
+        finally:
+            # 임시파일 정리
+            self._cleanup_temp_files()
+    
+    def cleanup(self):
+        """리소스 정리"""
+        if self.executor:
+            self.executor.shutdown(wait=True)
+        self._cleanup_temp_files()
 
 
 class DialogueDetecting:

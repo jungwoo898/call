@@ -1,7 +1,7 @@
 # Standard library imports
 import os
 import asyncio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 import uvicorn
 from contextlib import asynccontextmanager
@@ -27,10 +27,10 @@ if torch.cuda.is_available():
 # Related third-party imports
 from omegaconf import OmegaConf
 
-# NeMo 안전 import (1.23.0 호환)
+# NeMo 안전 import (1.20.1 호환)
 NeuralDiarizer = None
 try:
-    # NeMo 1.23.0에서는 import 경로가 변경됨
+    # NeMo 1.20.1에서는 import 경로가 변경됨
     from nemo.collections.asr.models.msdd_models import NeuralDiarizer
     print("✅ NeMo NeuralDiarizer imported successfully")
 except ImportError as e:
@@ -49,16 +49,18 @@ from src.audio.effect import DemucsVocalSeparator
 from src.audio.preprocessing import SpeechEnhancement
 from src.audio.io import SpeakerTimestampReader, TranscriptWriter
 from src.audio.analysis import WordSpeakerMapper, SentenceSpeakerMapper, Audio
-from src.audio.processing import AudioProcessor, Transcriber, PunctuationRestorer
+from src.audio.advanced_processing import AdvancedTranscriber
+from src.audio.advanced_punctuation import AdvancedPunctuationRestorer
 from src.text.utils import Annotator
 from src.text.llm import LLMOrchestrator, LLMResultHandler
-from src.text.communication_quality_analyzer import CommunicationQualityAnalyzer
+from src.text.advanced_analysis import AdvancedAnalysisManager
 from src.utils.utils import Cleaner, Watcher
-from src.db.manager import DatabaseManager
+from src.db.multi_database_manager import MultiDatabaseManager
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 from src.text.korean_models import KoreanModels
-from src.integrated_analyzer import IntegratedAnalyzer
+
+from src.integrated_analyzer_advanced import AdvancedIntegratedAnalyzer
 
 # FastAPI 앱 생성
 app = FastAPI(title="Callytics API", version="1.0.0")
@@ -170,6 +172,54 @@ async def root():
         }
     }
 
+@app.post("/analyze")
+async def analyze_audio(
+    file: UploadFile = File(...),
+    consultation_id: Optional[str] = Form(None),
+    metadata: Optional[str] = Form(None)
+):
+    """오디오 파일 분석 API"""
+    try:
+        # 파일 저장
+        file_path = f"temp/{file.filename}"
+        os.makedirs("temp", exist_ok=True)
+        
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # 메타데이터 파싱
+        parsed_metadata = None
+        if metadata:
+            try:
+                parsed_metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                logger.warning("메타데이터 JSON 파싱 실패")
+        
+        # 고성능 통합 분석기 사용
+        analyzer = AdvancedIntegratedAnalyzer(
+            config_path="config/config.yaml",
+            enable_cache=True,
+            enable_parallel=True,
+            enable_async=True,
+            max_workers=4
+        )
+        
+        # 분석 실행
+        result = await analyzer.analyze_audio_comprehensive(file_path)
+        
+        # 임시 파일 정리
+        try:
+            os.remove(file_path)
+        except:
+            pass
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"분석 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def main(audio_file_path: str):
     """
     Process an audio file to perform diarization, transcription, punctuation restoration,
@@ -249,7 +299,7 @@ async def main(audio_file_path: str):
     llm_result_handler = LLMResultHandler()
     cleaner = Cleaner()
     formatter = Formatter()
-    db = DatabaseManager(config_path)
+    db = MultiDatabaseManager()
     audio_feature_extractor = Audio(audio_file_path)
 
     # Step 1: Detect Dialogue

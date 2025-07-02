@@ -391,6 +391,7 @@ class LanguageDetector:
         """
         try:
             # 다국어 언어 감지 모델 로드 (가벼운 로컬 모델 사용)
+            # Transformers 4.44.0 호환성을 위한 설정
             self.language_detector = pipeline(
                 "text-classification",
                 model="papluca/xlm-roberta-base-language-detection",
@@ -399,6 +400,7 @@ class LanguageDetector:
             print("✅ 언어 감지 모델이 로드되었습니다.")
         except Exception as e:
             print(f"⚠️ 언어 감지 모델 로드 실패: {e}")
+            print("🔄 언어 감지 기능을 비활성화합니다.")
             self.language_detector = None
 
     def detect_language(self, text: str) -> Dict[str, Any]:
