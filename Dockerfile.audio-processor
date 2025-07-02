@@ -1,38 +1,30 @@
-# 오디오 처리 서비스 Dockerfile (CPU 전용)
-FROM python:3.10-slim
-
-# 환경 변수 설정
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV DEVICE=cpu
+# 오디오 처리 서비스 - CPU 최적화
+FROM python:3.11-slim
 
 # 시스템 패키지 설치
 RUN apt-get update && apt-get install -y \
+    ffmpeg \
     libsndfile1 \
     libportaudio2 \
-    ffmpeg \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# 오디오 처리 전용 requirements.txt 복사
-COPY requirements.audio-processor.txt /app/requirements.txt
+# CPU 최적화된 requirements 복사 및 설치
+COPY requirements.audio-processor.txt .
+RUN pip install --no-cache-dir -r requirements.audio-processor.txt
 
-# Python 패키지 설치
-RUN pip install --no-cache-dir -r requirements.txt
+# 소스 코드 복사
+COPY src/ ./src/
+COPY config/ ./config/
 
-# 오디오 처리 코드 복사
-COPY src/audio /app/src/audio
-COPY src/utils /app/src/utils
+# 환경 변수 설정
+ENV PYTHONPATH=/app
+ENV DEVICE=cpu
 
 # 포트 노출
 EXPOSE 8001
 
-# 헬스체크
-HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8001/health || exit 1
-
-# 실행 명령
+# 서비스 실행
 CMD ["python", "-m", "src.audio.main"] 

@@ -306,47 +306,130 @@ class LLMResultHandler:
 
 class LLMHandler:
     """
-    A class to handle interactions with OpenAI's GPT models for various text analysis tasks.
+    OpenAI API를 사용한 LLM 처리 핸들러
     """
-
+    
     def __init__(self):
         """
-        Initializes the LLMHandler with OpenAI API configuration.
+        LLMHandler 초기화
         """
         self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is not set")
-        
-        openai.api_key = self.api_key
-        self.client = openai.AsyncOpenAI(api_key=self.api_key)
-        
-        # 재시도 설정
+        self.client = openai.AsyncOpenAI(api_key=self.api_key) if self.api_key else None
         self.max_retries = 3
         self.retry_delay = 1
+        
+        # API 할당량 확인 캐싱
+        self._quota_check_cache = {
+            "last_check": 0,
+            "cache_duration": 300,  # 5분 캐시
+            "is_healthy": True,
+            "error_message": None
+        }
+        
+        # 모델 리스트 캐싱
+        self._models_cache = {
+            "last_check": 0,
+            "cache_duration": 600,  # 10분 캐시
+            "models": None,
+            "models_count": 0
+        }
+
+    async def _check_api_quota_cached(self) -> bool:
+        """
+        캐시된 API 할당량 확인
+        
+        Returns
+        -------
+        bool
+            API 할당량 상태 (True: 정상, False: 문제)
+        """
+        current_time = time.time()
+        
+        # 캐시가 유효한 경우 캐시된 결과 반환
+        if (current_time - self._quota_check_cache["last_check"] < 
+            self._quota_check_cache["cache_duration"]):
+            return self._quota_check_cache["is_healthy"]
+        
+        # 캐시가 만료된 경우 새로운 확인 수행
+        try:
+            await self.client.models.list()
+            self._quota_check_cache.update({
+                "last_check": current_time,
+                "is_healthy": True,
+                "error_message": None
+            })
+            return True
+        except Exception as e:
+            error_msg = str(e).lower()
+            is_quota_error = "quota" in error_msg or "rate" in error_msg
+            
+            self._quota_check_cache.update({
+                "last_check": current_time,
+                "is_healthy": not is_quota_error,
+                "error_message": str(e)
+            })
+            
+            if is_quota_error:
+                raise Exception(f"API quota exceeded or rate limited: {e}")
+            return False
+
+    async def _get_models_cached(self) -> int:
+        """
+        캐시된 모델 리스트 조회
+        
+        Returns
+        -------
+        int
+            사용 가능한 모델 수
+        """
+        current_time = time.time()
+        
+        # 캐시가 유효한 경우 캐시된 결과 반환
+        if (current_time - self._models_cache["last_check"] < 
+            self._models_cache["cache_duration"]):
+            return self._models_cache["models_count"]
+        
+        # 캐시가 만료된 경우 새로운 조회 수행
+        try:
+            response = await self.client.models.list()
+            models_count = len(response.data) if response.data else 0
+            
+            self._models_cache.update({
+                "last_check": current_time,
+                "models": response.data,
+                "models_count": models_count
+            })
+            
+            return models_count
+        except Exception as e:
+            # 조회 실패 시 캐시된 값 반환 (있는 경우)
+            if self._models_cache["models_count"] > 0:
+                return self._models_cache["models_count"]
+            return 0
 
     async def generate(
-            self,
-            task_type: str,
-            user_input: Optional[Any] = None,
-            system_input: Optional[Any] = None
+        self,
+        task_type: str,
+        user_input: Optional[Any] = None,
+        system_input: Optional[Any] = None
     ) -> Dict[str, Any]:
         """
-        Generates responses for different analysis tasks using OpenAI's GPT models.
-
+        LLM을 사용하여 텍스트 생성
+        
         Parameters
         ----------
         task_type : str
-            The type of analysis task (e.g., "Classification", "SentimentAnalysis").
-        user_input : Any, optional
-            The user input data for the analysis.
-        system_input : Any, optional
-            Additional system input data (e.g., topics for topic detection).
-
+            분석 태스크 유형
+        user_input : Optional[Any]
+            사용자 입력 데이터
+        system_input : Optional[Any]
+            시스템 입력 데이터
+            
         Returns
         -------
         Dict[str, Any]
-            The generated response from the LLM.
-
+            생성된 결과
+            
         Raises
         ------
         Exception
@@ -358,10 +441,10 @@ class LLMHandler:
                 if not self.api_key:
                     raise ValueError("OpenAI API key is missing")
                 
-                # API 할당량 확인 (간단한 테스트)
+                # API 할당량 확인 (캐시된 방식)
                 if attempt == 0:
                     try:
-                        await self.client.models.list()
+                        await self._check_api_quota_cached()
                     except Exception as e:
                         if "quota" in str(e).lower() or "rate" in str(e).lower():
                             raise Exception(f"API quota exceeded or rate limited: {e}")
@@ -688,18 +771,35 @@ class LLMHandler:
             if not self.api_key:
                 return {"status": "error", "message": "API 키가 설정되지 않음"}
             
-            # API 연결 테스트
-            response = asyncio.run(self.client.models.list())
+            # 캐시된 API 연결 테스트
+            async def check_health():
+                try:
+                    models_count = await self._get_models_cached()
+                    return {
+                        "status": "healthy",
+                        "message": "API 연결 정상",
+                        "models_available": models_count,
+                        "cache_info": {
+                            "quota_cache_age": time.time() - self._quota_check_cache["last_check"],
+                            "models_cache_age": time.time() - self._models_cache["last_check"]
+                        }
+                    }
+                except Exception as e:
+                    return {
+                        "status": "error", 
+                        "message": f"API 연결 실패: {str(e)}",
+                        "cache_info": {
+                            "quota_cache_age": time.time() - self._quota_check_cache["last_check"],
+                            "models_cache_age": time.time() - self._models_cache["last_check"]
+                        }
+                    }
             
-            return {
-                "status": "healthy",
-                "message": "API 연결 정상",
-                "models_available": len(response.data) if response.data else 0
-            }
+            return asyncio.run(check_health())
+            
         except Exception as e:
             return {
                 "status": "error", 
-                "message": f"API 연결 실패: {str(e)}"
+                "message": f"Health check 실패: {str(e)}"
             }
 
     def get_usage_stats(self) -> Dict[str, Any]:
@@ -711,10 +811,29 @@ class LLMHandler:
         Dict[str, Any]
             사용 통계
         """
+        current_time = time.time()
         return {
             "api_key_configured": bool(self.api_key),
             "max_retries": self.max_retries,
-            "retry_delay": self.retry_delay
+            "retry_delay": self.retry_delay,
+            "cache_info": {
+                "quota_cache": {
+                    "last_check": self._quota_check_cache["last_check"],
+                    "age_seconds": current_time - self._quota_check_cache["last_check"],
+                    "is_healthy": self._quota_check_cache["is_healthy"],
+                    "cache_duration": self._quota_check_cache["cache_duration"]
+                },
+                "models_cache": {
+                    "last_check": self._models_cache["last_check"],
+                    "age_seconds": current_time - self._models_cache["last_check"],
+                    "models_count": self._models_cache["models_count"],
+                    "cache_duration": self._models_cache["cache_duration"]
+                }
+            },
+            "optimization": {
+                "quota_checks_saved": "캐시로 인한 API 호출 절약",
+                "models_checks_saved": "캐시로 인한 모델 조회 절약"
+            }
         }
 
 

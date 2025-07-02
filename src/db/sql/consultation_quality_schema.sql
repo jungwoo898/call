@@ -222,6 +222,8 @@ CREATE TABLE IF NOT EXISTS communication_quality (
     task_ratio REAL DEFAULT 0.0,
     suggestions INTEGER DEFAULT 0,
     interruption_count INTEGER DEFAULT 0,
+    silence_ratio REAL DEFAULT 0.0,
+    talk_ratio REAL DEFAULT 0.0,
     analysis_details TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

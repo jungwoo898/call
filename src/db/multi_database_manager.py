@@ -524,8 +524,8 @@ class MultiDatabaseManager:
                     negative_word_ratio, euphonious_word_ratio, empathy_ratio, apology_ratio,
                     total_sentences, customer_sentiment_early, customer_sentiment_late,
                     customer_sentiment_trend, avg_response_latency, task_ratio,
-                    suggestions, interruption_count, analysis_details
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    suggestions, interruption_count, silence_ratio, talk_ratio, analysis_details
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data.get('audio_path'), data.get('consultation_id'), data.get('honorific_ratio'),
                 data.get('positive_word_ratio'), data.get('negative_word_ratio'),
@@ -533,7 +533,8 @@ class MultiDatabaseManager:
                 data.get('total_sentences'), data.get('customer_sentiment_early'),
                 data.get('customer_sentiment_late'), data.get('customer_sentiment_trend'),
                 data.get('avg_response_latency'), data.get('task_ratio'), data.get('suggestions'),
-                data.get('interruption_count'), data.get('analysis_details')
+                data.get('interruption_count'), data.get('silence_ratio'), data.get('talk_ratio'),
+                data.get('analysis_details')
             ))
             conn.commit()
             return True

@@ -745,9 +745,9 @@ async def main(audio_file_path: str):
                         total_sentences, 
                         customer_sentiment_early, customer_sentiment_late, customer_sentiment_trend,
                         avg_response_latency, task_ratio,
-                        suggestions, interruption_count,
+                        suggestions, interruption_count, silence_ratio, talk_ratio,
                         analysis_details
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     last_id,  # audio_properties_id
                     f"CONSULT_{last_id}",  # consultation_id
@@ -765,6 +765,8 @@ async def main(audio_file_path: str):
                     quality_analysis_result.task_ratio or 0.0,
                     quality_analysis_result.suggestions or 0.0,  # 새로운 LLM 지표
                     quality_analysis_result.interruption_count or 0,  # 새로운 LLM 지표
+                    quality_analysis_result.silence_ratio or 0.0,  # 침묵 비율
+                    quality_analysis_result.talk_ratio or 0.0,  # 발화 시간 비율
                     str(quality_analysis_result.analysis_details or {})
                 ))
                 conn.commit()
@@ -797,7 +799,12 @@ async def main(audio_file_path: str):
         print(f"   - 대화 가로채기 횟수: {quality_analysis_result.interruption_count}회")
         print(f"   - 존댓말 비율: {quality_analysis_result.honorific_ratio:.2f}")
         print(f"   - 긍정어 비율: {quality_analysis_result.positive_word_ratio:.2f}")
-        print(f"   - 전체 분석 지표: 13개 (기존 11개 + 새로운 LLM 지표 2개)")
+        print(f"   - 완곡 표현 비율: {quality_analysis_result.euphonious_word_ratio:.2f}")
+        print(f"   - 사과 표현 비율: {quality_analysis_result.apology_ratio:.2f}")
+        print(f"   - 평균 응답 지연 시간: {quality_analysis_result.avg_response_latency:.2f}초")
+        print(f"   - 침묵 비율: {quality_analysis_result.silence_ratio:.2f}")
+        print(f"   - 발화 시간 비율: {quality_analysis_result.talk_ratio:.2f}")
+        print(f"   - 전체 분석 지표: 15개 (기존 11개 + 새로운 지표 4개)")
     
     print(f"📄 생성된 출력 파일:")
     print(f"   - 텍스트 대본: {transcript_output_path}")

@@ -1,6 +1,20 @@
+# 화자 분리 서비스 - 완전한 기능
 fastapi==0.104.1
-uvicorn==0.23.2
+uvicorn==0.24.0
 pydantic==2.5.0
+httpx==0.25.2
+psutil==5.9.6
+
+# PyTorch
 torch==2.1.2
-nemo_toolkit==1.20.0
-numpy 
+torchaudio==2.1.2
+
+# 오디오 처리
+librosa==0.10.1
+soundfile==0.12.1
+numpy==1.24.3
+scipy==1.11.4
+
+# 로깅 및 모니터링
+structlog==23.2.0
+prometheus-client==0.19.0 

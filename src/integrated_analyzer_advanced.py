@@ -13,7 +13,7 @@ from src.audio.error import AdvancedDialogueDetecting
 from src.audio.effect import AdvancedDemucsVocalSeparator
 from src.audio.advanced_processing import AdvancedTranscriber
 from src.audio.advanced_punctuation import AdvancedPunctuationRestorer
-from src.text.advanced_analysis import AdvancedAnalysisManager
+from src.text.advanced_analysis import AdvancedAnalysisManager, analyze_communication_quality_with_trend
 from src.db.advanced_manager import AdvancedDatabaseManager
 
 
@@ -205,8 +205,32 @@ class AdvancedIntegratedAnalyzer:
             # 전체 텍스트 결합
             full_text = " ".join([segment.get("text", "") for segment in transcription_segments])
             
+            # 발화 데이터 구성 (감정 추세 분석용)
+            utterances_data = []
+            for segment in transcription_segments:
+                if segment.get("text"):
+                    # 화자 식별 (간단한 규칙)
+                    speaker = "고객"  # 기본값
+                    if any(keyword in segment.get("text", "").lower() for keyword in ["죄송합니다", "감사합니다", "도와드리겠습니다", "확인해보겠습니다"]):
+                        speaker = "상담사"
+                    
+                    utterances_data.append({
+                        "speaker": speaker,
+                        "text": segment.get("text", ""),
+                        "start_time": segment.get("start", 0),
+                        "end_time": segment.get("end", 0),
+                        "sentiment": "중립"  # 기본값, 실제로는 감정 분석 결과 사용
+                    })
+            
             if full_text.strip():
+                # 기존 텍스트 분석
                 analysis_result = await self.analysis_manager.analyze_text_comprehensive(full_text)
+                
+                # 감정 추세 분석 추가
+                trend_analysis = analyze_communication_quality_with_trend(utterances_data)
+                
+                # 결과 병합
+                analysis_result.update(trend_analysis)
             else:
                 analysis_result = {
                     "sentiment_analysis": {"sentiment": "중립", "confidence": 0.5},
@@ -242,7 +266,10 @@ class AdvancedIntegratedAnalyzer:
                             }
                         },
                         "recommendations": ["텍스트가 없어 분석할 수 없습니다."]
-                    }
+                    },
+                    "customer_sentiment_early": None,
+                    "customer_sentiment_late": None,
+                    "customer_sentiment_trend": None
                 }
             
             self.performance_stats["stage_times"]["analysis"] = time.time() - stage_start
@@ -271,6 +298,18 @@ class AdvancedIntegratedAnalyzer:
             sentiment_analysis = detailed_analysis.get("sentiment", {})
             sentiment_details = sentiment_analysis.get("details", {})
             
+            # 새로 추가한 컬럼들 추출
+            honorific_ratio = analysis_result.get("honorific_ratio", 0.0)
+            positive_word_ratio = analysis_result.get("positive_word_ratio", 0.0)
+            negative_word_ratio = analysis_result.get("negative_word_ratio", 0.0)
+            euphonious_word_ratio = analysis_result.get("euphonious_word_ratio", 0.0)
+            empathy_ratio = analysis_result.get("empathy_ratio", 0.0)
+            apology_ratio = analysis_result.get("apology_ratio", 0.0)
+            avg_response_latency = analysis_result.get("avg_response_latency", 0.0)
+            interruption_count = analysis_result.get("interruption_count", 0)
+            silence_ratio = analysis_result.get("silence_ratio", 0.0)
+            talk_ratio = analysis_result.get("talk_ratio", 0.0)
+            
             quality_analysis_data = {
                 "audio_analysis_id": 0,  # 실제로는 DB에서 가져온 ID
                 "clarity_score": category_scores.get("expertise", 0.5) * 0.6 + category_scores.get("specific_info", 0.5) * 0.4,
@@ -290,7 +329,16 @@ class AdvancedIntegratedAnalyzer:
                 "negative_word_ratio": sentiment_details.get("negative_ratio", 0),
                 "positive_intensity": sentiment_details.get("positive_intensity", 0),
                 "negative_intensity": sentiment_details.get("negative_intensity", 0),
-                "sentiment_examples": sentiment_analysis.get("examples", [])
+                "sentiment_examples": sentiment_analysis.get("examples", []),
+                # 새로 추가한 컬럼들
+                "honorific_ratio": honorific_ratio,
+                "euphonious_word_ratio": euphonious_word_ratio,
+                "empathy_ratio": empathy_ratio,
+                "apology_ratio": apology_ratio,
+                "avg_response_latency": avg_response_latency,
+                "interruption_count": interruption_count,
+                "silence_ratio": silence_ratio,
+                "talk_ratio": talk_ratio
             }
             
             # LLM 분석 데이터 준비
@@ -351,6 +399,14 @@ class AdvancedIntegratedAnalyzer:
                         "positive_intensity": sentiment_details.get("positive_intensity", 0),
                         "negative_intensity": sentiment_details.get("negative_intensity", 0),
                         "examples": sentiment_analysis.get("examples", [])
+                    },
+                    # 고객 감정 추세 분석 결과 (50% 구분으로 안정성 향상)
+                    "customer_sentiment_trend": {
+                        "early_sentiment": analysis_result.get("customer_sentiment_early"),
+                        "late_sentiment": analysis_result.get("customer_sentiment_late"),
+                        "trend": analysis_result.get("customer_sentiment_trend"),
+                        "trend_description": "개선됨" if analysis_result.get("customer_sentiment_trend", 0) > 0 else "악화됨" if analysis_result.get("customer_sentiment_trend", 0) < 0 else "변화없음",
+                        "analysis_method": "50% 구분 (안정성 향상)"
                     }
                 },
                 "performance_stats": {

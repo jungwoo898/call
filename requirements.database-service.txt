@@ -1,5 +1,14 @@
+# 데이터베이스 서비스 - CPU 최적화 (최소 의존성)
 fastapi==0.104.1
-uvicorn==0.23.2
+uvicorn==0.24.0
 pydantic==2.5.0
-sqlalchemy
-aiosqlite 
+httpx==0.25.2
+psutil==5.9.6
+
+# 핵심 데이터베이스 라이브러리
+aiosqlite==0.19.0
+sqlalchemy==2.0.23
+
+# 로깅 및 모니터링
+structlog==23.2.0
+prometheus-client==0.19.0 

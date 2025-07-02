@@ -1,13 +1,33 @@
-FROM python:3.10-slim
+# LLM 분석 서비스 - GPU 최적화
+FROM nvidia/cuda:11.8-devel-ubuntu20.04
 
+# 시스템 패키지 설치
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-pip \
+    python3.11-dev \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# 작업 디렉토리 설정
 WORKDIR /app
 
-COPY requirements.llm-analyzer.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# GPU 최적화된 requirements 복사 및 설치
+COPY requirements.llm-analyzer.txt .
+RUN pip3 install --no-cache-dir -r requirements.llm-analyzer.txt
 
-COPY ./src/text ./src/text
-COPY ./src/text/llm.py ./main.py
+# 소스 코드 복사
+COPY src/ ./src/
+COPY config/ ./config/
 
+# 환경 변수 설정
+ENV PYTHONPATH=/app
+ENV DEVICE=cuda
+ENV CUDA_VISIBLE_DEVICES=0
+
+# 포트 노출
 EXPOSE 8006
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8006"] 
+# 서비스 실행
+CMD ["python3", "-m", "src.text.llm_analyzer"] 
