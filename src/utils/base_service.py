@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+"""
+Callytics 기본 서비스 클래스
+모든 마이크로서비스의 공통 기능 제공 (헬스체크, 메트릭, 로깅 등)
+"""
+
+import logging
+import psutil
+from typing import Dict, Any, Optional
+from datetime import datetime
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from abc import ABC, abstractmethod
+
+# 표준 API 응답 스키마
+from .api_schemas import HealthResponse, MetricsResponse, SuccessResponse
+
+class BaseService(ABC):
+    """
+    모든 마이크로서비스의 기본 클래스
+    공통 기능: 헬스체크, 메트릭 수집, 로깅, 오류 처리
+    """
+    
+    def __init__(self, service_name: str, version: str = "1.0.0", port: int = 8000):
+        self.service_name = service_name
+        self.version = version
+        self.port = port
+        self.start_time = datetime.utcnow()
+        
+        # 로깅 설정
+        self.logger = self._setup_logging()
+        
+        # FastAPI 앱 초기화
+        self.app = FastAPI(
+            title=f"{service_name} Service",
+            version=version,
+            description=f"Callytics {service_name} 마이크로서비스"
+        )
+        
+        # 공통 엔드포인트 등록
+        self._register_common_endpoints()
+        
+        # 서비스별 추가 엔드포인트 등록
+        self._register_service_endpoints()
+    
+    def _setup_logging(self) -> logging.Logger:
+        """표준 로깅 설정"""
+        logging.basicConfig(
+            level=logging.INFO,
+            format=f'%(asctime)s - {self.service_name} - %(levelname)s - %(message)s'
+        )
+        return logging.getLogger(self.service_name)
+    
+    def _register_common_endpoints(self):
+        """모든 서비스 공통 엔드포인트 등록"""
+        
+        @self.app.get("/health", response_model=HealthResponse)
+        async def health_check() -> HealthResponse:
+            """표준 헬스체크 엔드포인트"""
+            try:
+                # 서비스별 헬스체크 로직 실행
+                service_status = await self._health_check_impl()
+                
+                is_healthy = service_status.get('healthy', True)
+                model_ready = service_status.get('model_ready', True)
+                
+                return HealthResponse(
+                    status="healthy" if is_healthy else "unhealthy",
+                    service=self.service_name,
+                    version=self.version,
+                    timestamp=datetime.utcnow(),
+                    uptime_seconds=(datetime.utcnow() - self.start_time).total_seconds(),
+                    model_ready=model_ready,
+                    details=service_status.get('details', {})
+                )
+            except Exception as e:
+                self.logger.error(f"헬스체크 실패: {e}")
+                return HealthResponse(
+                    status="unhealthy",
+                    service=self.service_name,
+                    version=self.version,
+                    timestamp=datetime.utcnow(),
+                    uptime_seconds=(datetime.utcnow() - self.start_time).total_seconds(),
+                    model_ready=False,
+                    details={"error": str(e)}
+                )
+        
+        @self.app.get("/metrics", response_model=MetricsResponse)
+        async def get_metrics() -> MetricsResponse:
+            """표준 메트릭 엔드포인트"""
+            try:
+                # 시스템 메트릭 수집
+                cpu_percent = psutil.cpu_percent(interval=1)
+                memory = psutil.virtual_memory()
+                disk = psutil.disk_usage('/')
+                
+                # 서비스별 추가 메트릭 수집
+                service_metrics = await self._get_service_metrics()
+                
+                return MetricsResponse(
+                    service=self.service_name,
+                    timestamp=datetime.utcnow(),
+                    uptime_seconds=(datetime.utcnow() - self.start_time).total_seconds(),
+                    cpu_percent=cpu_percent,
+                    memory_percent=memory.percent,
+                    memory_available_gb=memory.available / (1024**3),
+                    disk_percent=disk.percent,
+                    disk_available_gb=disk.free / (1024**3),
+                    custom_metrics=service_metrics
+                )
+            except Exception as e:
+                self.logger.error(f"메트릭 수집 실패: {e}")
+                raise HTTPException(status_code=500, detail=f"메트릭 수집 실패: {str(e)}")
+        
+        @self.app.get("/", response_model=SuccessResponse)
+        async def root() -> SuccessResponse:
+            """루트 엔드포인트 - 서비스 정보 제공"""
+            endpoints = self._get_service_endpoints()
+            
+            return SuccessResponse(
+                status="success",
+                message=f"{self.service_name} Service가 실행 중입니다",
+                data={
+                    "service": self.service_name,
+                    "version": self.version,
+                    "port": self.port,
+                    "uptime_seconds": (datetime.utcnow() - self.start_time).total_seconds(),
+                    "endpoints": endpoints
+                }
+            )
+    
+    # 서비스별 구현이 필요한 추상 메서드들
+    
+    @abstractmethod
+    async def _health_check_impl(self) -> Dict[str, Any]:
+        """
+        서비스별 헬스체크 구현
+        반환값: {'healthy': bool, 'model_ready': bool, 'details': dict}
+        """
+        pass
+    
+    @abstractmethod
+    async def _get_service_metrics(self) -> Dict[str, Any]:
+        """
+        서비스별 추가 메트릭 수집
+        반환값: 서비스 고유 메트릭 딕셔너리
+        """
+        pass
+    
+    @abstractmethod
+    def _register_service_endpoints(self):
+        """서비스별 고유 엔드포인트 등록"""
+        pass
+    
+    @abstractmethod
+    def _get_service_endpoints(self) -> Dict[str, str]:
+        """서비스별 엔드포인트 목록 반환"""
+        pass
+    
+    # 공통 유틸리티 메서드들
+    
+    def util_log_request(self, endpoint: str, data_size: int | None = None):
+        """요청 로깅"""
+        message = f"{endpoint} 요청 처리 시작"
+        if data_size:
+            message += f" (데이터 크기: {data_size})"
+        self.logger.info(message)
+    
+    def util_log_response(self, endpoint: str, success: bool, duration_ms: float | None = None):
+        """응답 로깅"""
+        status = "성공" if success else "실패"
+        message = f"{endpoint} 요청 {status}"
+        if duration_ms:
+            message += f" (처리 시간: {duration_ms:.2f}ms)"
+        
+        if success:
+            self.logger.info(message)
+        else:
+            self.logger.error(message)
+    
+    def util_create_error_response(self, error: Exception, endpoint: str) -> HTTPException:
+        """표준 오류 응답 생성"""
+        self.logger.error(f"{endpoint} 오류: {error}")
+        return HTTPException(
+            status_code=500,
+            detail={
+                "error": str(error),
+                "service": self.service_name,
+                "endpoint": endpoint,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+    
+    def util_run(self, host: str = "0.0.0.0"):
+        """서비스 실행"""
+        import uvicorn
+        self.logger.info(f"{self.service_name} 서비스 시작 (포트: {self.port})")
+        uvicorn.util_run(self.app, host=host, port=self.port)
+
+
+class GPUService(BaseService):
+    """GPU 사용 서비스를 위한 기본 클래스"""
+    
+    def __init__(self, service_name: str, version: str = "1.0.0", port: int = 8000):
+        super().__init__(service_name, version, port)
+        self.gpu_available = self._check_gpu_availability()
+    
+    def _check_gpu_availability(self) -> bool:
+        """GPU 사용 가능 여부 확인"""
+        try:
+            import torch
+            return torch.cuda.is_available()
+        except ImportError:
+            return False
+    
+    async def _get_service_metrics(self) -> Dict[str, Any]:
+        """GPU 메트릭 포함한 기본 메트릭"""
+        metrics = {
+            "gpu_available": self.gpu_available
+        }
+        
+        if self.gpu_available:
+            try:
+                import torch
+                metrics["gpu_count"] = torch.cuda.device_count()
+                
+                if torch.cuda.device_count() > 0:
+                    gpu_memory = torch.cuda.get_device_properties(0)
+                    metrics["gpu_memory_total_gb"] = gpu_memory.total_memory / (1024**3)
+                    metrics["gpu_memory_allocated_gb"] = torch.cuda.memory_allocated(0) / (1024**3)
+                    metrics["gpu_memory_cached_gb"] = torch.cuda.memory_reserved(0) / (1024**3)
+            except Exception as e:
+                self.logger.warning(f"GPU 메트릭 수집 실패: {e}")
+        
+        # 서비스별 추가 메트릭 수집
+        service_metrics = await self._get_gpu_service_metrics()
+        metrics.update(service_metrics)
+        
+        return metrics
+    
+    @abstractmethod
+    async def _get_gpu_service_metrics(self) -> Dict[str, Any]:
+        """GPU 서비스별 추가 메트릭 수집"""
+        pass
+
+
+class ModelService(GPUService):
+    """AI 모델 사용 서비스를 위한 기본 클래스"""
+    
+    def __init__(self, service_name: str, version: str = "1.0.0", port: int = 8000):
+        super().__init__(service_name, version, port)
+        self.models_loaded = {}
+        self.model_preloader = None
+    
+    async def _health_check_impl(self) -> Dict[str, Any]:
+        """모델 서비스 헬스체크 - 모델 로딩 상태 확인"""
+        model_status = {}
+        
+        if self.model_preloader:
+            try:
+                status = self.model_preloader.get_status()
+                model_status = status
+                
+                # 모든 필요한 모델이 로딩되었는지 확인
+                required_models = self._get_required_models()
+                all_loaded = all(
+                    self.model_preloader.is_ready(model) 
+                    for model in required_models
+                )
+                
+                return {
+                    "healthy": True,
+                    "model_ready": all_loaded,
+                    "details": {
+                        "models": model_status,
+                        "required_models": required_models,
+                        "gpu_available": self.gpu_available
+                    }
+                }
+            except Exception as e:
+                return {
+                    "healthy": False,
+                    "model_ready": False,
+                    "details": {"error": str(e)}
+                }
+        else:
+            return {
+                "healthy": True,
+                "model_ready": False,
+                "details": {"message": "모델 사전 로딩 비활성화"}
+            }
+    
+    @abstractmethod
+    def _get_required_models(self) -> list:
+        """서비스에서 필요한 모델 목록 반환"""
+        pass
+    
+    @abstractmethod
+    async def _get_gpu_service_metrics(self) -> Dict[str, Any]:
+        """모델 서비스별 추가 메트릭"""
+        pass 

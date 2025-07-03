@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""
+GPU 모델 Pre-loading 및 캐싱 시스템
+분석 요청 시 즉시 처리 가능하도록 모델을 미리 로딩
+"""
+
+import os
+import time
+import logging
+import asyncio
+from typing import Dict, Any, Optional
+from pathlib import Path
+import torch
+from transformers import pipeline
+import whisper
+
+logger = logging.getLogger(__name__)
+
+class ModelPreloader:
+    """GPU 모델 사전 로딩 관리자"""
+    
+    def __init__(self):
+        self.models = {}
+        self.loading_status = {}
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.preload_complete = False
+        
+        logger.info(f"ModelPreloader 초기화 - 디바이스: {self.device}")
+    
+    async def preload_all_models(self):
+        """모든 필요한 모델을 병렬로 사전 로딩"""
+        start_time = time.time()
+        logger.info("🚀 GPU 모델 사전 로딩 시작...")
+        
+        # 병렬 로딩 태스크 생성
+        tasks = [
+            asyncio.create_task(self._load_whisper_model()),
+            asyncio.create_task(self._load_diarization_model()),
+            asyncio.create_task(self._load_sentiment_model()),
+            asyncio.create_task(self._load_punctuation_model()),
+        ]
+        
+        # 모든 모델 로딩 완료까지 대기
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 결과 확인
+        success_count = sum(1 for result in results if not isinstance(result, Exception))
+        total_time = time.time() - start_time
+        
+        self.preload_complete = success_count >= 3  # 최소 3개 모델 성공
+        
+        if self.preload_complete:
+            logger.info(f"✅ 모델 사전 로딩 완료! ({success_count}/4개 성공, {total_time:.1f}초)")
+        else:
+            logger.warning(f"⚠️ 모델 사전 로딩 부분 실패 ({success_count}/4개 성공)")
+        
+        return self.preload_complete
+    
+    async def _load_whisper_model(self):
+        """Whisper 음성 인식 모델 로딩"""
+        try:
+            logger.info("📥 Whisper 모델 로딩 중...")
+            self.loading_status['whisper'] = 'loading'
+            
+            # GPU 메모리 최적화
+            if self.device == "cuda":
+                torch.cuda.empty_cache()
+            
+            # Whisper 모델 로딩 (한국어 최적화)
+            model = whisper.load_model("medium", device=self.device)
+            
+            # 모델 warm-up (더미 데이터로 첫 추론)
+            dummy_audio = torch.zeros(16000, device=self.device)  # 1초 무음
+            _ = model.transcribe(dummy_audio.cpu().numpy())
+            
+            self.models['whisper'] = model
+            self.loading_status['whisper'] = 'ready'
+            logger.info("✅ Whisper 모델 준비 완료")
+            
+        except Exception as e:
+            logger.error(f"❌ Whisper 모델 로딩 실패: {e}")
+            self.loading_status['whisper'] = 'failed'
+            raise
+    
+    async def _load_diarization_model(self):
+        """화자 분리 모델 로딩"""
+        try:
+            logger.info("📥 화자 분리 모델 로딩 중...")
+            self.loading_status['diarization'] = 'loading'
+            
+            from pyannote.audio import Pipeline
+            
+            # 사전 훈련된 파이프라인 로딩
+            pipeline_model = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-3.1",
+                use_auth_token=os.getenv("HUGGINGFACE_TOKEN")
+            )
+            
+            if self.device == "cuda":
+                pipeline_model = pipeline_model.to(torch.device("cuda"))
+            
+            # 모델 warm-up
+            dummy_audio = {"waveform": torch.zeros(1, 16000), "sample_rate": 16000}
+            if self.device == "cuda":
+                dummy_audio["waveform"] = dummy_audio["waveform"].cuda()
+            
+            _ = pipeline_model(dummy_audio)
+            
+            self.models['diarization'] = pipeline_model
+            self.loading_status['diarization'] = 'ready'
+            logger.info("✅ 화자 분리 모델 준비 완료")
+            
+        except Exception as e:
+            logger.error(f"❌ 화자 분리 모델 로딩 실패: {e}")
+            self.loading_status['diarization'] = 'failed'
+            raise
+    
+    async def _load_sentiment_model(self):
+        """감정 분석 모델 로딩"""
+        try:
+            logger.info("📥 감정 분석 모델 로딩 중...")
+            self.loading_status['sentiment'] = 'loading'
+            
+            # 한국어 감정 분석 모델
+            sentiment_pipeline = pipeline(
+                "sentiment-analysis",
+                model="beomi/KcELECTRA-base-v2022",
+                device=0 if self.device == "cuda" else -1
+            )
+            
+            # 모델 warm-up
+            _ = sentiment_pipeline("안녕하세요")
+            
+            self.models['sentiment'] = sentiment_pipeline
+            self.loading_status['sentiment'] = 'ready'
+            logger.info("✅ 감정 분석 모델 준비 완료")
+            
+        except Exception as e:
+            logger.error(f"❌ 감정 분석 모델 로딩 실패: {e}")
+            self.loading_status['sentiment'] = 'failed'
+            raise
+    
+    async def _load_punctuation_model(self):
+        """문장 부호 복원 모델 로딩"""
+        try:
+            logger.info("📥 문장 부호 복원 모델 로딩 중...")
+            self.loading_status['punctuation'] = 'loading'
+            
+            # 한국어 문장 부호 복원 모델
+            punctuation_pipeline = pipeline(
+                "text2text-generation",
+                model="paust/pko-t5-base",
+                device=0 if self.device == "cuda" else -1
+            )
+            
+            # 모델 warm-up
+            _ = punctuation_pipeline("안녕하세요 오늘 날씨가 좋네요")
+            
+            self.models['punctuation'] = punctuation_pipeline
+            self.loading_status['punctuation'] = 'ready'
+            logger.info("✅ 문장 부호 복원 모델 준비 완료")
+            
+        except Exception as e:
+            logger.error(f"❌ 문장 부호 복원 모델 로딩 실패: {e}")
+            self.loading_status['punctuation'] = 'failed'
+            raise
+    
+    def get_model(self, model_name: str):
+        """로딩된 모델 반환"""
+        if model_name not in self.models:
+            raise ValueError(f"모델 '{model_name}'이 로딩되지 않았습니다")
+        return self.models[model_name]
+    
+    def is_ready(self, model_name: Optional[str] = None) -> bool:
+        """모델 준비 상태 확인"""
+        if model_name:
+            return self.loading_status.get(model_name) == 'ready'
+        return self.preload_complete
+    
+    def get_status(self) -> Dict[str, Any]:
+        """전체 모델 상태 반환"""
+        total_models = len(self.loading_status)
+        ready_models = sum(1 for status in self.loading_status.values() if status == 'ready')
+        
+        return {
+            "preload_complete": self.preload_complete,
+            "ready_models": ready_models,
+            "total_models": total_models,
+            "device": self.device,
+            "models_status": self.loading_status.copy(),
+            "memory_usage": self._get_memory_usage()
+        }
+    
+    def _get_memory_usage(self) -> Dict[str, Any]:
+        """GPU/CPU 메모리 사용량 반환"""
+        memory_info = {"cpu_memory": "N/A", "gpu_memory": "N/A"}
+        
+        try:
+            import psutil
+            memory_info["cpu_memory"] = f"{psutil.virtual_memory().percent:.1f}%"
+        except:
+            pass
+        
+        if torch.cuda.is_available():
+            try:
+                gpu_memory = torch.cuda.memory_allocated() / 1024**3  # GB
+                gpu_total = torch.cuda.get_device_properties(0).total_memory / 1024**3
+                memory_info["gpu_memory"] = f"{gpu_memory:.1f}GB / {gpu_total:.1f}GB"
+            except:
+                pass
+        
+        return memory_info
+    
+    async def cleanup(self):
+        """리소스 정리"""
+        logger.info("🧹 모델 리소스 정리 중...")
+        
+        for model_name in list(self.models.keys()):
+            del self.models[model_name]
+        
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
+        self.models.clear()
+        self.loading_status.clear()
+        self.preload_complete = False
+        
+        logger.info("✅ 모델 리소스 정리 완료")
+
+# 전역 인스턴스
+model_preloader = ModelPreloader() 

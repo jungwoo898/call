@@ -50,7 +50,7 @@ class AgentAudioUploadManager:
         self.upload_dir.mkdir(exist_ok=True)
         self.temp_dir.mkdir(exist_ok=True)
     
-    def validate_audio_file(self, file_path: str) -> Dict[str, Any]:
+    def upload_audio_validate_audio_file(self, file_path: str) -> Dict[str, Any]:
         """오디오 파일 유효성 검사"""
         try:
             import librosa
@@ -91,19 +91,19 @@ class AgentAudioUploadManager:
             logger.error(f"오디오 파일 검증 실패: {e}")
             return {"valid": False, "error": f"파일 검증 중 오류가 발생했습니다: {str(e)}"}
     
-    def generate_unique_filename(self, original_filename: str, agent_id: int) -> str:
+    def upload_audio_generate_unique_filename(self, original_filename: str, agent_id: int) -> str:
         """고유한 파일명 생성"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = get_current_time().strftime("%Y%m%d_%H%M%S")
         file_ext = Path(original_filename).suffix
         base_name = Path(original_filename).stem
         
         # 파일명 해시 생성 (중복 방지)
         hash_input = f"{agent_id}_{original_filename}_{timestamp}"
-        file_hash = hashlib.md5(hash_input.encode()).hexdigest()[:8]
+        file_hash = hashlib.md5(hash_input.encode("utf-8")).hexdigest()[:8]
         
         return f"agent_{agent_id}_{timestamp}_{file_hash}{file_ext}"
     
-    def upload_audio_with_agent_info(self, 
+    def upload_audio_upload_audio_with_agent_info(self, 
                                    session_token: str,
                                    audio_file_path: str,
                                    original_filename: str,
@@ -124,13 +124,13 @@ class AgentAudioUploadManager:
                 return None
             
             # 오디오 파일 검증
-            validation_result = self.validate_audio_file(audio_file_path)
+            validation_result = self.upload_audio_validate_audio_file(audio_file_path)
             if not validation_result["valid"]:
                 logger.error(f"오디오 파일 검증 실패: {validation_result['error']}")
                 return None
             
             # 고유 파일명 생성
-            unique_filename = self.generate_unique_filename(original_filename, agent_session.agent_id)
+            unique_filename = self.upload_audio_generate_unique_filename(original_filename, agent_session.agent_id)
             destination_path = self.upload_dir / unique_filename
             
             # 파일 복사
@@ -145,7 +145,7 @@ class AgentAudioUploadManager:
                 sample_rate=validation_result["sample_rate"],
                 channels=validation_result["channels"],
                 format_type=validation_result["format_type"],
-                upload_timestamp=datetime.now(),
+                upload_timestamp=get_current_time(),
                 agent_id=agent_session.agent_id,
                 agent_name=agent_session.full_name,
                 department=agent_session.department,
@@ -236,7 +236,7 @@ class AgentAudioUploadManager:
         except Exception as e:
             logger.error(f"세션 메타데이터 저장 실패: {e}")
     
-    def get_agent_upload_history(self, session_token: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def upload_audio_get_agent_upload_history(self, session_token: str, limit: int = 50) -> List[Dict[str, Any]]:
         """상담사 업로드 히스토리 조회"""
         try:
             # 세션 검증
@@ -275,7 +275,7 @@ class AgentAudioUploadManager:
             logger.error(f"업로드 히스토리 조회 실패: {e}")
             return []
     
-    def get_agent_analysis_summary(self, session_token: str) -> Dict[str, Any]:
+    def upload_audio_get_agent_analysis_summary(self, session_token: str) -> Dict[str, Any]:
         """상담사 분석 요약 조회"""
         try:
             # 세션 검증
@@ -311,7 +311,7 @@ class AgentAudioUploadManager:
             logger.error(f"분석 요약 조회 실패: {e}")
             return {}
     
-    def get_agent_performance_insights(self, session_token: str, days: int = 30) -> Dict[str, Any]:
+    def upload_audio_get_agent_performance_insights(self, session_token: str, days: int = 30) -> Dict[str, Any]:
         """상담사 성과 인사이트 조회"""
         try:
             # 세션 검증
@@ -381,7 +381,7 @@ class AgentAudioUploadManager:
             logger.error(f"성과 인사이트 조회 실패: {e}")
             return {}
     
-    def delete_uploaded_audio(self, session_token: str, session_id: int) -> bool:
+    def upload_audio_delete_uploaded_audio(self, session_token: str, session_id: int) -> bool:
         """업로드된 오디오 삭제"""
         try:
             # 세션 검증

@@ -1,0 +1,289 @@
+components:
+  responses:
+    ErrorResponse:
+      content:
+        application/json:
+          schema:
+            properties:
+              details:
+                type: object
+              error_code:
+                type: string
+              message:
+                example: 처리 실패
+                type: string
+              status:
+                example: error
+                type: string
+            required:
+            - status
+            - message
+            type: object
+      description: 오류 응답
+    SuccessResponse:
+      content:
+        application/json:
+          schema:
+            properties:
+              data:
+                type: object
+              message:
+                example: 처리 완료
+                type: string
+              status:
+                example: success
+                type: string
+            required:
+            - status
+            type: object
+      description: 성공 응답
+  schemas:
+    AnalysisResult:
+      properties:
+        data:
+          properties:
+            processing_time:
+              type: number
+            result:
+              type: object
+            timestamp:
+              format: date-time
+              type: string
+          type: object
+        message:
+          type: string
+        status:
+          enum:
+          - success
+          - error
+          type: string
+      required:
+      - status
+      type: object
+    AudioInput:
+      properties:
+        audio_data:
+          description: Base64 인코딩된 오디오 데이터
+          type: string
+        format:
+          default: wav
+          description: 오디오 포맷
+          enum:
+          - wav
+          - mp3
+          - flac
+          type: string
+        sample_rate:
+          default: 16000
+          description: 샘플링 레이트 (Hz)
+          type: integer
+      required:
+      - audio_data
+      type: object
+    TextInput:
+      properties:
+        language:
+          default: ko
+          description: 언어 코드
+          type: string
+        options:
+          description: 추가 옵션
+          type: object
+        text:
+          description: 분석할 텍스트
+          type: string
+      required:
+      - text
+      type: object
+info:
+  description: 음성 분석 및 텍스트 처리 마이크로서비스 API
+  title: Callytics API
+  version: 1.0.0
+openapi: 3.0.3
+paths:
+  /analyze:
+    post:
+      description: 감정 분석, 주제 분류, 품질 평가 등을 수행
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextInput'
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 텍스트 종합 분석
+      tags:
+      - Text Analysis
+  /enhance:
+    post:
+      description: 노이즈 제거 및 음성 품질 향상
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioInput'
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 오디오 품질 향상
+      tags:
+      - Audio Processing
+  /health:
+    get:
+      description: 데이터베이스 연결 상태 및 서비스 상태 확인
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 데이터베이스 상태 확인
+      tags:
+      - Database
+  /preprocess:
+    post:
+      description: 오디오 파일을 전처리하여 분석에 적합한 형태로 변환
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioInput'
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 오디오 전처리
+      tags:
+      - Audio Processing
+  /process:
+    post:
+      description: 오디오 업로드부터 분석 완료까지 전체 파이프라인 처리
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioInput'
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 통합 처리
+      tags:
+      - Gateway
+  /punctuation:
+    post:
+      description: 음성 인식 결과에 문장 부호 추가
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextInput'
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 문장 부호 복원
+      tags:
+      - Text Analysis
+  /save_result:
+    post:
+      description: 분석 결과를 데이터베이스에 저장
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                analysis_type:
+                  enum:
+                  - audio
+                  - text
+                  - quality
+                  type: string
+                metadata:
+                  type: object
+                result_data:
+                  type: object
+              required:
+              - analysis_type
+              - result_data
+              type: object
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 분석 결과 저장
+      tags:
+      - Database
+  /segment:
+    post:
+      description: 오디오에서 화자를 분리하고 세그먼트 생성
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioInput'
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 화자 분리
+      tags:
+      - Audio Processing
+  /sentiment:
+    post:
+      description: 텍스트의 감정을 분석
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextInput'
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+      summary: 감정 분석
+      tags:
+      - Text Analysis
+servers:
+- description: 개발 서버
+  url: http://localhost:8000
+- description: 오디오 처리 서버
+  url: http://localhost:8001
+- description: 텍스트 분석 서버
+  url: http://localhost:8002
+- description: 데이터베이스 서버
+  url: http://localhost:8003

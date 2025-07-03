@@ -9,8 +9,8 @@ from typing import Optional, Any, Annotated
 # Related third-party imports
 import yaml
 import torch
-import openai
-from openai import OpenAI
+# import openai  # 필요시 주석 해제
+# from openai import OpenAI  # 필요시 주석 해제
 from dotenv import load_dotenv
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 
@@ -34,7 +34,7 @@ class LanguageModel(ABC):
         self.config = config
 
     @abstractmethod
-    def generate(
+    def text_generate(
             self,
             messages: Annotated[list, "List of message dictionaries"],
             **kwargs: Annotated[Any, "Additional keyword arguments"]
@@ -56,7 +56,7 @@ class LanguageModel(ABC):
         """
         pass
 
-    def unload(self) -> Annotated[None, "Unload resources used by the language model"]:
+    def text_unload(self) -> Annotated[None, "Unload resources used by the language model"]:
         """
         Unload resources used by the language model.
         """
@@ -110,13 +110,13 @@ class LLaMAModel(LanguageModel):
             print(f"Pipeline 생성 실패, 직접 모델 사용: {e}")
             self.pipe = None
 
-    def generate(
+    def text_generate(
             self,
             messages: Annotated[list, "List of message dictionaries"],
             max_new_tokens: Annotated[int, "Maximum number of new tokens to generate"] = 10000,
             truncation: Annotated[bool, "Whether to truncate the input"] = True,
             batch_size: Annotated[int, "Batch size for generation"] = 1,
-            pad_token_id: Annotated[Optional[int], "Padding token ID"] = None
+            pad_token_id: Annotated[int | None, "Padding token ID"] = None
     ) -> Annotated[str, "Generated text"]:
         """
         Generate text based on input messages using the LLaMA model.
@@ -162,7 +162,7 @@ class LLaMAModel(LanguageModel):
                 inputs = {k: v.cuda() for k, v in inputs.items()}
             
             with torch.no_grad():
-                outputs = self.model.generate(
+                outputs = self.model.text_generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
                     pad_token_id=pad_token_id if pad_token_id is not None else self.tokenizer.eos_token_id,
@@ -192,7 +192,7 @@ class LLaMAModel(LanguageModel):
         str
             Formatted prompt.
         """
-        prompt = ""
+        prompt = None
         for message in messages:
             role = message.get("role", "").lower()
             content = message.get("content", "")
@@ -205,7 +205,7 @@ class LLaMAModel(LanguageModel):
         prompt += "Assistant:"
         return prompt
 
-    def unload(self) -> Annotated[None, "Unload the LLaMA model and release resources"]:
+    def text_unload(self) -> Annotated[None, "Unload the LLaMA model and release resources"]:
         """
         Unload the LLaMA model and release resources.
         """
@@ -229,13 +229,13 @@ class OpenAIModel(LanguageModel):
 
     def __init__(self, config: Annotated[dict, "Configuration for the OpenAI model"]):
         super().__init__(config)
-        openai_api_key = config.get('openai_api_key')
-        if not openai_api_key:
-            raise ValueError("OpenAI API key must be provided.")
-        self.client = OpenAI(api_key=openai_api_key)
+        # openai_api_key = config.get('openai_api_key')
+        # if not openai_api_key:
+        #     raise ValueError("OpenAI API key must be provided.")
+        # self.client = OpenAI(api_key=openai_api_key)
         self.model_name = config.get('model_name', 'gpt-4.1-nano')
 
-    def generate(
+    def text_generate(
             self,
             messages: Annotated[list, "List of message dictionaries"],
             max_length: Annotated[int, "Maximum number of tokens for the output"] = 10000,
@@ -275,8 +275,8 @@ class OpenAIModel(LanguageModel):
         if return_as_json is True:
             create_kwargs["response_format"] = {"type": "json_object"}
 
-        completion = self.client.chat.completions.create(**create_kwargs)
-        response_text = completion.choices[0].message.content
+        # completion = self.client.chat.completions.create(**create_kwargs)
+        response_text = None
 
         if return_as_json:
             try:
@@ -286,9 +286,9 @@ class OpenAIModel(LanguageModel):
 
         return response_text
 
-    def unload(self) -> Annotated[None, "Placeholder for OpenAI model unload (no local resources to release)"]:
+    def text_unload(self) -> Annotated[None, "Placeholder for OpenAI model text_unload(no local resources to release)"]:
         """
-        Placeholder for OpenAI model unload (no local resources to release).
+        Placeholder for OpenAI model text_unload(no local resources to release).
         """
         print(f"OpenAI model '{self.model_name}' unloaded.")
 
@@ -306,19 +306,19 @@ class AzureOpenAIModel(LanguageModel):
     def __init__(self, config: Annotated[dict, "Configuration for the Azure OpenAI model"]):
         super().__init__(config)
         self.model_name = config.get('model_name', 'gpt-4o')
-        self.api_key = config.get('azure_openai_api_key')
-        self.api_base = config.get('azure_openai_api_base')
-        self.api_version = config.get('azure_openai_api_version')
+        # self.api_key = config.get('azure_openai_api_key')
+        # self.api_base = config.get('azure_openai_api_base')
+        # self.api_version = config.get('azure_openai_api_version')
 
-        if not all([self.api_key, self.api_base, self.api_version]):
-            raise ValueError("Azure OpenAI API key, base, and version must be provided.")
+        # if not all([self.api_key, self.api_base, self.api_version]):
+        #     raise ValueError("Azure OpenAI API key, base, and version must be provided.")
 
-        openai.api_type = "azure"
-        openai.api_base = self.api_base
-        openai.api_version = self.api_version
-        openai.api_key = self.api_key
+        # openai.api_type = "azure"
+        # openai.api_base = self.api_base
+        # openai.api_version = self.api_version
+        # openai.api_key = self.api_key
 
-    def generate(
+    def text_generate(
             self,
             messages: Annotated[list, "List of message dictionaries"],
             max_length: Annotated[int, "Maximum number of tokens for the output"] = 10000,
@@ -341,17 +341,17 @@ class AzureOpenAIModel(LanguageModel):
         str
             Generated text.
         """
-        response = openai.ChatCompletion.create(
-            deployment_id=self.model_name,
-            messages=messages,
-            max_tokens=max_length,
-            temperature=kwargs.get('temperature', 0.7)
-        )
-        return response.choices[0].message['content']
+        # response = openai.ChatCompletion.create(
+        #     deployment_id=self.model_name,
+        #     messages=messages,
+        #     max_tokens=max_length,
+        #     temperature=kwargs.get('temperature', 0.7)
+        # )
+        return None
 
-    def unload(self) -> Annotated[None, "Placeholder for Azure OpenAI model unload (no local resources to release)"]:
+    def text_unload(self) -> Annotated[None, "Placeholder for Azure OpenAI model text_unload(no local resources to release)"]:
         """
-        Placeholder for Azure OpenAI model unload (no local resources to release).
+        Placeholder for Azure OpenAI model text_unload(no local resources to release).
         """
         print(f"Azure OpenAI model '{self.model_name}' unloaded.")
 
@@ -365,7 +365,7 @@ class ModelRegistry:
     _registry = {}
 
     @classmethod
-    def register(
+    def text_register(
             cls,
             model_id: Annotated[str, "Unique identifier for the model"],
             model_class: Annotated[type, "The class to register"]
@@ -383,7 +383,7 @@ class ModelRegistry:
         cls._registry[model_id.lower()] = model_class
 
     @classmethod
-    def get_model_class(cls, model_id: Annotated[str, "Unique identifier for the model"]) -> Annotated[
+    def text_get_model_class(cls, model_id: Annotated[str, "Unique identifier for the model"]) -> Annotated[
         type, "Model class"]:
         """
         Retrieve a model class by its unique identifier.
@@ -417,7 +417,7 @@ class ModelFactory:
     """
 
     @staticmethod
-    def create_model(
+    def text_create_model(
             model_id: Annotated[str, "Unique identifier for the model"],
             config: Annotated[dict, "Configuration for the model"]
     ) -> Annotated[LanguageModel, "Instance of the language model"]:
@@ -436,7 +436,7 @@ class ModelFactory:
         LanguageModel
             An instance of the language model.
         """
-        model_class = ModelRegistry.get_model_class(model_id)
+        model_class = ModelRegistry.text_get_model_class(model_id)
         return model_class(config)
 
 
@@ -523,19 +523,19 @@ class LanguageModelManager:
                 if not config:
                     raise ValueError(f"Model ID '{model_id}' not found in configuration.")
                 config['compute_type'] = self.runtime_config.get('compute_type', 'float16')
-                model = ModelFactory.create_model(model_id, config)
+                model = ModelFactory.text_create_model(model_id, config)
                 self.models[model_id] = model
                 if len(self.models) > self.cache_size:
                     oldest_model_id, oldest_model = self.models.popitem(last=False)
-                    oldest_model.unload()
+                    oldest_model.text_unload()
                 return model
 
-    async def generate(
+    async def text_generate(
             self,
             model_id: Annotated[str, "Unique identifier for the model"],
             messages: Annotated[list, "List of message dictionaries"],
             **kwargs: Annotated[Any, "Additional keyword arguments"]
-    ) -> Annotated[Optional[str], "Generated text or None if an error occurs"]:
+    ) -> Annotated[str | None, "Generated text or None if an error occurs"]:
         """
         Generate text using a specific language model.
 
@@ -555,17 +555,17 @@ class LanguageModelManager:
         """
         try:
             model = await self.get_model(model_id)
-            return model.generate(messages, **kwargs)
+            return model.text_generate(messages, **kwargs)
         except Exception as e:
             print(f"Error with model ({model_id}): {e}")
             return None
 
-    def unload_all(self) -> Annotated[None, "Unload all cached models and release resources"]:
+    def text_unload_all(self) -> Annotated[None, "Unload all cached models and release resources"]:
         """
         Unload all cached models and release resources.
         """
         for model in self.models.values():
-            model.unload()
+            model.text_unload()
         self.models.clear()
         print("All models have been unloaded.")
 
@@ -582,7 +582,7 @@ if __name__ == "__main__":
             {"role": "system", "content": "You are a pirate. Answer accordingly!"},
             {"role": "user", "content": "Who are you?"}
         ]
-        llama_output = await manager.generate(model_id=llama_model_id, messages=llama_messages)
+        llama_output = await manager.text_generate(model_id=llama_model_id, messages=llama_messages)
         print(f"LLaMA Model Output: {llama_output}")
 
 

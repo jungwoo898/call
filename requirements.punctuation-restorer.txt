@@ -1,18 +1,8 @@
-# 문장 부호 복원 서비스 - 완전한 기능
-fastapi==0.104.1
-uvicorn==0.24.0
-pydantic==2.5.0
-httpx==0.25.2
-psutil==5.9.6
+# punctuation-restorer 서비스 전용 라이브러리
+# 공통 라이브러리는 requirements_common.txt에서 관리
 
-# 텍스트 처리
-transformers==4.44.0
-tokenizers==0.15.0
-torch==2.1.2
+# 공통 라이브러리 포함
+-r requirements_common.txt
 
-# 한국어 처리
-konlpy==0.6.0
-
-# 로깅 및 모니터링
-structlog==23.2.0
-prometheus-client==0.19.0 
+# 서비스 전용 라이브러리
+deepmultilingualpunctuation==1.0.1

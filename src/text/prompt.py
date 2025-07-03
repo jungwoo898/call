@@ -72,7 +72,7 @@ class PromptManager:
                 raise TypeError(f"Expected dictionary from YAML, got {type(loaded_prompts).__name__}.")
             return loaded_prompts
 
-    def get_prompt(
+    def text_get_prompt(
             self,
             prompt_name: Annotated[str, "Name of the prompt to retrieve"],
             **kwargs: Annotated[dict, "Keyword arguments for formatting the prompt"]
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     try:
         prompt_manager = PromptManager()
 
-        formatted_prompt_ = prompt_manager.get_prompt(
+        formatted_prompt_ = prompt_manager.text_get_prompt(
             "greeting",
             name="Ahmet",
             day="Pazartesi"

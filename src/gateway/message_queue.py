@@ -197,7 +197,7 @@ class MessageQueue:
                 logger.error(f"컨슈머 워커 오류: {e}")
                 await asyncio.sleep(1)
     
-    def get_overall_stats(self) -> Dict[str, Any]:
+    def gateway_get_overall_stats(self) -> Dict[str, Any]:
         """전체 통계"""
         total_queued = sum(len(queue) for queue in self.queues.values())
         total_processing = len(self.processing_messages)

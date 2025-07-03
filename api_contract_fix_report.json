@@ -1,0 +1,224 @@
+{
+  "summary": {
+    "total_fixes": 42,
+    "fix_types": {
+      "type_hint_modernization": 25,
+      "null_empty_policy": 15,
+      "response_standardization": 1,
+      "schema_validation": 1
+    }
+  },
+  "fixes": [
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\audio\\analysis.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\audio\\effect.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\audio\\preprocessing.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\auth\\agent_auth.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\gateway\\advanced_orchestrator.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\text\\consultation_classifier.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\text\\model.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\text\\model_preloader.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\api_schemas.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\common_types.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\performance_monitor.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\structured_logger.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\utils\\type_definitions.py",
+      "type": "type_hint_modernization",
+      "description": "타입 힌트 현대화: Union\\[Dict,\\s*None\\] → Dict | None"
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\db\\postgres_manager.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\text\\chatgpt_analyzer.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\text\\integrated_analyzer.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\text\\model.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\text\\utils.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\utils\\type_definitions.py",
+      "type": "null_empty_policy",
+      "description": "null vs empty 정책 통일"
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "type": "response_standardization",
+      "description": "응답 구조 표준화"
+    },
+    {
+      "file": "src\\utils\\api_schemas.py",
+      "type": "schema_validation",
+      "description": "Pydantic 스키마 모델 추가"
+    }
+  ],
+  "backup_location": "backups\\api_contract_fixes"
+}

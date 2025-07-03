@@ -1,0 +1,172 @@
+# Callytics Cursor IDE 설정
+# 마이크로서비스 연동을 위한 개발 환경 설정
+
+project:
+  name: "Callytics"
+  description: "AI 기반 상담 품질 분석 시스템"
+  version: "1.0.0"
+
+# 마이크로서비스 환경 설정
+services:
+  # 🌐 API Gateway (메인 진입점)
+  api-gateway:
+    host: "localhost"
+    port: 8000
+    url: "http://localhost:8000"
+    container: "callytics-api-gateway"
+    healthcheck: "/health"
+    docs: "/docs"
+    primary: true
+    
+  # 🎵 오디오 처리 서비스
+  audio-processor:
+    host: "localhost"
+    port: 8001
+    url: "http://localhost:8001"
+    container: "callytics-audio-processor"
+    healthcheck: "/health"
+    docs: "/docs"
+    
+  # 🎤 화자 분리 서비스 (GPU)
+  speaker-diarizer:
+    host: "localhost"
+    port: 8002
+    url: "http://localhost:8002"
+    container: "callytics-speaker-diarizer"
+    healthcheck: "/health"
+    docs: "/docs"
+    gpu_required: true
+    
+  # 🗣️ 음성 인식 서비스 (GPU)
+  speech-recognizer:
+    host: "localhost"
+    port: 8003
+    url: "http://localhost:8003"
+    container: "callytics-speech-recognizer"
+    healthcheck: "/health"
+    docs: "/docs"
+    gpu_required: true
+    
+  # 📝 문장 부호 복원 서비스
+  punctuation-restorer:
+    host: "localhost"
+    port: 8004
+    url: "http://localhost:8004"
+    container: "callytics-punctuation-restorer"
+    healthcheck: "/health"
+    docs: "/docs"
+    
+  # 🧠 감정 분석 서비스
+  sentiment-analyzer:
+    host: "localhost"
+    port: 8005
+    url: "http://localhost:8005"
+    container: "callytics-sentiment-analyzer"
+    healthcheck: "/health"
+    docs: "/docs"
+    
+  # 🤖 LLM 분석 서비스
+  llm-analyzer:
+    host: "localhost"
+    port: 8006
+    url: "http://localhost:8006"
+    container: "callytics-llm-analyzer"
+    healthcheck: "/health"
+    docs: "/docs"
+    
+  # 🗄️ 데이터베이스 서비스
+  database-service:
+    host: "localhost"
+    port: 8007
+    url: "http://localhost:8007"
+    container: "callytics-database-service"
+    healthcheck: "/health"
+    docs: "/docs"
+
+# 🔴 외부 서비스
+external_services:
+  redis:
+    host: "localhost"
+    port: 6379
+    url: "redis://localhost:6379"
+    container: "callytics-redis"
+    
+  prometheus:
+    host: "localhost"
+    port: 9090
+    url: "http://localhost:9090"
+    container: "prometheus"
+    
+  grafana:
+    host: "localhost"
+    port: 3000
+    url: "http://localhost:3000"
+    container: "grafana"
+
+# 서비스 시작 순서 및 종속성
+startup_order:
+  1: ["redis"]
+  2: ["database-service"]
+  3: ["audio-processor", "punctuation-restorer", "sentiment-analyzer"]
+  4: ["speaker-diarizer", "speech-recognizer", "llm-analyzer"]
+  5: ["api-gateway"]
+  6: ["prometheus", "grafana"]
+
+# 개발 환경 설정
+development:
+  hot_reload: true
+  auto_restart: true
+  log_level: "INFO"
+  debug_mode: true
+  
+  # 환경 변수
+  environment:
+    TZ: "Asia/Seoul"
+    LANG: "ko_KR.UTF-8"
+    LC_ALL: "ko_KR.UTF-8"
+    PYTHONIOENCODING: "utf-8"
+    
+  # 개발용 포트 포워딩
+  port_forwarding:
+    enabled: true
+    auto_detect: true
+
+# API 테스트 설정
+testing:
+  base_url: "http://localhost:8000"
+  timeout: 30
+  retry_count: 3
+  
+  # 테스트 시나리오
+  scenarios:
+    health_check:
+      - GET /health
+    full_pipeline:
+      - POST /upload_audio
+      - POST /process_audio
+      - GET /status
+
+# 로깅 설정
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/cursor-ide.log"
+  
+# Docker 설정
+docker:
+  compose_file: "docker-compose-microservices.yml"
+  network: "callytics-net"
+  auto_build: true
+  auto_cleanup: false
+
+# 코드 분석 설정
+analysis:
+  python:
+    enabled: true
+    linter: ["pylint", "black", "isort"]
+    type_checker: "mypy"
+    
+  api:
+    schema_validation: true
+    openapi_spec: true
+    auto_documentation: true 

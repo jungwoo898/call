@@ -1,0 +1,892 @@
+{
+  "summary": {
+    "total_endpoints": 70,
+    "data_formats": 16,
+    "encoding_issues": 19,
+    "locale_issues": 17,
+    "response_structures": 11,
+    "request_structures": 27
+  },
+  "endpoints": [
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/preprocess",
+      "full_path": "POST /preprocess"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/enhance",
+      "full_path": "POST /enhance"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/segment",
+      "full_path": "POST /segment"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/preprocess",
+      "full_path": "POST /preprocess"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/enhance",
+      "full_path": "POST /enhance"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/segment",
+      "full_path": "POST /segment"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_result",
+      "full_path": "POST /save_result"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_audio_analysis",
+      "full_path": "POST /save_audio_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_quality_analysis",
+      "full_path": "POST /save_quality_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/get_analysis/{analysis_id}",
+      "full_path": "GET /get_analysis/{analysis_id}"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/list_analyses",
+      "full_path": "GET /list_analyses"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_result",
+      "full_path": "POST /save_result"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_audio_analysis",
+      "full_path": "POST /save_audio_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_quality_analysis",
+      "full_path": "POST /save_quality_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/get_analysis/{analysis_id}",
+      "full_path": "GET /get_analysis/{analysis_id}"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/list_analyses",
+      "full_path": "GET /list_analyses"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/upload_audio",
+      "full_path": "POST /upload_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio_fast",
+      "full_path": "POST /process_audio_fast"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio",
+      "full_path": "POST /process_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/saga/{saga_id}",
+      "full_path": "GET /saga/{saga_id}"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/queue/stats",
+      "full_path": "GET /queue/stats"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/",
+      "full_path": "GET /"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/upload_audio",
+      "full_path": "POST /upload_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio_fast",
+      "full_path": "POST /process_audio_fast"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio",
+      "full_path": "POST /process_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/saga/{saga_id}",
+      "full_path": "GET /saga/{saga_id}"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/queue/stats",
+      "full_path": "GET /queue/stats"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/",
+      "full_path": "GET /"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health/all",
+      "full_path": "GET /health/all"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics/service",
+      "full_path": "GET /metrics/service"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health/all",
+      "full_path": "GET /health/all"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics/service",
+      "full_path": "GET /metrics/service"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze",
+      "full_path": "POST /analyze"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_with_trend",
+      "full_path": "POST /analyze_with_trend"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/generate_insights",
+      "full_path": "POST /generate_insights"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_complaints",
+      "full_path": "POST /analyze_complaints"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze",
+      "full_path": "POST /analyze"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_with_trend",
+      "full_path": "POST /analyze_with_trend"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/generate_insights",
+      "full_path": "POST /generate_insights"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_complaints",
+      "full_path": "POST /analyze_complaints"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/diarize",
+      "full_path": "POST /diarize"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/analyze_speakers",
+      "full_path": "POST /analyze_speakers"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/diarize",
+      "full_path": "POST /diarize"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/analyze_speakers",
+      "full_path": "POST /analyze_speakers"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore",
+      "full_path": "POST /restore"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore_text",
+      "full_path": "POST /restore_text"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore",
+      "full_path": "POST /restore"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore_text",
+      "full_path": "POST /restore_text"
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "method": "POST",
+      "path": "/analyze",
+      "full_path": "POST /analyze"
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_trend",
+      "full_path": "POST /analyze_trend"
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_emotion",
+      "full_path": "POST /analyze_emotion"
+    },
+    {
+      "file": "src\\text\\speech_recognizer.py",
+      "method": "POST",
+      "path": "/transcribe",
+      "full_path": "POST /transcribe"
+    },
+    {
+      "file": "src\\text\\speech_recognizer.py",
+      "method": "POST",
+      "path": "/transcribe_file",
+      "full_path": "POST /transcribe_file"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "method": "GET",
+      "path": "/",
+      "full_path": "GET /"
+    }
+  ],
+  "data_formats": [
+    {
+      "file": "src\\audio\\analysis.py",
+      "format_type": "파일 업로드",
+      "pattern": "File\\("
+    },
+    {
+      "file": "src\\gateway\\advanced_orchestrator.py",
+      "format_type": "JSON 메서드",
+      "pattern": "\\.json\\(\\)"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "format_type": "JSON 응답",
+      "pattern": "JSONResponse"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "format_type": "JSON 메서드",
+      "pattern": "\\.json\\(\\)"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "format_type": "파일 업로드",
+      "pattern": "File\\("
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "format_type": "파일 업로드",
+      "pattern": "UploadFile"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "format_type": "JSON 응답",
+      "pattern": "JSONResponse"
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "format_type": "JSON 메서드",
+      "pattern": "\\.json\\(\\)"
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "format_type": "JSON 응답",
+      "pattern": "JSONResponse"
+    },
+    {
+      "file": "src\\text\\speech_recognizer.py",
+      "format_type": "JSON 응답",
+      "pattern": "JSONResponse"
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "format_type": "JSON 응답",
+      "pattern": "JSONResponse"
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "format_type": "JSON Content-Type",
+      "pattern": "application/json"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "format_type": "JSON 응답",
+      "pattern": "JSONResponse"
+    },
+    {
+      "file": "src\\utils\\common_types.py",
+      "format_type": "JSON 응답",
+      "pattern": "JSONResponse"
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "format_type": "JSON Content-Type",
+      "pattern": "application/json"
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "format_type": "JSON 메서드",
+      "pattern": "\\.json\\(\\)"
+    }
+  ],
+  "encoding_issues": [
+    {
+      "file": "src\\audio\\advanced_processing.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "\\.encode\\([\"\\']utf-8[\"\\']\\)"
+    },
+    {
+      "file": "src\\audio\\io.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\auth\\agent_auth.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "\\.encode\\([\"\\']utf-8[\"\\']\\)"
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "\\.encode\\([\"\\']utf-8[\"\\']\\)"
+    },
+    {
+      "file": "src\\text\\complaint_analyzer.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\text\\model.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\text\\utils.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\utils\\common_functions.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\utils\\performance_monitor.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "\\.encode\\([\"\\']utf-8[\"\\']\\)"
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "encoding_type": "UTF-8 디코딩",
+      "pattern": "\\.decode\\([\"\\']utf-8[\"\\']\\)"
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    },
+    {
+      "file": "src\\utils\\structured_logger.py",
+      "encoding_type": "UTF-8 인코딩",
+      "pattern": "encoding\\s*=\\s*[\"\\']utf-8[\"\\']"
+    }
+  ],
+  "locale_issues": [
+    {
+      "file": "src\\audio\\advanced_processing.py",
+      "locale_type": "한국어",
+      "pattern": "language\\s*=\\s*[\"\\']ko[\"\\']"
+    },
+    {
+      "file": "src\\auth\\agent_auth.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "locale_type": "시간 포맷",
+      "pattern": "strftime\\s*\\("
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "locale_type": "시간 포맷",
+      "pattern": "strftime\\s*\\("
+    },
+    {
+      "file": "src\\text\\integrated_analyzer.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\text\\utils.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\upload\\agent_audio_upload.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\upload\\agent_audio_upload.py",
+      "locale_type": "시간 포맷",
+      "pattern": "strftime\\s*\\("
+    },
+    {
+      "file": "src\\utils\\api_schemas.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\utils\\common_endpoints.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\utils\\common_functions.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    },
+    {
+      "file": "src\\utils\\performance_monitor.py",
+      "locale_type": "시간 포맷",
+      "pattern": "strftime\\s*\\("
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "locale_type": "현재 시간",
+      "pattern": "datetime\\.now\\(\\)"
+    }
+  ],
+  "response_structures": [
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "structure_type": "error 필드 (표준과 다름)",
+      "pattern": "return\\s+\\{\\s*\"error\""
+    },
+    {
+      "file": "src\\db\\postgres_manager.py",
+      "structure_type": "status 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"status\""
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "structure_type": "status 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"status\""
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "structure_type": "error 필드 (표준과 다름)",
+      "pattern": "return\\s+\\{\\s*\"error\""
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "structure_type": "status 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"status\""
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "structure_type": "result 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"result\""
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "structure_type": "error 필드 (표준과 다름)",
+      "pattern": "return\\s+\\{\\s*\"error\""
+    },
+    {
+      "file": "src\\utils\\api_adapter.py",
+      "structure_type": "result 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"result\""
+    },
+    {
+      "file": "src\\utils\\common_endpoints.py",
+      "structure_type": "status 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"status\""
+    },
+    {
+      "file": "src\\utils\\performance_monitor.py",
+      "structure_type": "message 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"message\""
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "structure_type": "status 필드 있음",
+      "pattern": "return\\s+\\{\\s*\"status\""
+    }
+  ],
+  "request_structures": [
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\audio\\analysis.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\audio\\analysis.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\gateway\\message_queue.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\gateway\\saga_orchestrator.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\text\\consultation_classifier.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\text\\model.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\text\\model_preloader.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\text\\prompt.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\text\\speech_recognizer.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\text\\utils.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\upload\\agent_audio_upload.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\utils\\api_adapter.py",
+      "request_type": "필드 접근",
+      "pattern": "\\.get\\([\"\\']([^\"\\']+)[\"\\']\\)"
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\utils\\circuit_breaker.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\utils\\common_endpoints.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\utils\\structured_logger.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    },
+    {
+      "file": "src\\utils\\type_definitions.py",
+      "request_type": "필드 존재 확인",
+      "pattern": "if\\s+.*\\s+not\\s+in"
+    }
+  ]
+}

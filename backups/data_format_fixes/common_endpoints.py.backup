@@ -1,0 +1,178 @@
+"""
+공통 엔드포인트 모듈
+중복된 health_check와 get_metrics 함수를 통합하여 일관된 네임스페이스 제공
+"""
+
+import asyncio
+import psutil
+from typing import Dict, Any, Optional
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+class CommonEndpoints:
+    """공통 엔드포인트 클래스 - 모든 서비스에서 재사용"""
+    
+    def __init__(self, service_name: str, service_version: str = "1.0.0"):
+        self.service_name = service_name
+        self.service_version = service_version
+        self.start_time = datetime.now()
+    
+    async def health_check(self, 
+                          additional_checks: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        통합된 헬스체크 엔드포인트
+        
+        Parameters
+        ----------
+        additional_checks : Optional[Dict[str, Any]]
+            서비스별 추가 체크 항목
+            
+        Returns
+        -------
+        Dict[str, Any]
+            헬스체크 결과
+        """
+        try:
+            # 기본 시스템 체크
+            cpu_percent = psutil.cpu_percent(interval=1)
+            memory = psutil.virtual_memory()
+            
+            # GPU 체크 (가능한 경우)
+            gpu_metrics = {}
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    gpu_metrics = {
+                        "gpu_count": torch.cuda.device_count(),
+                        "gpu_memory_allocated": torch.cuda.memory_allocated() / 1024**3,  # GB
+                        "gpu_memory_reserved": torch.cuda.memory_reserved() / 1024**3,    # GB
+                    }
+            except ImportError:
+                pass
+            
+            # 기본 응답 구성
+            response = {
+                "status": "healthy",
+                "service": self.service_name,
+                "version": self.service_version,
+                "timestamp": datetime.now().isoformat(),
+                "uptime": (datetime.now() - self.start_time).total_seconds(),
+                "system": {
+                    "cpu_percent": cpu_percent,
+                    "memory_percent": memory.percent,
+                    "memory_available_gb": memory.available / 1024**3,
+                },
+                "gpu": gpu_metrics
+            }
+            
+            # 추가 체크 항목 병합
+            if additional_checks:
+                response.update(additional_checks)
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return {
+                "status": "unhealthy",
+                "service": self.service_name,
+                "version": self.service_version,
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
+    
+    async def get_metrics(self, 
+                         additional_metrics: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        통합된 메트릭 엔드포인트
+        
+        Parameters
+        ----------
+        additional_metrics : Optional[Dict[str, Any]]
+            서비스별 추가 메트릭
+            
+        Returns
+        -------
+        Dict[str, Any]
+            메트릭 데이터
+        """
+        try:
+            # 기본 시스템 메트릭
+            cpu_percent = psutil.cpu_percent(interval=1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            
+            # 네트워크 메트릭
+            network = psutil.net_io_counters()
+            
+            # 기본 메트릭 구성
+            metrics = {
+                "timestamp": datetime.now().isoformat(),
+                "service": self.service_name,
+                "system": {
+                    "cpu_percent": cpu_percent,
+                    "memory_percent": memory.percent,
+                    "memory_available_gb": memory.available / 1024**3,
+                    "memory_used_gb": memory.used / 1024**3,
+                    "disk_percent": disk.percent,
+                    "disk_free_gb": disk.free / 1024**3,
+                },
+                "network": {
+                    "bytes_sent": network.bytes_sent,
+                    "bytes_recv": network.bytes_recv,
+                    "packets_sent": network.packets_sent,
+                    "packets_recv": network.packets_recv,
+                }
+            }
+            
+            # GPU 메트릭 (가능한 경우)
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    metrics["gpu"] = {
+                        "gpu_count": torch.cuda.device_count(),
+                        "gpu_memory_allocated": torch.cuda.memory_allocated() / 1024**3,
+                        "gpu_memory_reserved": torch.cuda.memory_reserved() / 1024**3,
+                    }
+            except ImportError:
+                pass
+            
+            # 추가 메트릭 병합
+            if additional_metrics:
+                metrics.update(additional_metrics)
+            
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"Metrics collection failed: {e}")
+            return {
+                "timestamp": datetime.now().isoformat(),
+                "service": self.service_name,
+                "error": str(e)
+            }
+
+# 싱글톤 인스턴스 (서비스별로 생성)
+_common_endpoints = {}
+
+def util_get_common_endpoints(service_name: str, service_version: str = "1.0.0") -> CommonEndpoints:
+    """
+    공통 엔드포인트 인스턴스 가져오기
+    
+    Parameters
+    ----------
+    service_name : str
+        서비스 이름
+    service_version : str
+        서비스 버전
+        
+    Returns
+    -------
+    CommonEndpoints
+        공통 엔드포인트 인스턴스
+    """
+    if service_name not in _common_endpoints:
+        _common_endpoints[service_name] = CommonEndpoints(service_name, service_version)
+    
+    return _common_endpoints[service_name] 

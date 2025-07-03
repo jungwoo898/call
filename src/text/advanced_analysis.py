@@ -14,8 +14,8 @@ import logging
 
 # Related third-party imports
 import torch
-import openai
-from openai import OpenAI
+# import openai  # 필요시 주석 해제
+# from openai import OpenAI  # 필요시 주석 해제
 
 # Local imports
 from src.text.model import LanguageModelManager
@@ -64,7 +64,7 @@ class KoreanPunctuationAnalyzer:
             }
         }
     
-    def analyze_punctuation(self, text: str) -> QualityScore:
+    def text_analyze_punctuation(self, text: str) -> QualityScore:
         """문장 부호 사용 규칙 분석"""
         total_score = 0
         total_weight = 0
@@ -207,7 +207,7 @@ class KNUSentimentAnalyzer:
             '지연': 1, '지체': 1, '늦다': 1
         }
     
-    def analyze_sentiment(self, text: str) -> QualityScore:
+    def text_analyze_sentiment(self, text: str) -> QualityScore:
         """KNU 감성사전 기반 감성 분석"""
         positive_count = 0
         negative_count = 0
@@ -370,7 +370,7 @@ class CommunicationQualityAnalyzer:
         # 문장 부호 분석기 초기화
         self.punctuation_analyzer = KoreanPunctuationAnalyzer()
     
-    def analyze_communication_quality(self, text: str) -> Dict[str, QualityScore]:
+    def text_analyze_communication_quality(self, text: str) -> Dict[str, QualityScore]:
         """통신사 상담사 수준의 의사소통 품질 종합 분석"""
         results = {}
         
@@ -396,10 +396,10 @@ class CommunicationQualityAnalyzer:
         results['apology_expressions'] = self._analyze_apology_expressions(text)
         
         # 8. 문장 부호 사용 분석
-        results['punctuation'] = self.punctuation_analyzer.analyze_punctuation(text)
+        results['punctuation'] = self.punctuation_analyzer.text_analyze_punctuation(text)
         
         # 9. KNU 감성 분석
-        results['sentiment'] = self.knu_analyzer.analyze_sentiment(text)
+        results['sentiment'] = self.knu_analyzer.text_analyze_sentiment(text)
         
         return results
     
@@ -459,7 +459,7 @@ class CommunicationQualityAnalyzer:
     def _analyze_negative_expressions(self, text: str) -> QualityScore:
         """부정적 표현 분석 (KNU 감성 분석과 연동)"""
         # KNU 감성 분석 결과 활용
-        knu_result = self.knu_analyzer.analyze_sentiment(text)
+        knu_result = self.knu_analyzer.text_analyze_sentiment(text)
         knu_negative_ratio = knu_result.details.get('negative_ratio', 0)
         knu_negative_intensity = knu_result.details.get('negative_intensity', 0)
         
@@ -800,7 +800,7 @@ class CommunicationQualityAnalyzer:
         
         return QualityScore(score=score, details=details, examples=examples)
 
-    def _calculate_avg_response_latency(self, utterances_data: List[Dict[str, Any]]) -> Optional[float]:
+    def _calculate_avg_response_latency(self, utterances_data: List[Dict[str, Any]]) -> float | None:
         """평균 응답 지연 시간 계산 (avg_response_latency)"""
         try:
             if not utterances_data or len(utterances_data) < 2:
@@ -845,7 +845,7 @@ class CommunicationQualityAnalyzer:
             print(f"⚠️ 평균 응답 지연 시간 계산 실패: {e}")
             return None
 
-    def _calculate_interruption_count(self, utterances_data: List[Dict[str, Any]]) -> Optional[int]:
+    def _calculate_interruption_count(self, utterances_data: List[Dict[str, Any]]) -> int | None:
         """대화 가로채기 횟수 계산 (interruption_count)"""
         try:
             if not utterances_data or len(utterances_data) < 2:
@@ -893,7 +893,7 @@ class CommunicationQualityAnalyzer:
             print(f"⚠️ 대화 가로채기 횟수 계산 실패: {e}")
             return 0
 
-    def _calculate_silence_ratio(self, utterances_data: List[Dict[str, Any]]) -> Optional[float]:
+    def _calculate_silence_ratio(self, utterances_data: List[Dict[str, Any]]) -> float | None:
         """침묵 비율 계산 (silence_ratio)"""
         try:
             if not utterances_data:
@@ -933,7 +933,7 @@ class CommunicationQualityAnalyzer:
             print(f"⚠️ 침묵 비율 계산 실패: {e}")
             return 0.0
 
-    def _calculate_talk_ratio(self, utterances_data: List[Dict[str, Any]]) -> Optional[float]:
+    def _calculate_talk_ratio(self, utterances_data: List[Dict[str, Any]]) -> float | None:
         """발화 시간 비율 계산 (talk_ratio)"""
         try:
             if not utterances_data:
@@ -970,10 +970,10 @@ class CommunicationQualityAnalyzer:
             print(f"⚠️ 발화 시간 비율 계산 실패: {e}")
             return 0.0
 
-def analyze_communication_quality_advanced(text: str) -> Dict[str, any]:
+def text_analyze_communication_quality_advanced(text: str) -> Dict[str, any]:
     """고급 의사소통 품질 분석 (통신사 상담사 수준)"""
     analyzer = CommunicationQualityAnalyzer()
-    results = analyzer.analyze_communication_quality(text)
+    results = analyzer.text_analyze_communication_quality(text)
     
     # 종합 점수 계산 (KNU 감성 분석 포함)
     weights = {
@@ -1112,7 +1112,7 @@ class AdvancedAnalysisManager:
         """캐시 메타데이터 로드"""
         try:
             if self.cache_metadata_file.exists():
-                with open(self.cache_metadata_file, 'r') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 로드 실패: {e}")
@@ -1121,7 +1121,7 @@ class AdvancedAnalysisManager:
     def _save_cache_metadata(self):
         """캐시 메타데이터 저장"""
         try:
-            with open(self.cache_metadata_file, 'w') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(self.cache_metadata, f, indent=2)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 저장 실패: {e}")
@@ -1254,7 +1254,7 @@ class AdvancedAnalysisManager:
                 return self._load_from_cache(cached_info)
             
             # 새로운 고급 분석 시스템 사용
-            analysis_result = analyze_communication_quality_advanced(text)
+            analysis_result = text_analyze_communication_quality_advanced(text)
             analysis_result["method"] = "parallel_advanced"
             
             # 캐시에 저장
@@ -1264,15 +1264,14 @@ class AdvancedAnalysisManager:
             
         except Exception as e:
             print(f"⚠️ 병렬 의사소통 품질 분석 실패: {e}")
-            return {
-                "error": str(e),
+            return {"status": "error": str(e),
                 "method": "fallback"
             }
     
     def _analyze_clarity(self, text: str) -> float:
         """명확성 분석 (통신사 상담사 수준)"""
         analyzer = CommunicationQualityAnalyzer()
-        results = analyzer.analyze_communication_quality(text)
+        results = analyzer.text_analyze_communication_quality(text)
         
         # 명확성은 전문성과 구체적 정보 제공의 조합
         expertise_score = results.get('expertise', QualityScore(0, {}, [])).score
@@ -1286,7 +1285,7 @@ class AdvancedAnalysisManager:
     def _analyze_politeness(self, text: str) -> float:
         """예의성 분석 (통신사 상담사 수준)"""
         analyzer = CommunicationQualityAnalyzer()
-        results = analyzer.analyze_communication_quality(text)
+        results = analyzer.text_analyze_communication_quality(text)
         
         # 예의성은 존댓말 사용과 부정적 표현 회피의 조합
         politeness_score = results.get('politeness', QualityScore(0, {}, [])).score
@@ -1300,7 +1299,7 @@ class AdvancedAnalysisManager:
     def _analyze_empathy(self, text: str) -> float:
         """공감성 분석 (통신사 상담사 수준)"""
         analyzer = CommunicationQualityAnalyzer()
-        results = analyzer.analyze_communication_quality(text)
+        results = analyzer.text_analyze_communication_quality(text)
         
         # 공감성 점수 반환
         empathy_score = results.get('empathy', QualityScore(0, {}, [])).score
@@ -1310,7 +1309,7 @@ class AdvancedAnalysisManager:
     def _analyze_professionalism(self, text: str) -> float:
         """전문성 분석 (통신사 상담사 수준)"""
         analyzer = CommunicationQualityAnalyzer()
-        results = analyzer.analyze_communication_quality(text)
+        results = analyzer.text_analyze_communication_quality(text)
         
         # 전문성 점수 반환
         expertise_score = results.get('expertise', QualityScore(0, {}, [])).score
@@ -1320,7 +1319,7 @@ class AdvancedAnalysisManager:
     def _analyze_response_quality(self, text: str) -> float:
         """응답 품질 분석 (통신사 상담사 수준)"""
         analyzer = CommunicationQualityAnalyzer()
-        results = analyzer.analyze_communication_quality(text)
+        results = analyzer.text_analyze_communication_quality(text)
         
         # 응답 품질은 모든 지표의 종합
         weights = {
@@ -1418,8 +1417,7 @@ class AdvancedAnalysisManager:
             
         except Exception as e:
             print(f"⚠️ 종합 분석 실패: {e}")
-            return {
-                "error": str(e),
+            return {"status": "error": str(e),
                 "analysis_metadata": {
                     "text_length": len(text),
                     "processing_time": 0,
@@ -1472,11 +1470,11 @@ class AdvancedAnalysisManager:
             print(f"⚠️ 배치 분석 실패: {e}")
             return [{"error": str(e)} for _ in texts]
     
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def text_get_performance_stats(self) -> Dict[str, Any]:
         """성능 통계 반환"""
         return self.performance_stats.copy()
     
-    def cleanup_cache(self, max_age_hours: int = 24):
+    def text_cleanup_cache(self, max_age_hours: int = 24):
         """오래된 캐시 정리"""
         try:
             current_time = time.time()
@@ -1509,12 +1507,98 @@ class AdvancedAnalysisManager:
         except Exception as e:
             print(f"⚠️ 분석 캐시 정리 실패: {e}")
     
-    def cleanup(self):
+    def text_cleanup(self):
         """리소스 정리"""
         if self.executor:
             self.executor.shutdown(wait=True)
+    
+    async def transcribe_segments_async(self, segments: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        세그먼트 기반 음성 인식 (비동기)
+        
+        Parameters
+        ----------
+        segments : List[Dict[str, Any]]
+            오디오 세그먼트 목록
+            
+        Returns
+        -------
+        List[Dict[str, Any]]
+            전사 결과 목록
+        """
+        try:
+            import whisper
+            
+            # Whisper 모델 로드 (캐싱)
+            if not hasattr(self, '_whisper_model'):
+                self._whisper_model = whisper.load_model("base")
+            
+            transcriptions = []
+            for segment in segments:
+                audio_path = segment.get('audio_path')
+                start_time = segment.get('start', 0)
+                end_time = segment.get('end', 0)
+                
+                if audio_path:
+                    # Whisper로 전사
+                    result = self._whisper_model.transcribe(audio_path)
+                    
+                    transcriptions.append({
+                        'start': start_time,
+                        'end': end_time,
+                        'text': result.get('text', ''),
+                        'language': result.get('language', 'ko'),
+                        'audio_path': audio_path
+                    })
+            
+            return transcriptions
+            
+        except Exception as e:
+            logger.error(f"세그먼트 음성 인식 실패: {e}")
+            return []
+    
+    async def transcribe_audio_async(self, audio_path: str) -> Dict[str, Any]:
+        """
+        오디오 파일 전체 음성 인식 (비동기)
+        
+        Parameters
+        ----------
+        audio_path : str
+            오디오 파일 경로
+            
+        Returns
+        -------
+        Dict[str, Any]
+            전사 결과
+        """
+        try:
+            import whisper
+            
+            # Whisper 모델 로드 (캐싱)
+            if not hasattr(self, '_whisper_model'):
+                self._whisper_model = whisper.load_model("base")
+            
+            # Whisper로 전사
+            result = self._whisper_model.transcribe(audio_path)
+            
+            return {
+                'text': result.get('text', ''),
+                'language': result.get('language', 'ko'),
+                'segments': result.get('segments', []),
+                'audio_path': audio_path
+            }
+            
+        except Exception as e:
+            logger.error(f"오디오 파일 음성 인식 실패: {e}")
+            return {
+                'text': '',
+                'language': 'ko',
+                'segments': [],
+                'audio_path': audio_path,
+                'error': str(e)
+            }
 
-def calculate_customer_sentiment_trend(utterances_data: List[Dict[str, Any]]) -> tuple:
+def text_calculate_customer_sentiment_trend(utterances_data: List[Dict[str, Any]]) -> tuple:
     """
     고객 감정 추세 분석 (50% 구분으로 안정성 향상)
     
@@ -1542,7 +1626,7 @@ def calculate_customer_sentiment_trend(utterances_data: List[Dict[str, Any]]) ->
         sentiment_scores = []
         for utterance in customer_utterances:
             sentiment_text = utterance.get('sentiment', '').lower()
-            score = map_sentiment_to_score(sentiment_text)
+            score = text_map_sentiment_to_score(sentiment_text)
             if score is not None:
                 sentiment_scores.append(score)
         
@@ -1576,7 +1660,7 @@ def calculate_customer_sentiment_trend(utterances_data: List[Dict[str, Any]]) ->
         print(f"⚠️ 고객 감정 추세 분석 실패: {e}")
         return None, None, None
 
-def map_sentiment_to_score(sentiment_text: str) -> Optional[float]:
+def text_map_sentiment_to_score(sentiment_text: str) -> float | None:
     """
     sentiment 텍스트를 숫자 점수로 매핑
     
@@ -1587,7 +1671,7 @@ def map_sentiment_to_score(sentiment_text: str) -> Optional[float]:
         
     Returns
     -------
-    Optional[float]
+    float | None
         감정 점수 또는 None
     """
     sentiment_mapping = {
@@ -1632,7 +1716,7 @@ def map_sentiment_to_score(sentiment_text: str) -> Optional[float]:
     
     return None
 
-def analyze_communication_quality_with_trend(utterances_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+def text_analyze_communication_quality_with_trend(utterances_data: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     통신사 상담사 수준의 의사소통 품질 분석 + 감정 추세 + 모든 지표
     
@@ -1664,10 +1748,10 @@ def analyze_communication_quality_with_trend(utterances_data: List[Dict[str, Any
         quality_results = {}
         if counselor_texts:
             combined_text = ' '.join(counselor_texts)
-            quality_results = analyzer.analyze_communication_quality(combined_text)
+            quality_results = analyzer.text_analyze_communication_quality(combined_text)
         
         # 감정 추세 분석
-        sentiment_early, sentiment_late, sentiment_trend = calculate_customer_sentiment_trend(utterances_data)
+        sentiment_early, sentiment_late, sentiment_trend = text_calculate_customer_sentiment_trend(utterances_data)
         
         # 추가 지표 계산 (utterances_data 기반)
         avg_response_latency = analyzer._calculate_avg_response_latency(utterances_data)
@@ -1746,8 +1830,7 @@ def analyze_communication_quality_with_trend(utterances_data: List[Dict[str, Any
         
     except Exception as e:
         print(f"⚠️ 통신 품질 + 감정 추세 분석 실패: {e}")
-        return {
-            "error": str(e),
+        return {"status": "error": str(e),
             "communication_quality": {},
             "honorific_ratio": 0.0,
             "positive_word_ratio": 0.0,
@@ -1764,3 +1847,310 @@ def analyze_communication_quality_with_trend(utterances_data: List[Dict[str, Any
             "silence_ratio": 0.0,
             "talk_ratio": 0.0
         }
+
+"""
+🎯 간소화된 상담 분류 시스템
+키워드 기반 + LLM 하이브리드 접근법으로 정확도 향상
+"""
+
+import re
+import json
+from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass
+import logging
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class ClassificationResult:
+    """분류 결과 데이터 클래스"""
+    consultation_subject: str
+    consultation_requirement: str
+    consultation_content: str
+    consultation_reason: str
+    consultation_result: str
+    business_area: str
+    confidence_score: float
+    classification_method: str  # 'keyword', 'llm', 'hybrid'
+
+class SimplifiedClassifier:
+    """간소화된 상담 분류기"""
+    
+    def __init__(self):
+        # 키워드 사전 정의 (간소화된 분류 체계)
+        self.keyword_patterns = {
+            # 상담 주제
+            '상품 및 서비스 일반': [
+                r'상품|서비스|제품|기능|사용법|이용법|활용법',
+                r'어떻게|어떤|무엇|뭔지|알고싶|궁금'
+            ],
+            '주문/결제/확인': [
+                r'주문|결제|구매|신청|가입|등록',
+                r'카드|계좌|이체|납부|결제|비용|요금'
+            ],
+            '취소·반품·교환·환불·A/S': [
+                r'취소|반품|교환|환불|A/S|수리|고장|불량',
+                r'바꿔|돌려|빼|해지|중단'
+            ],
+            '재고 관리': [
+                r'재고|수량|개수|남은|있는|없는|품절',
+                r'언제|언제나|입고|출고'
+            ],
+            '배송 문의': [
+                r'배송|택배|운송|배달|도착|수령',
+                r'언제|어디|어떻게|상태|위치'
+            ],
+            '이벤트/할인': [
+                r'이벤트|할인|프로모션|혜택|쿠폰|포인트',
+                r'저렴|싸게|공짜|무료|특가'
+            ],
+            '콘텐츠': [
+                r'콘텐츠|영상|음악|게임|앱|프로그램',
+                r'시청|청취|다운로드|스트리밍'
+            ],
+            '제휴': [
+                r'제휴|파트너|협력|연계|제휴사',
+                r'다른|타사|외부|협력사'
+            ],
+            '기타': [
+                r'기타|기타사항|기타문의|기타요청'
+            ]
+        }
+        
+        # 상담 요건
+        self.requirement_patterns = {
+            '단일 요건 민원': [
+                r'하나|단일|한가지|한개|하나만',
+                r'간단|간단히|빨리|빠르게'
+            ],
+            '다수 요건 민원': [
+                r'여러|많은|복잡|복잡한|여러가지|다양한',
+                r'그리고|또한|추가로|더불어|함께'
+            ]
+        }
+        
+        # 상담 내용
+        self.content_patterns = {
+            '일반 문의 상담': [
+                r'문의|질문|궁금|알고싶|확인|안내',
+                r'어떻게|무엇|언제|어디'
+            ],
+            '업무 처리 상담': [
+                r'처리|신청|등록|변경|해지|가입',
+                r'바꿔|해줘|신청해|등록해'
+            ],
+            '고충 상담': [
+                r'불만|고충|문제|어려움|힘들|짜증|화나',
+                r'안되|안돼|문제|고장|오류|에러'
+            ]
+        }
+        
+        # 상담 사유
+        self.reason_patterns = {
+            '업체': [
+                r'회사|업체|기업|사업자|법인|기관',
+                r'시스템|서비스|제품|상품'
+            ],
+            '민원인': [
+                r'개인|고객|사용자|이용자|소비자',
+                r'나|저|우리|가족|친구'
+            ]
+        }
+        
+        # 상담 결과
+        self.result_patterns = {
+            '만족': [
+                r'만족|좋|감사|고맙|해결|완료|성공',
+                r'잘|훌륭|완벽|최고'
+            ],
+            '미흡': [
+                r'미흡|부족|아쉽|별로|그저|보통',
+                r'기대|기대했|실망|아쉽'
+            ],
+            '해결 불가': [
+                r'해결불가|불가능|안되|안돼|불가',
+                r'어려움|힘들|복잡|복잡한'
+            ],
+            '추가상담필요': [
+                r'추가|더|다시|재상담|재문의|재확인',
+                r'나중|이따가|다음|추후'
+            ]
+        }
+        
+        # 업무 분야
+        self.business_patterns = {
+            '요금 안내': [
+                r'요금|비용|가격|금액|월정액|데이터요금|통화요금',
+                r'얼마|비싸|싸|할인|혜택'
+            ],
+            '요금 납부': [
+                r'납부|결제|지불|내|카드|계좌|이체',
+                r'언제|어떻게|방법|절차'
+            ],
+            '요금제 변경': [
+                r'요금제|변경|바꿔|교체|전환',
+                r'5G|4G|LTE|데이터|통화'
+            ],
+            '선택약정 할인': [
+                r'선택약정|약정|할인|24개월|12개월',
+                r'할인|혜택|저렴|싸게'
+            ],
+            '납부 방법 변경': [
+                r'납부방법|결제방법|지불방법|자동이체|신용카드',
+                r'바꿔|변경|교체'
+            ],
+            '부가서비스 안내': [
+                r'부가서비스|부가|서비스|가입|해지|변경',
+                r'무엇|어떤|목록|안내'
+            ],
+            '소액 결제': [
+                r'소액결제|소액|결제|한도|차단|설정',
+                r'금액|한도|차단|해제'
+            ],
+            '휴대폰 정지/분실/파손': [
+                r'휴대폰|폰|정지|분실|파손|고장|교체',
+                r'잃어|깨|고장|정지|해제'
+            ],
+            '기기 변경': [
+                r'기기|휴대폰|폰|변경|교체|새로',
+                r'바꿔|교체|업그레이드|다운그레이드'
+            ],
+            '명의/번호/USIM 해지': [
+                r'명의|번호|USIM|해지|변경|이동',
+                r'바꿔|해지|변경|이동'
+            ],
+            '기타': [
+                r'기타|기타사항|기타문의|기타요청'
+            ]
+        }
+
+    def text_classify_by_keywords(self, text: str) -> ClassificationResult:
+        """키워드 기반 분류"""
+        text_lower = text.lower()
+        
+        # 각 분류별 점수 계산
+        subject_scores = self._calculate_scores(text_lower, self.keyword_patterns)
+        requirement_scores = self._calculate_scores(text_lower, self.requirement_patterns)
+        content_scores = self._calculate_scores(text_lower, self.content_patterns)
+        reason_scores = self._calculate_scores(text_lower, self.reason_patterns)
+        result_scores = self._calculate_scores(text_lower, self.result_patterns)
+        business_scores = self._calculate_scores(text_lower, self.business_patterns)
+        
+        # 최고 점수 선택
+        consultation_subject = max(subject_scores, key=subject_scores.get) if subject_scores else '기타'
+        consultation_requirement = max(requirement_scores, key=requirement_scores.get) if requirement_scores else '단일 요건 민원'
+        consultation_content = max(content_scores, key=content_scores.get) if content_scores else '일반 문의 상담'
+        consultation_reason = max(reason_scores, key=reason_scores.get) if reason_scores else '민원인'
+        consultation_result = max(result_scores, key=result_scores.get) if result_scores else '추가상담필요'
+        business_area = max(business_scores, key=business_scores.get) if business_scores else '기타'
+        
+        # 전체 신뢰도 계산
+        confidence_score = (
+            subject_scores.get(consultation_subject, 0) +
+            requirement_scores.get(consultation_requirement, 0) +
+            content_scores.get(consultation_content, 0) +
+            reason_scores.get(consultation_reason, 0) +
+            result_scores.get(consultation_result, 0) +
+            business_scores.get(business_area, 0)
+        ) / 6.0
+        
+        return ClassificationResult(
+            consultation_subject=consultation_subject,
+            consultation_requirement=consultation_requirement,
+            consultation_content=consultation_content,
+            consultation_reason=consultation_reason,
+            consultation_result=consultation_result,
+            business_area=business_area,
+            confidence_score=confidence_score,
+            classification_method='keyword'
+        )
+
+    def _calculate_scores(self, text: str, patterns: Dict[str, List[str]]) -> Dict[str, float]:
+        """패턴 매칭 점수 계산"""
+        scores = {}
+        
+        for category, pattern_list in patterns.items():
+            score = 0.0
+            for pattern in pattern_list:
+                matches = re.findall(pattern, text)
+                score += len(matches) * 0.1  # 매칭당 0.1점
+            
+            # 정규화 (0~1 범위)
+            scores[category] = min(score, 1.0)
+        
+        return scores
+
+    def text_classify_by_llm(self, text: str) -> ClassificationResult:
+        """LLM 기반 분류 (실제 LLM 호출)"""
+        # TODO: 실제 LLM API 호출 구현
+        # 현재는 키워드 분류 결과를 반환
+        return self.text_classify_by_keywords(text)
+
+    def text_hybrid_classify(self, text: str) -> ClassificationResult:
+        """하이브리드 분류 (키워드 + LLM)"""
+        # 키워드 분류
+        keyword_result = self.text_classify_by_keywords(text)
+        
+        # 신뢰도가 낮으면 LLM 사용
+        if keyword_result.confidence_score < 0.5:
+            llm_result = self.text_classify_by_llm(text)
+            return ClassificationResult(
+                consultation_subject=llm_result.consultation_subject,
+                consultation_requirement=llm_result.consultation_requirement,
+                consultation_content=llm_result.consultation_content,
+                consultation_reason=llm_result.consultation_reason,
+                consultation_result=llm_result.consultation_result,
+                business_area=llm_result.business_area,
+                confidence_score=llm_result.confidence_score,
+                classification_method='hybrid'
+            )
+        
+        keyword_result.classification_method = 'hybrid'
+        return keyword_result
+
+    def text_classify(self, text: str, method: str = 'hybrid') -> ClassificationResult:
+        """메인 분류 메서드"""
+        try:
+            if method == 'keyword':
+                return self.text_classify_by_keywords(text)
+            elif method == 'llm':
+                return self.text_classify_by_llm(text)
+            else:  # hybrid
+                return self.text_hybrid_classify(text)
+        except Exception as e:
+            logger.error(f"분류 중 오류 발생: {e}")
+            # 기본값 반환
+            return ClassificationResult(
+                consultation_subject='기타',
+                consultation_requirement='단일 요건 민원',
+                consultation_content='일반 문의 상담',
+                consultation_reason='민원인',
+                consultation_result='추가상담필요',
+                business_area='기타',
+                confidence_score=0.0,
+                classification_method='error'
+            )
+
+# 사용 예시
+if __name__ == "__main__":
+    classifier = SimplifiedClassifier()
+    
+    # 테스트 텍스트
+    test_texts = [
+        "요금제 변경하고 싶은데 어떻게 해야 하나요?",
+        "휴대폰 분실했는데 어떻게 해야 하나요?",
+        "부가서비스 해지하고 싶습니다",
+        "요금이 너무 비싸서 불만입니다"
+    ]
+    
+    for text in test_texts:
+        result = classifier.text_classify(text)
+        print(f"\n텍스트: {text}")
+        print(f"상담주제: {result.consultation_subject}")
+        print(f"상담요건: {result.consultation_requirement}")
+        print(f"상담내용: {result.consultation_content}")
+        print(f"상담사유: {result.consultation_reason}")
+        print(f"상담결과: {result.consultation_result}")
+        print(f"업무분야: {result.business_area}")
+        print(f"신뢰도: {result.confidence_score:.2f}")
+        print(f"분류방법: {result.classification_method}")

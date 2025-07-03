@@ -42,14 +42,14 @@ services:
       - LOG_LEVEL=INFO
     volumes:
       - ./audio:/app/audio
-      - ./temp:/app/.temp
+      - ./temp:/app/temp
       - ./logs:/app/logs
       - ./data:/app/data
       - ./Callytics_new.sqlite:/app/Callytics_new.sqlite
       - ./config:/app/config
       - ./src:/app/src
       - ./main.py:/app/main.py
-      - callytics_cache:/app/.cache
+      - ./.cache:/app/.cache
     deploy:
       resources:
         limits:

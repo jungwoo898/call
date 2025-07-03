@@ -4,160 +4,210 @@ Callytics 오디오 처리 서비스
 오디오 파일 전처리, 노이즈 제거, 음성 강화
 """
 
-import os
-import logging
-from typing import Dict, Any
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-import uvicorn
+import time
+from typing import Optional
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+from fastapi import HTTPException
+import uvicorn
+
+# BaseService 패턴 적용
+from ..utils.base_service import GPUService
+from ..utils.type_definitions import JsonDict, PathLike
+from ..utils.api_schemas import (
+    AudioProcessRequest,
+    AudioProcessResponse,
+    AudioSegmentRequest,
+    AudioSegmentResponse,
+    AudioSegment,
+    HealthResponse,
+    MetricsResponse,
+    SuccessResponse,
+    create_success_response,
+    create_error_response
+)
 
 # 오디오 처리 모듈 import
 from . import preprocessing, processing, io
 from .advanced_processing import AdvancedAudioProcessor
 
-# 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+class AudioProcessorService(GPUService):
+    """오디오 처리 서비스 클래스"""
+    
+    def __init__(self):
+        super().__init__(
+            service_name="audio-processor",
+            version="1.0.0",
+            description="오디오 파일 전처리, 노이즈 제거, 음성 강화 서비스"
+        )
+        self.audio_processor: Optional[AdvancedAudioProcessor] = None
+    
+    async def initialize_models(self) -> None:
+        """모델 초기화"""
+        try:
+            self.logger.info("오디오 처리 모델 초기화 시작")
+            self.audio_processor = AdvancedAudioProcessor()
+            self.model_ready = True
+            self.logger.info("오디오 처리 모델 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"모델 초기화 실패: {e}")
+            self.model_ready = False
+            raise e
+    
+    async def cleanup_models(self) -> None:
+        """모델 정리"""
+        if self.audio_processor:
+            self.logger.info("오디오 처리 모델 정리")
+            # 필요시 모델 정리 로직 추가
+            self.audio_processor = None
+    
+    def audio_get_custom_metrics(self) -> JsonDict:
+        """커스텀 메트릭 반환"""
+        return {
+            "model_loaded": self.audio_processor is not None,
+            "model_type": "audio_processor",
+            "supported_formats": ["wav", "mp3", "flac", "m4a"],
+            "processing_features": [
+                "noise_reduction",
+                "audio_enhancement", 
+                "segmentation",
+                "preprocessing"
+            ]
+        }
+
+# 서비스 인스턴스 생성
+service = AudioProcessorService()
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app):
     """애플리케이션 생명주기 관리"""
-    logger.info("🎵 Callytics 오디오 처리 서비스 시작")
+    await service.startup()
     yield
-    logger.info("🛑 Callytics 오디오 처리 서비스 종료")
+    await service.shutdown()
 
-app = FastAPI(title="Callytics Audio Processor", version="1.0.0", lifespan=lifespan)
+# FastAPI 앱 생성
+app = service.create_app(lifespan=lifespan)
 
-# 오디오 프로세서 인스턴스
-audio_processor = AdvancedAudioProcessor()
-
-@app.get("/health")
-async def health_check():
-    """헬스체크 엔드포인트"""
-    return JSONResponse({
-        "status": "healthy",
-        "service": "audio-processor",
-        "version": "1.0.0"
-    })
-
-@app.get("/metrics")
-async def get_metrics():
-    """메트릭 엔드포인트"""
-    try:
-        import psutil
-        
-        cpu_percent = psutil.cpu_percent(interval=1)
-        memory = psutil.virtual_memory()
-        
-        return JSONResponse({
-            "cpu_percent": cpu_percent,
-            "memory_percent": memory.percent,
-            "memory_available_gb": memory.available / 1024**3,
-            "service": "audio-processor"
-        })
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/preprocess")
-async def preprocess_audio(data: Dict[str, Any]):
+@app.post("/preprocess", response_model=AudioProcessResponse)
+async def preprocess_audio(request: AudioProcessRequest) -> AudioProcessResponse:
     """오디오 전처리 엔드포인트"""
     try:
-        audio_path = data.get('audio_path')
-        if not audio_path:
-            raise HTTPException(status_code=400, detail="audio_path가 필요합니다")
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
         
-        if not Path(audio_path).exists():
-            raise HTTPException(status_code=404, detail=f"오디오 파일을 찾을 수 없습니다: {audio_path}")
+        if not Path(request.audio_path).exists():
+            raise HTTPException(status_code=404, detail=f"오디오 파일을 찾을 수 없습니다: {request.audio_path}")
         
-        logger.info(f"오디오 전처리 시작: {audio_path}")
+        service.logger.info(f"오디오 전처리 시작: {request.audio_path}")
         
         # 오디오 전처리 실행
-        processed_path = await audio_processor.preprocess_audio_async(audio_path)
+        start_time = time.time()
+        processed_path = await service.audio_processor.preprocess_audio_async(request.audio_path)
+        processing_time = time.time() - start_time
         
-        logger.info(f"오디오 전처리 완료: {processed_path}")
+        service.logger.info(f"오디오 전처리 완료: {processed_path}")
         
-        return JSONResponse({
-            "status": "success",
-            "original_path": audio_path,
-            "processed_path": processed_path,
-            "message": "오디오 전처리가 완료되었습니다"
-        })
+        return AudioProcessResponse(
+            status="success",
+            message="오디오 전처리가 완료되었습니다",
+            data={
+                "original_path": request.audio_path,
+                "processed_path": processed_path,
+                "processing_time": processing_time,
+                "options": request.options or {}
+            },
+            original_path=request.audio_path,
+            processed_path=processed_path,
+            processing_time=processing_time
+        )
         
     except Exception as e:
-        logger.error(f"오디오 전처리 실패: {e}")
+        service.logger.error(f"오디오 전처리 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/enhance")
-async def enhance_audio(data: Dict[str, Any]):
+@app.post("/enhance", response_model=AudioProcessResponse)
+async def enhance_audio(request: AudioProcessRequest) -> AudioProcessResponse:
     """오디오 향상 엔드포인트"""
     try:
-        audio_path = data.get('audio_path')
-        if not audio_path:
-            raise HTTPException(status_code=400, detail="audio_path가 필요합니다")
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
         
-        logger.info(f"오디오 향상 시작: {audio_path}")
+        if not Path(request.audio_path).exists():
+            raise HTTPException(status_code=404, detail=f"오디오 파일을 찾을 수 없습니다: {request.audio_path}")
+        
+        service.logger.info(f"오디오 향상 시작: {request.audio_path}")
         
         # 오디오 향상 실행
-        enhanced_path = await audio_processor.enhance_audio_async(audio_path)
+        start_time = time.time()
+        enhanced_path = await service.audio_processor.enhance_audio_async(request.audio_path)
+        processing_time = time.time() - start_time
         
-        logger.info(f"오디오 향상 완료: {enhanced_path}")
+        service.logger.info(f"오디오 향상 완료: {enhanced_path}")
         
-        return JSONResponse({
-            "status": "success",
-            "original_path": audio_path,
-            "enhanced_path": enhanced_path,
-            "message": "오디오 향상이 완료되었습니다"
-        })
+        return AudioProcessResponse(
+            status="success",
+            message="오디오 향상이 완료되었습니다",
+            data={
+                "original_path": request.audio_path,
+                "enhanced_path": enhanced_path,
+                "processing_time": processing_time,
+                "options": request.options or {}
+            },
+            original_path=request.audio_path,
+            processed_path=enhanced_path,
+            processing_time=processing_time
+        )
         
     except Exception as e:
-        logger.error(f"오디오 향상 실패: {e}")
+        service.logger.error(f"오디오 향상 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/segment")
-async def segment_audio(data: Dict[str, Any]):
+@app.post("/segment", response_model=AudioSegmentResponse)
+async def segment_audio(request: AudioSegmentRequest) -> AudioSegmentResponse:
     """오디오 분할 엔드포인트"""
     try:
-        audio_path = data.get('audio_path')
-        chunk_duration = data.get('chunk_duration', 30)  # 기본 30초
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
         
-        if not audio_path:
-            raise HTTPException(status_code=400, detail="audio_path가 필요합니다")
+        if not Path(request.audio_path).exists():
+            raise HTTPException(status_code=404, detail=f"오디오 파일을 찾을 수 없습니다: {request.audio_path}")
         
-        logger.info(f"오디오 분할 시작: {audio_path}, 청크 길이: {chunk_duration}초")
+        service.logger.info(f"오디오 분할 시작: {request.audio_path}, 청크 길이: {request.chunk_duration}초")
         
         # 오디오 분할 실행
-        segments = await audio_processor.segment_audio_async(audio_path, chunk_duration)
+        segment_data = await service.audio_processor.segment_audio_async(request.audio_path, request.chunk_duration)
         
-        logger.info(f"오디오 분할 완료: {len(segments)}개 세그먼트")
+        # 세그먼트 데이터를 AudioSegment 객체로 변환
+        segments = [
+            AudioSegment(
+                start_time=seg.get("start_time", 0),
+                end_time=seg.get("end_time", 0),
+                duration=seg.get("duration", 0),
+                path=seg.get("path", "")
+            )
+            for seg in segment_data
+        ]
         
-        return JSONResponse({
-            "status": "success",
-            "original_path": audio_path,
-            "segments": segments,
-            "segment_count": len(segments),
-            "message": "오디오 분할이 완료되었습니다"
-        })
+        service.logger.info(f"오디오 분할 완료: {len(segments)}개 세그먼트")
+        
+        return AudioSegmentResponse(
+            status="success",
+            message="오디오 분할이 완료되었습니다",
+            data={
+                "original_path": request.audio_path,
+                "segments": [seg.dict() for seg in segments],
+                "segment_count": len(segments),
+                "chunk_duration": request.chunk_duration
+            },
+            original_path=request.audio_path,
+            segments=segments,
+            segment_count=len(segments)
+        )
         
     except Exception as e:
-        logger.error(f"오디오 분할 실패: {e}")
+        service.logger.error(f"오디오 분할 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/")
-async def root():
-    """루트 엔드포인트"""
-    return {
-        "message": "Callytics 오디오 처리 서비스가 실행 중입니다",
-        "version": "1.0.0",
-        "endpoints": {
-            "health": "/health",
-            "metrics": "/metrics",
-            "preprocess": "/preprocess",
-            "enhance": "/enhance",
-            "segment": "/segment"
-        }
-    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001) 

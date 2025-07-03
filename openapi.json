@@ -1,0 +1,448 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Callytics API",
+    "description": "음성 분석 및 텍스트 처리 마이크로서비스 API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "개발 서버"
+    },
+    {
+      "url": "http://localhost:8001",
+      "description": "오디오 처리 서버"
+    },
+    {
+      "url": "http://localhost:8002",
+      "description": "텍스트 분석 서버"
+    },
+    {
+      "url": "http://localhost:8003",
+      "description": "데이터베이스 서버"
+    }
+  ],
+  "paths": {
+    "/preprocess": {
+      "post": {
+        "tags": [
+          "Audio Processing"
+        ],
+        "summary": "오디오 전처리",
+        "description": "오디오 파일을 전처리하여 분석에 적합한 형태로 변환",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/enhance": {
+      "post": {
+        "tags": [
+          "Audio Processing"
+        ],
+        "summary": "오디오 품질 향상",
+        "description": "노이즈 제거 및 음성 품질 향상",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/segment": {
+      "post": {
+        "tags": [
+          "Audio Processing"
+        ],
+        "summary": "화자 분리",
+        "description": "오디오에서 화자를 분리하고 세그먼트 생성",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/analyze": {
+      "post": {
+        "tags": [
+          "Text Analysis"
+        ],
+        "summary": "텍스트 종합 분석",
+        "description": "감정 분석, 주제 분류, 품질 평가 등을 수행",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/sentiment": {
+      "post": {
+        "tags": [
+          "Text Analysis"
+        ],
+        "summary": "감정 분석",
+        "description": "텍스트의 감정을 분석",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/punctuation": {
+      "post": {
+        "tags": [
+          "Text Analysis"
+        ],
+        "summary": "문장 부호 복원",
+        "description": "음성 인식 결과에 문장 부호 추가",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Database"
+        ],
+        "summary": "데이터베이스 상태 확인",
+        "description": "데이터베이스 연결 상태 및 서비스 상태 확인",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/save_result": {
+      "post": {
+        "tags": [
+          "Database"
+        ],
+        "summary": "분석 결과 저장",
+        "description": "분석 결과를 데이터베이스에 저장",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "analysis_type": {
+                    "type": "string",
+                    "enum": [
+                      "audio",
+                      "text",
+                      "quality"
+                    ]
+                  },
+                  "result_data": {
+                    "type": "object"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "analysis_type",
+                  "result_data"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/process": {
+      "post": {
+        "tags": [
+          "Gateway"
+        ],
+        "summary": "통합 처리",
+        "description": "오디오 업로드부터 분석 완료까지 전체 파이프라인 처리",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/SuccessResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AudioInput": {
+        "type": "object",
+        "properties": {
+          "audio_data": {
+            "type": "string",
+            "description": "Base64 인코딩된 오디오 데이터"
+          },
+          "sample_rate": {
+            "type": "integer",
+            "description": "샘플링 레이트 (Hz)",
+            "default": 16000
+          },
+          "format": {
+            "type": "string",
+            "description": "오디오 포맷",
+            "enum": [
+              "wav",
+              "mp3",
+              "flac"
+            ],
+            "default": "wav"
+          }
+        },
+        "required": [
+          "audio_data"
+        ]
+      },
+      "TextInput": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "분석할 텍스트"
+          },
+          "language": {
+            "type": "string",
+            "description": "언어 코드",
+            "default": "ko"
+          },
+          "options": {
+            "type": "object",
+            "description": "추가 옵션"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "AnalysisResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "result": {
+                "type": "object"
+              },
+              "processing_time": {
+                "type": "number"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "responses": {
+      "SuccessResponse": {
+        "description": "성공 응답",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "success"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "처리 완료"
+                },
+                "data": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "description": "오류 응답",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "error"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "처리 실패"
+                },
+                "error_code": {
+                  "type": "string"
+                },
+                "details": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "status",
+                "message"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,418 @@
+# Standard library imports
+import os
+import re
+import json
+import threading
+import time
+from typing import Annotated, List, Dict, Any, Optional
+from pathlib import Path
+
+# deepmultilingualpunctuation 안전 import
+PunctuationModel = None
+try:
+    from deepmultilingualpunctuation import PunctuationModel
+    print("✅ deepmultilingualpunctuation imported successfully")
+except ImportError as e:
+    print(f"⚠️ deepmultilingualpunctuation import failed: {e}")
+    print("🔄 AdvancedPunctuationRestorer will run in fallback mode")
+except Exception as e:
+    print(f"⚠️ deepmultilingualpunctuation error: {e}")
+    print("🔄 AdvancedPunctuationRestorer will run in fallback mode")
+
+
+class AdvancedPunctuationRestorer:
+    """
+    고성능 문장 부호 복원 클래스
+    batch 크기 자동 조정, fallback, 캐싱 지원
+    """
+    
+    def __init__(self, 
+                 language: str = 'ko',
+                 cache_dir: str = "/app/.cache/punctuation",
+                 enable_cache: bool = True,
+                 max_batch_size: int = 100,
+                 min_batch_size: int = 10):
+        """
+        AdvancedPunctuationRestorer 초기화
+        
+        Parameters
+        ----------
+        language : str
+            언어 설정
+        cache_dir : str
+            캐시 디렉토리
+        enable_cache : bool
+            캐시 활성화 여부
+        max_batch_size : int
+            최대 batch 크기
+        min_batch_size : int
+            최소 batch 크기
+        """
+        self.language = language
+        self.cache_dir = Path(cache_dir)
+        self.enable_cache = enable_cache
+        self.max_batch_size = max_batch_size
+        self.min_batch_size = min_batch_size
+        
+        # 캐시 디렉토리 생성
+        if self.enable_cache:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 캐시 메타데이터 관리
+        self.cache_metadata_file = self.cache_dir / "metadata.json"
+        self.cache_metadata = self._load_cache_metadata()
+        self.cache_lock = threading.Lock()
+        
+        # 모델 로드
+        self.model = None
+        if PunctuationModel is not None:
+            try:
+                self.model = PunctuationModel()
+                print("✅ 문장 부호 모델 로드 완료")
+            except Exception as e:
+                print(f"⚠️ 문장 부호 모델 로드 실패: {e}")
+                self.model = None
+        
+        # 성능 모니터링
+        self.performance_stats = {
+            "total_processed": 0,
+            "cache_hits": 0,
+            "fallback_used": 0,
+            "avg_processing_time": 0.0
+        }
+    
+    def _load_cache_metadata(self) -> Dict[str, Any]:
+        """캐시 메타데이터 로드"""
+        try:
+            if self.cache_metadata_file.exists():
+                with open(self.cache_metadata_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"⚠️ 캐시 메타데이터 로드 실패: {e}")
+        return {}
+    
+    def _save_cache_metadata(self):
+        """캐시 메타데이터 저장"""
+        try:
+            with open(self.cache_metadata_file, 'w') as f:
+                json.dump(self.cache_metadata, f, indent=2)
+        except Exception as e:
+            print(f"⚠️ 캐시 메타데이터 저장 실패: {e}")
+    
+    def _get_cache_key(self, text: str) -> str:
+        """캐시 키 생성"""
+        import hashlib
+        text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
+        return f"{text_hash}_{self.language}"
+    
+    def _is_cached(self, text: str) -> str | None:
+        """캐시된 결과 확인"""
+        if not self.enable_cache:
+            return None
+        
+        cache_key = self._get_cache_key(text)
+        
+        with self.cache_lock:
+            if cache_key in self.cache_metadata:
+                cache_info = self.cache_metadata[cache_key]
+                cache_path = self.cache_dir / cache_info["filename"]
+                
+                if cache_path.exists() and os.path.getsize(cache_path) > 0:
+                    return str(cache_path)
+        
+        return None
+    
+    def _save_to_cache(self, text: str, result: str):
+        """결과를 캐시에 저장"""
+        if not self.enable_cache:
+            return
+        
+        try:
+            cache_key = self._get_cache_key(text)
+            cache_filename = f"{cache_key}.txt"
+            cache_path = self.cache_dir / cache_filename
+            
+            # 결과 저장
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                f.write(result)
+            
+            # 메타데이터 업데이트
+            with self.cache_lock:
+                self.cache_metadata[cache_key] = {
+                    "filename": cache_filename,
+                    "language": self.language,
+                    "created_at": time.time(),
+                    "file_size": os.path.getsize(cache_path)
+                }
+                self._save_cache_metadata()
+            
+        except Exception as e:
+            print(f"⚠️ 캐시 저장 실패: {e}")
+    
+    def _load_from_cache(self, cache_path: str) -> str:
+        """캐시에서 결과 로드"""
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            print(f"⚠️ 캐시 로드 실패: {e}")
+            return None
+    
+    def _calculate_optimal_batch_size(self, texts: List[str]) -> int:
+        """최적 batch 크기 계산"""
+        if not texts:
+            return self.min_batch_size
+        
+        # 텍스트 길이 기반 batch 크기 조정
+        avg_length = sum(len(text) for text in texts) / len(texts)
+        
+        if avg_length < 50:  # 짧은 텍스트
+            optimal_size = min(self.max_batch_size, len(texts))
+        elif avg_length < 200:  # 중간 텍스트
+            optimal_size = min(self.max_batch_size // 2, len(texts))
+        else:  # 긴 텍스트
+            optimal_size = min(self.max_batch_size // 4, len(texts))
+        
+        # 성능 통계 기반 조정
+        if self.performance_stats["avg_processing_time"] > 1.0:  # 1초 이상
+            optimal_size = max(self.min_batch_size, optimal_size // 2)
+        
+        return max(self.min_batch_size, optimal_size)
+    
+    def _restore_punctuation_with_model(self, text: str) -> str:
+        """모델을 사용한 문장 부호 복원"""
+        if self.model is None:
+            return self._restore_punctuation_fallback(text)
+        
+        try:
+            # 모델 처리
+            result = self.model.audio_restore_punctuation(text)
+            return result
+        except Exception as e:
+            print(f"⚠️ 모델 처리 실패, fallback 사용: {e}")
+            return self._restore_punctuation_fallback(text)
+    
+    def _restore_punctuation_fallback(self, text: str) -> str:
+        """Fallback 문장 부호 복원"""
+        self.performance_stats["fallback_used"] += 1
+        
+        if self.language == 'ko':
+            return self._apply_korean_punctuation_rules(text)
+        else:
+            return self._apply_simple_punctuation_rules(text)
+    
+    def _apply_korean_punctuation_rules(self, text: str) -> str:
+        """한국어 문장 부호 규칙 적용"""
+        # 기본 정리
+        text = text.strip()
+        if not text:
+            return text
+        
+        # 문장 끝 부호 추가
+        if not text.endswith(('.', '!', '?', '~', 'ㅋ', 'ㅎ')):
+            # 문장 종류 판단
+            if any(word in text for word in ['요', '니다', '습니다', '습니다']):
+                text += '.'
+            elif any(word in text for word in ['까', '나', '니', '어', '아']):
+                text += '?'
+            elif any(word in text for word in ['네', '어', '아', '야']):
+                text += '!'
+            else:
+                text += '.'
+        
+        # 쉼표 추가 (긴 문장)
+        if len(text) > 30 and ',' not in text:
+            # 적절한 위치에 쉼표 추가
+            words = text.split()
+            if len(words) > 5:
+                mid_point = len(words) // 2
+                words.insert(mid_point, ',')
+                text = ' '.join(words)
+        
+        return text
+    
+    def _apply_simple_punctuation_rules(self, text: str) -> str:
+        """간단한 문장 부호 규칙 적용"""
+        # 기본 정리
+        text = text.strip()
+        if not text:
+            return text
+        
+        # 문장 끝 부호 추가
+        if not text.endswith(('.', '!', '?')):
+            # 간단한 규칙
+            if text.lower().startswith(('what', 'where', 'when', 'why', 'how', 'who')):
+                text += '?'
+            elif any(word in text.lower() for word in ['please', 'could', 'would', 'can']):
+                text += '?'
+            else:
+                text += '.'
+        
+        return text
+    
+    def audio_restore_punctuation_advanced(self, texts: List[str]) -> List[str]:
+        """
+        고성능 문장 부호 복원
+        
+        Parameters
+        ----------
+        texts : List[str]
+            복원할 텍스트 리스트
+            
+        Returns
+        -------
+        List[str]
+            문장 부호가 복원된 텍스트 리스트
+        """
+        try:
+            if not texts:
+                return []
+            
+            print(f"🔤 문장 부호 복원 시작: {len(texts)}개 텍스트")
+            start_time = time.time()
+            
+            results = []
+            processed_count = 0
+            
+            # 최적 batch 크기 계산
+            batch_size = self._calculate_optimal_batch_size(texts)
+            print(f"📦 Batch 크기: {batch_size}")
+            
+            # Batch 단위로 처리
+            for i in range(0, len(texts), batch_size):
+                batch_texts = texts[i:i + batch_size]
+                batch_results = []
+                
+                for text in batch_texts:
+                    # 캐시 확인
+                    cached_path = self._is_cached(text)
+                    if cached_path:
+                        result = self._load_from_cache(cached_path)
+                        self.performance_stats["cache_hits"] += 1
+                    else:
+                        # 모델 또는 fallback 처리
+                        result = self._restore_punctuation_with_model(text)
+                        
+                        # 캐시에 저장
+                        self._save_to_cache(text, result)
+                    
+                    batch_results.append(result)
+                    processed_count += 1
+                
+                results.extend(batch_results)
+                
+                # 진행률 출력
+                progress = (processed_count / len(texts)) * 100
+                print(f"📊 진행률: {progress:.1f}% ({processed_count}/{len(texts)})")
+            
+            # 성능 통계 업데이트
+            processing_time = time.time() - start_time
+            self.performance_stats["total_processed"] += len(texts)
+            self.performance_stats["avg_processing_time"] = (
+                (self.performance_stats["avg_processing_time"] * (self.performance_stats["total_processed"] - len(texts)) + processing_time) 
+                / self.performance_stats["total_processed"]
+            )
+            
+            print(f"✅ 문장 부호 복원 완료: {processing_time:.2f}초")
+            print(f"📈 성능 통계: 캐시 히트 {self.performance_stats['cache_hits']}, Fallback {self.performance_stats['fallback_used']}")
+            
+            return results
+            
+        except Exception as e:
+            print(f"⚠️ 문장 부호 복원 실패: {e}")
+            # Fallback: 원본 텍스트 반환
+            return texts
+    
+    def audio_restore_punctuation_single(self, text: str) -> str:
+        """
+        단일 텍스트 문장 부호 복원
+        
+        Parameters
+        ----------
+        text : str
+            복원할 텍스트
+            
+        Returns
+        -------
+        str
+            문장 부호가 복원된 텍스트
+        """
+        results = self.audio_restore_punctuation_advanced([text])
+        return results[0] if results else text
+    
+    def audio_get_performance_stats(self) -> Dict[str, Any]:
+        """성능 통계 반환"""
+        return self.performance_stats.copy()
+    
+    def audio_cleanup_cache(self, max_age_hours: int = 24):
+        """오래된 캐시 정리"""
+        try:
+            current_time = time.time()
+            max_age_seconds = max_age_hours * 3600
+            
+            with self.cache_lock:
+                keys_to_remove = []
+                
+                for cache_key, cache_info in self.cache_metadata.items():
+                    if current_time - cache_info["created_at"] > max_age_seconds:
+                        keys_to_remove.append(cache_key)
+                
+                for cache_key in keys_to_remove:
+                    cache_info = self.cache_metadata[cache_key]
+                    cache_path = self.cache_dir / cache_info["filename"]
+                    
+                    try:
+                        if cache_path.exists():
+                            os.remove(cache_path)
+                            print(f"🧹 문장 부호 캐시 정리: {cache_info['filename']}")
+                    except Exception as e:
+                        print(f"⚠️ 캐시 파일 삭제 실패: {cache_path}, {e}")
+                    
+                    del self.cache_metadata[cache_key]
+                
+                if keys_to_remove:
+                    self._save_cache_metadata()
+                    print(f"🧹 {len(keys_to_remove)}개 문장 부호 캐시 파일 정리 완료")
+                    
+        except Exception as e:
+            print(f"⚠️ 문장 부호 캐시 정리 실패: {e}")
+
+
+class PunctuationRestorer:
+    """
+    기존 호환성을 위한 문장 부호 복원 클래스
+    """
+    
+    def __init__(self, language: str = 'en'):
+        self.advanced_restorer = AdvancedPunctuationRestorer(language=language)
+    
+    def audio_restore_punctuation(self, word_speaker_mapping: List[Dict]) -> List[Dict]:
+        """기존 인터페이스 호환"""
+        # 텍스트 추출
+        texts = []
+        for item in word_speaker_mapping:
+            if isinstance(item, dict) and 'word' in item:
+                texts.append(item['word'])
+            elif isinstance(item, str):
+                texts.append(item)
+        
+        # 문장 부호 복원
+        restored_texts = self.advanced_restorer.audio_restore_punctuation_advanced(texts)
+        
+        # 결과 매핑
+        result = []
+        text_index = 0
+        
+        for item in word_speaker_mapping:
+            if isinstance(item, dict) and 'word' in item:
+                new_item = item.copy()
+                new_item['word'] = restored_texts[text_index] if text_index < len(restored_texts) else item['word']
+                result.append(new_item)
+                text_index += 1
+            elif isinstance(item, str):
+                result.append(restored_texts[text_index] if text_index < len(restored_texts) else item)
+                text_index += 1
+            else:
+                result.append(item)
+        
+        return result 

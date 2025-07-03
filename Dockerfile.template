@@ -1,0 +1,41 @@
+# 표준화된 Dockerfile 템플릿
+FROM nvidia/cuda:11.8.0-runtime-ubuntu20.04
+
+# 시스템 패키지 업데이트
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# Python 환경 설정
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# 공통 requirements 설치
+COPY requirements_common.txt .
+RUN pip install --no-cache-dir -r requirements_common.txt
+
+# 서비스별 requirements 설치 (서비스에 따라 다름)
+# COPY requirements.<service>.txt .
+# RUN pip install --no-cache-dir -r requirements.<service>.txt
+
+# 애플리케이션 코드 복사
+COPY src/ ./src/
+
+# 포트 노출
+EXPOSE 8000
+
+# 헬스체크
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# 실행 명령 (서비스에 따라 다름)
+# CMD ["python", "-m", "src.<service>.main"]

@@ -10,10 +10,16 @@ from typing import Annotated, List, Dict, Any, Optional, Tuple
 from pathlib import Path
 from queue import Queue
 import logging
+import psycopg2
+import psycopg2.extras
+from psycopg2.extensions import connection, cursor
+from datetime import datetime, date
+import uuid
 
 # Local imports
 from src.db.multi_database_manager import MultiDatabaseManager
 
+logger = logging.getLogger(__name__)
 
 class AdvancedDatabaseManager:
     """
@@ -173,7 +179,7 @@ class AdvancedDatabaseManager:
             cursor = connection.cursor()
             
             # Bulk insert 쿼리 구성
-            query = """
+            query = None"
                 INSERT INTO audio_analysis (
                     file_path, duration, sample_rate, channels, 
                     transcription, language, confidence_score,
@@ -220,7 +226,7 @@ class AdvancedDatabaseManager:
             cursor = connection.cursor()
             
             # Bulk insert 쿼리 구성
-            query = """
+            query = None"
                 INSERT INTO consultation_quality (
                     audio_analysis_id, clarity_score, politeness_score,
                     empathy_score, professionalism_score, response_quality_score,
@@ -271,7 +277,7 @@ class AdvancedDatabaseManager:
             cursor = connection.cursor()
             
             # Bulk insert 쿼리 구성
-            query = """
+            query = None"
                 INSERT INTO llm_analysis (
                     audio_analysis_id, analysis_type, analysis_result,
                     confidence_score, model_used, processing_time,
@@ -307,7 +313,7 @@ class AdvancedDatabaseManager:
             self._log_recovery("llm_analysis_bulk_save", str(e), "rollback_and_retry")
             return False
     
-    def add_to_batch(self, operation_type: str, data: Dict[str, Any]):
+    def db_add_to_batch(self, operation_type: str, data: Dict[str, Any]):
         """배치 버퍼에 데이터 추가"""
         if operation_type not in self.batch_buffers:
             print(f"⚠️ 알 수 없는 작업 타입: {operation_type}")
@@ -318,9 +324,9 @@ class AdvancedDatabaseManager:
             
             # 배치 크기 도달 시 자동 저장
             if len(self.batch_buffers[operation_type]) >= self.batch_size:
-                self.flush_batch(operation_type)
+                self.db_flush_batch(operation_type)
     
-    def flush_batch(self, operation_type: str):
+    def db_flush_batch(self, operation_type: str):
         """배치 버퍼 플러시"""
         if operation_type not in self.batch_buffers:
             return
@@ -338,10 +344,10 @@ class AdvancedDatabaseManager:
         else:
             self._perform_save_operation(operation_type, data_list)
     
-    def flush_all_batches(self):
+    def db_flush_all_batches(self):
         """모든 배치 버퍼 플러시"""
         for operation_type in self.batch_buffers.keys():
-            self.flush_batch(operation_type)
+            self.db_flush_batch(operation_type)
     
     async def save_audio_analysis_async(self, data: Dict[str, Any], callback=None):
         """비동기 오디오 분석 저장"""
@@ -370,7 +376,7 @@ class AdvancedDatabaseManager:
             if callback:
                 callback(success, 0.0)
     
-    def bulk_save_audio_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
+    def db_bulk_save_audio_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
         """오디오 분석 결과 bulk 저장"""
         try:
             success = self._perform_save_operation("audio_analysis", data_list)
@@ -381,7 +387,7 @@ class AdvancedDatabaseManager:
             print(f"⚠️ Bulk 저장 실패: {e}")
             return False
     
-    def bulk_save_quality_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
+    def db_bulk_save_quality_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
         """품질 분석 결과 bulk 저장"""
         try:
             success = self._perform_save_operation("quality_analysis", data_list)
@@ -392,7 +398,7 @@ class AdvancedDatabaseManager:
             print(f"⚠️ Bulk 저장 실패: {e}")
             return False
     
-    def bulk_save_llm_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
+    def db_bulk_save_llm_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
         """LLM 분석 결과 bulk 저장"""
         try:
             success = self._perform_save_operation("llm_analysis", data_list)
@@ -403,11 +409,11 @@ class AdvancedDatabaseManager:
             print(f"⚠️ Bulk 저장 실패: {e}")
             return False
     
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def db_get_performance_stats(self) -> Dict[str, Any]:
         """성능 통계 반환"""
         return self.performance_stats.copy()
     
-    def get_recovery_log(self, limit: int = 100) -> List[str]:
+    def db_get_recovery_log(self, limit: int = 100) -> List[str]:
         """복구 로그 조회"""
         try:
             if not self.recovery_log_file.exists():
@@ -421,10 +427,10 @@ class AdvancedDatabaseManager:
             print(f"⚠️ 복구 로그 조회 실패: {e}")
             return []
     
-    def cleanup(self):
+    def db_cleanup(self):
         """리소스 정리"""
         # 모든 배치 플러시
-        self.flush_all_batches()
+        self.db_flush_all_batches()
         
         # 비동기 저장 워커 종료
         if self.save_queue:
@@ -434,4 +440,373 @@ class AdvancedDatabaseManager:
         if self.executor:
             self.executor.shutdown(wait=True)
         
-        print("✅ AdvancedDatabaseManager 정리 완료") 
+        print("✅ AdvancedDatabaseManager 정리 완료")
+
+class SimplifiedDBManager:
+    """간소화된 DB 관리자"""
+    
+    def __init__(self, connection_params: Dict[str, str]):
+        self.connection_params = connection_params
+        self.conn: Optional[connection] = None
+        
+    def db_connect(self) -> connection:
+        """DB 연결"""
+        try:
+            if not self.conn or self.conn.closed:
+                self.conn = psycopg2.db_connect(**self.connection_params)
+                self.conn.autocommit = False
+            return self.conn
+        except Exception as e:
+            logger.error(f"DB 연결 실패: {e}")
+            raise
+    
+    def db_disconnect(self):
+        """DB 연결 해제"""
+        if self.conn and not self.conn.closed:
+            self.conn.close()
+    
+    def db_save_consultation_classification(self, 
+                                       audio_file_id: int,
+                                       classification_result: Dict[str, Any],
+                                       session_date: date = None) -> int:
+        """상담 분류 결과 저장"""
+        try:
+            conn = self.db_connect()
+            cursor = conn.cursor()
+            
+            # 기본값 설정
+            if session_date is None:
+                session_date = date.today()
+            
+            # consultation_sessions 테이블에 저장
+            insert_query = None"
+                INSERT INTO consultation_sessions (
+                    audio_file_id, session_date, duration_minutes,
+                    business_area, consultation_subject, consultation_requirement,
+                    consultation_content, consultation_reason, consultation_result,
+                    overall_quality_score, analysis_status, analysis_completed_at,
+                    summary, key_issues, resolution_status, customer_satisfaction_score
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                ) RETURNING id
+            """
+            
+            cursor.execute(insert_query, (
+                audio_file_id,
+                session_date,
+                classification_result.get('duration_minutes', 0.0),
+                classification_result.get('business_area', '기타'),
+                classification_result.get('consultation_subject', '기타'),
+                classification_result.get('consultation_requirement', '단일 요건 민원'),
+                classification_result.get('consultation_content', '일반 문의 상담'),
+                classification_result.get('consultation_reason', '민원인'),
+                classification_result.get('consultation_result', '추가상담필요'),
+                classification_result.get('overall_quality_score', 0.0),
+                'completed',
+                get_current_time(),
+                classification_result.get('summary', ''),
+                json.dumps(classification_result.get('key_issues', {}), ensure_ascii=False),
+                classification_result.get('resolution_status', 'unresolved'),
+                classification_result.get('customer_satisfaction_score', 0.0)
+            ))
+            
+            session_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            logger.info(f"상담 분류 결과 저장 완료: session_id={session_id}")
+            return session_id
+            
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"상담 분류 결과 저장 실패: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+    
+    def db_save_quality_metrics(self, session_id: int, metrics: Dict[str, float]):
+        """품질 지표 저장"""
+        try:
+            conn = self.db_connect()
+            cursor = conn.cursor()
+            
+            # 기존 지표 삭제
+            cursor.execute("DELETE FROM quality_metrics WHERE session_id = %s", (session_id,))
+            
+            # 새 지표 저장
+            for metric_name, metric_value in metrics.items():
+                insert_query = None"
+                    INSERT INTO quality_metrics (
+                        session_id, metric_name, metric_value, metric_description, category
+                    ) VALUES (%s, %s, %s, %s, %s)
+                """
+                
+                cursor.execute(insert_query, (
+                    session_id,
+                    metric_name,
+                    metric_value,
+                    f"{metric_name} 지표",
+                    'communication'  # 기본 카테고리
+                ))
+            
+            conn.commit()
+            logger.info(f"품질 지표 저장 완료: session_id={session_id}")
+            
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"품질 지표 저장 실패: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+    
+    def db_save_sentiment_analysis(self, session_id: int, sentiment_data: List[Dict[str, Any]]):
+        """감정 분석 결과 저장"""
+        try:
+            conn = self.db_connect()
+            cursor = conn.cursor()
+            
+            # 기존 감정 분석 삭제
+            cursor.execute("DELETE FROM sentiment_analysis WHERE session_id = %s", (session_id,))
+            
+            # 새 감정 분석 저장
+            for sentiment in sentiment_data:
+                insert_query = None"
+                    INSERT INTO sentiment_analysis (
+                        session_id, speaker_type, time_segment_start, time_segment_end,
+                        sentiment_score, emotion_category, confidence, emotion_intensity
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                cursor.execute(insert_query, (
+                    session_id,
+                    sentiment.get('speaker_type', 'unknown'),
+                    sentiment.get('time_segment_start', 0.0),
+                    sentiment.get('time_segment_end', 0.0),
+                    sentiment.get('sentiment_score', 0.0),
+                    sentiment.get('emotion_category', 'neutral'),
+                    sentiment.get('confidence', 0.0),
+                    sentiment.get('emotion_intensity', 0.0)
+                ))
+            
+            conn.commit()
+            logger.info(f"감정 분석 저장 완료: session_id={session_id}")
+            
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"감정 분석 저장 실패: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+    
+    def db_get_consultation_summary(self, session_id: int) -> Dict[str, Any]:
+        """상담 요약 정보 조회"""
+        try:
+            conn = self.db_connect()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            
+            query = None"
+                SELECT 
+                    cs.*,
+                    af.file_name,
+                    af.duration_seconds,
+                    COUNT(qm.id) as metrics_count,
+                    COUNT(sa.id) as sentiment_count
+                FROM consultation_sessions cs
+                LEFT JOIN audio_files af ON cs.audio_file_id = af.id
+                LEFT JOIN quality_metrics qm ON cs.id = qm.session_id
+                LEFT JOIN sentiment_analysis sa ON cs.id = sa.session_id
+                WHERE cs.id = %s
+                GROUP BY cs.id, af.file_name, af.duration_seconds
+            """
+            
+            cursor.execute(query, (session_id,))
+            result = cursor.fetchone()
+            
+            if result:
+                return dict(result)
+            else:
+                return {}
+                
+        except Exception as e:
+            logger.error(f"상담 요약 조회 실패: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+    
+    def db_get_business_area_statistics(self) -> List[Dict[str, Any]]:
+        """업무 분야별 통계 조회"""
+        try:
+            conn = self.db_connect()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            
+            query = None"
+                SELECT 
+                    business_area,
+                    COUNT(*) as total_sessions,
+                    AVG(overall_quality_score) as avg_quality_score,
+                    AVG(customer_satisfaction_score) as avg_satisfaction,
+                    AVG(duration_minutes) as avg_duration,
+                    COUNT(CASE WHEN resolution_status = 'resolved' THEN 1 END) as resolved_count,
+                    COUNT(CASE WHEN resolution_status = 'unresolved' THEN 1 END) as unresolved_count
+                FROM consultation_sessions
+                WHERE business_area IS NOT NULL
+                GROUP BY business_area
+                ORDER BY total_sessions DESC
+            """
+            
+            cursor.execute(query)
+            results = cursor.fetchall()
+            
+            return [dict(row) for row in results]
+            
+        except Exception as e:
+            logger.error(f"업무 분야 통계 조회 실패: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+    
+    def db_get_classification_accuracy_report(self) -> Dict[str, Any]:
+        """분류 정확도 리포트"""
+        try:
+            conn = self.db_connect()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            
+            # 상담 주제별 분포
+            subject_query = None"
+                SELECT 
+                    consultation_subject,
+                    COUNT(*) as count,
+                    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+                FROM consultation_sessions
+                WHERE consultation_subject IS NOT NULL
+                GROUP BY consultation_subject
+                ORDER BY count DESC
+            """
+            
+            cursor.execute(subject_query)
+            subject_stats = [dict(row) for row in cursor.fetchall()]
+            
+            # 상담 결과별 분포
+            result_query = None"
+                SELECT 
+                    consultation_result,
+                    COUNT(*) as count,
+                    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+                FROM consultation_sessions
+                WHERE consultation_result IS NOT NULL
+                GROUP BY consultation_result
+                ORDER BY count DESC
+            """
+            
+            cursor.execute(result_query)
+            result_stats = [dict(row) for row in cursor.fetchall()]
+            
+            # 전체 통계
+            total_query = None"
+                SELECT 
+                    COUNT(*) as total_sessions,
+                    AVG(overall_quality_score) as avg_quality,
+                    AVG(customer_satisfaction_score) as avg_satisfaction,
+                    COUNT(CASE WHEN resolution_status = 'resolved' THEN 1 END) as resolved_count
+                FROM consultation_sessions
+            """
+            
+            cursor.execute(total_query)
+            total_stats = dict(cursor.fetchone())
+            
+            return {
+                'total_statistics': total_stats,
+                'subject_distribution': subject_stats,
+                'result_distribution': result_stats
+            }
+            
+        except Exception as e:
+            logger.error(f"분류 정확도 리포트 조회 실패: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+    
+    def db_update_audio_processing_status(self, audio_file_id: int, status: str, error_message: str = None):
+        """오디오 처리 상태 업데이트"""
+        try:
+            conn = self.db_connect()
+            cursor = conn.cursor()
+            
+            if status == 'completed':
+                query = None"
+                    UPDATE audio_files 
+                    SET processing_status = %s, processing_completed_at = %s
+                    WHERE id = %s
+                """
+                cursor.execute(query, (status, get_current_time(), audio_file_id))
+            else:
+                query = None"
+                    UPDATE audio_files 
+                    SET processing_status = %s, error_message = %s
+                    WHERE id = %s
+                """
+                cursor.execute(query, (status, error_message, audio_file_id))
+            
+            conn.commit()
+            logger.info(f"오디오 처리 상태 업데이트: audio_file_id={audio_file_id}, status={status}")
+            
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            logger.error(f"오디오 처리 상태 업데이트 실패: {e}")
+            raise
+        finally:
+            if cursor:
+                cursor.close()
+
+# 사용 예시
+if __name__ == "__main__":
+    # DB 연결 설정
+    db_config = {
+        'host': 'localhost',
+        'port': 5432,
+        'database': 'callytics',
+        'user': 'callytics_user',
+        'password': '1234'
+    }
+    
+    db_manager = SimplifiedDBManager(db_config)
+    
+    # 테스트 데이터
+    classification_result = {
+        'business_area': '요금제 변경',
+        'consultation_subject': '주문/결제/확인',
+        'consultation_requirement': '단일 요건 민원',
+        'consultation_content': '업무 처리 상담',
+        'consultation_reason': '민원인',
+        'consultation_result': '만족',
+        'overall_quality_score': 0.85,
+        'customer_satisfaction_score': 0.9,
+        'duration_minutes': 5.5,
+        'summary': '요금제 변경 요청으로 만족스러운 상담 완료',
+        'key_issues': {'main_issue': '요금제 변경', 'resolution': '성공'}
+    }
+    
+    try:
+        # 상담 분류 결과 저장
+        session_id = db_manager.db_save_consultation_classification(1, classification_result)
+        print(f"상담 분류 결과 저장 완료: session_id={session_id}")
+        
+        # 요약 정보 조회
+        summary = db_manager.db_get_consultation_summary(session_id)
+        print(f"상담 요약: {summary}")
+        
+        # 업무 분야 통계 조회
+        stats = db_manager.db_get_business_area_statistics()
+        print(f"업무 분야 통계: {stats}")
+        
+    finally:
+        db_manager.db_disconnect() 

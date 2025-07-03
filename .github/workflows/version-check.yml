@@ -1,0 +1,95 @@
+name: Version Compatibility Check & Auto-Fix
+
+on:
+  push:
+    paths:
+      - 'requirements*.txt'
+      - 'Dockerfile*'
+      - 'src/**'
+      - '.github/workflows/version-check.yml'
+  pull_request:
+    paths:
+      - 'requirements*.txt'
+      - 'Dockerfile*'
+      - 'src/**'
+  schedule:
+    # 매주 월요일 오전 9시에 자동 실행
+    - cron: '0 9 * * 1'
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install requests packaging
+    
+    - name: Run version compatibility check
+      run: |
+        python version_compatibility_analyzer.py
+    
+    - name: Check for version conflicts
+      run: |
+        if [ -f "version_compatibility_report.json" ]; then
+          conflicts=$(python -c "import json; data=json.load(open('version_compatibility_report.json')); print(data['summary']['version_conflicts'])")
+          if [ "$conflicts" -gt 0 ]; then
+            echo "❌ Version conflicts detected: $conflicts"
+            echo "::error::Version conflicts detected. Please run version_unifier.py to fix."
+            exit 1
+          else
+            echo "✅ No version conflicts detected"
+          fi
+        fi
+    
+    - name: Check for compatibility issues
+      run: |
+        if [ -f "version_compatibility_report.json" ]; then
+          issues=$(python -c "import json; data=json.load(open('version_compatibility_report.json')); print(data['summary']['compatibility_issues'])")
+          if [ "$issues" -gt 0 ]; then
+            echo "⚠️ Compatibility issues detected: $issues"
+            echo "Please review the report"
+          else
+            echo "✅ No compatibility issues detected"
+          fi
+        fi
+    
+    - name: Upload compatibility report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: version-compatibility-report
+        path: version_compatibility_report.json
+
+  auto-fix:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Run version unifier
+      run: |
+        python version_unifier.py
+    
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git diff --quiet && git diff --staged --quiet || git commit -m "🔧 Auto-fix version compatibility issues"
+        git push

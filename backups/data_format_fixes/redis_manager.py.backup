@@ -1,0 +1,404 @@
+#!/usr/bin/env python3
+"""
+Redis 캐싱 매니저
+세션, 모델, 결과 캐싱 및 분산 잠금 지원
+"""
+
+import os
+import redis.asyncio as redis
+import json
+import pickle
+import hashlib
+import logging
+from typing import Optional, Dict, Any, Union, List
+from datetime import datetime, timedelta
+from dataclasses import dataclass
+import asyncio
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class RedisConfig:
+    """Redis 설정"""
+    host: str = "localhost"
+    port: int = 6379
+    password: str | None = None
+    db: int = 0
+    
+    # 연결 풀 설정
+    max_connections: int = 50
+    socket_timeout: float = 5.0
+    socket_connect_timeout: float = 5.0
+    socket_keepalive: bool = True
+    socket_keepalive_options: Dict[str, int] = None
+    
+    # 기본 TTL 설정 (초)
+    default_ttl: int = 3600  # 1시간
+    session_ttl: int = 28800  # 8시간
+    model_cache_ttl: int = 86400  # 24시간
+    result_cache_ttl: int = 7200  # 2시간
+    
+    def __post_init__(self):
+        if self.socket_keepalive_options is None:
+            self.socket_keepalive_options = {
+                'TCP_KEEPINTVL': 1,
+                'TCP_KEEPCNT': 3,
+                'TCP_KEEPIDLE': 1
+            }
+
+class RedisManager:
+    """Redis 캐싱 매니저"""
+    
+    def __init__(self, config: RedisConfig = None):
+        """
+        Redis 매니저 초기화
+        
+        Parameters
+        ----------
+        config : RedisConfig, optional
+            Redis 설정 (환경변수에서 로드)
+        """
+        self.config = config or self._load_config_from_env()
+        self.client: Optional[redis.Redis] = None
+        self.is_connected = False
+        
+        # 네임스페이스 정의
+        self.namespaces = {
+            'session': 'sess:',
+            'model': 'model:',
+            'result': 'result:',
+            'lock': 'lock:',
+            'metrics': 'metrics:',
+            'cache': 'cache:'
+        }
+        
+        # 성능 통계
+        self.stats = {
+            'total_operations': 0,
+            'cache_hits': 0,
+            'cache_misses': 0,
+            'set_operations': 0,
+            'get_operations': 0,
+            'delete_operations': 0,
+            'connection_errors': 0
+        }
+    
+    def _load_config_from_env(self) -> RedisConfig:
+        """환경변수에서 Redis 설정 로드"""
+        return RedisConfig(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            password=os.getenv("REDIS_PASSWORD"),
+            db=int(os.getenv("REDIS_DB", "0")),
+            max_connections=int(os.getenv("REDIS_MAX_CONNECTIONS", "50")),
+            default_ttl=int(os.getenv("REDIS_DEFAULT_TTL", "3600")),
+            session_ttl=int(os.getenv("REDIS_SESSION_TTL", "28800")),
+            model_cache_ttl=int(os.getenv("REDIS_MODEL_CACHE_TTL", "86400"))
+        )
+    
+    async def initialize(self) -> None:
+        """Redis 클라이언트 초기화"""
+        if self.is_connected:
+            logger.warning("Redis 클라이언트가 이미 초기화되어 있습니다")
+            return
+        
+        try:
+            logger.info(f"Redis 클라이언트 초기화 시작: {self.config.host}:{self.config.port}")
+            
+            # Redis 클라이언트 생성
+            self.client = redis.Redis(
+                host=self.config.host,
+                port=self.config.port,
+                password=self.config.password,
+                db=self.config.db,
+                max_connections=self.config.max_connections,
+                socket_timeout=self.config.socket_timeout,
+                socket_connect_timeout=self.config.socket_connect_timeout,
+                socket_keepalive=self.config.socket_keepalive,
+                socket_keepalive_options=self.config.socket_keepalive_options,
+                decode_responses=False  # bytes로 받아서 pickle 사용
+            )
+            
+            # 연결 테스트
+            await self.client.ping()
+            self.is_connected = True
+            logger.info("✅ Redis 클라이언트 초기화 완료")
+            
+        except Exception as e:
+            self.stats['connection_errors'] += 1
+            logger.error(f"❌ Redis 클라이언트 초기화 실패: {e}")
+            raise e
+    
+    async def close(self) -> None:
+        """Redis 클라이언트 종료"""
+        if self.client:
+            await self.client.close()
+            self.is_connected = False
+            logger.info("Redis 클라이언트 종료됨")
+    
+    def _get_key(self, namespace: str, key: str) -> str:
+        """네임스페이스가 포함된 키 생성"""
+        prefix = self.namespaces.get(namespace, '')
+        return f"{prefix}{key}"
+    
+    def _serialize_data(self, data: Any) -> bytes:
+        """데이터 직렬화"""
+        if isinstance(data, (str, int, float)):
+            return str(data).encode('utf-8')
+        else:
+            return pickle.dumps(data)
+    
+    def _deserialize_data(self, data: bytes) -> Any:
+        """데이터 역직렬화"""
+        try:
+            return pickle.loads(data)
+        except:
+            return data.decode('utf-8')
+    
+    async def set(self, namespace: str, key: str, value: Any, ttl: int | None = None) -> bool:
+        """캐시 데이터 저장"""
+        if not self.is_connected:
+            return False
+        
+        try:
+            cache_key = self._get_key(namespace, key)
+            serialized_value = self._serialize_data(value)
+            
+            if ttl is None:
+                if namespace == 'session':
+                    ttl = self.config.session_ttl
+                elif namespace == 'model':
+                    ttl = self.config.model_cache_ttl
+                elif namespace == 'result':
+                    ttl = self.config.result_cache_ttl
+                else:
+                    ttl = self.config.default_ttl
+            
+            await self.client.setex(cache_key, ttl, serialized_value)
+            
+            self.stats['total_operations'] += 1
+            self.stats['set_operations'] += 1
+            return True
+            
+        except Exception as e:
+            logger.error(f"Redis SET 실패: {namespace}:{key} - {e}")
+            return False
+    
+    async def get(self, namespace: str, key: str) -> Optional[Any]:
+        """캐시 데이터 조회"""
+        if not self.is_connected:
+            return None
+        
+        try:
+            cache_key = self._get_key(namespace, key)
+            data = await self.client.get(cache_key)
+            
+            self.stats['total_operations'] += 1
+            self.stats['get_operations'] += 1
+            
+            if data is None:
+                self.stats['cache_misses'] += 1
+                return None
+            
+            self.stats['cache_hits'] += 1
+            return self._deserialize_data(data)
+            
+        except Exception as e:
+            logger.error(f"Redis GET 실패: {namespace}:{key} - {e}")
+            return None
+    
+    async def delete(self, namespace: str, key: str) -> bool:
+        """캐시 데이터 삭제"""
+        if not self.is_connected:
+            return False
+        
+        try:
+            cache_key = self._get_key(namespace, key)
+            result = await self.client.delete(cache_key)
+            
+            self.stats['total_operations'] += 1
+            self.stats['delete_operations'] += 1
+            return bool(result)
+            
+        except Exception as e:
+            logger.error(f"Redis DELETE 실패: {namespace}:{key} - {e}")
+            return False
+    
+    async def exists(self, namespace: str, key: str) -> bool:
+        """캐시 키 존재 여부 확인"""
+        if not self.is_connected:
+            return False
+        
+        try:
+            cache_key = self._get_key(namespace, key)
+            return bool(await self.client.exists(cache_key))
+        except Exception as e:
+            logger.error(f"Redis EXISTS 실패: {namespace}:{key} - {e}")
+            return False
+    
+    async def set_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
+        """세션 데이터 저장"""
+        return await self.set('session', session_id, session_data)
+    
+    async def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """세션 데이터 조회"""
+        return await self.get('session', session_id)
+    
+    async def delete_session(self, session_id: str) -> bool:
+        """세션 데이터 삭제"""
+        return await self.delete('session', session_id)
+    
+    async def cache_model_result(self, model_name: str, input_hash: str, result: Any) -> bool:
+        """모델 결과 캐싱"""
+        key = f"{model_name}:{input_hash}"
+        return await self.set('model', key, result)
+    
+    async def get_cached_model_result(self, model_name: str, input_hash: str) -> Optional[Any]:
+        """캐시된 모델 결과 조회"""
+        key = f"{model_name}:{input_hash}"
+        return await self.get('model', key)
+    
+    async def cache_analysis_result(self, analysis_type: str, content_hash: str, result: Any) -> bool:
+        """분석 결과 캐싱"""
+        key = f"{analysis_type}:{content_hash}"
+        return await self.set('result', key, result)
+    
+    async def get_cached_analysis_result(self, analysis_type: str, content_hash: str) -> Optional[Any]:
+        """캐시된 분석 결과 조회"""
+        key = f"{analysis_type}:{content_hash}"
+        return await self.get('result', key)
+    
+    def util_create_content_hash(self, content: Union[str, Dict, List]) -> str:
+        """콘텐츠 해시 생성"""
+        if isinstance(content, str):
+            data = content.encode('utf-8')
+        else:
+            data = json.dumps(content, sort_keys=True).encode('utf-8')
+        
+        return hashlib.sha256(data).hexdigest()[:16]
+    
+    async def acquire_lock(self, resource: str, timeout: int = 30, blocking_timeout: int = 10) -> str | None:
+        """분산 잠금 획득"""
+        if not self.is_connected:
+            return None
+        
+        try:
+            lock_key = self._get_key('lock', resource)
+            lock_value = f"{os.getpid()}:{datetime.now().timestamp()}"
+            
+            # 논블로킹 잠금 시도
+            result = await self.client.set(lock_key, lock_value, nx=True, ex=timeout)
+            
+            if result:
+                return lock_value
+            
+            # 블로킹 잠금 (지정된 시간만큼 대기)
+            start_time = asyncio.get_event_loop().time()
+            while asyncio.get_event_loop().time() - start_time < blocking_timeout:
+                await asyncio.sleep(0.1)
+                result = await self.client.set(lock_key, lock_value, nx=True, ex=timeout)
+                if result:
+                    return lock_value
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"잠금 획득 실패: {resource} - {e}")
+            return None
+    
+    async def release_lock(self, resource: str, lock_value: str) -> bool:
+        """분산 잠금 해제"""
+        if not self.is_connected:
+            return False
+        
+        try:
+            lock_key = self._get_key('lock', resource)
+            
+            # Lua 스크립트로 원자적 잠금 해제
+            lua_script = None"
+            if redis.call("get", KEYS[1]) == ARGV[1] then
+                return redis.call("del", KEYS[1])
+            else
+                return 0
+            end
+            """
+            
+            result = await self.client.eval(lua_script, 1, lock_key, lock_value)
+            return bool(result)
+            
+        except Exception as e:
+            logger.error(f"잠금 해제 실패: {resource} - {e}")
+            return False
+    
+    async def increment_counter(self, namespace: str, key: str, amount: int = 1) -> int:
+        """카운터 증가"""
+        if not self.is_connected:
+            return 0
+        
+        try:
+            cache_key = self._get_key(namespace, key)
+            return await self.client.incrby(cache_key, amount)
+        except Exception as e:
+            logger.error(f"카운터 증가 실패: {namespace}:{key} - {e}")
+            return 0
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """Redis 헬스체크"""
+        try:
+            if not self.is_connected:
+                return {
+                    "status": "unhealthy",
+                    "error": "Redis 클라이언트가 초기화되지 않음"
+                }
+            
+            start_time = asyncio.get_event_loop().time()
+            await self.client.ping()
+            response_time = asyncio.get_event_loop().time() - start_time
+            
+            # Redis 정보 조회
+            info = await self.client.info()
+            
+            return {
+                "status": "healthy",
+                "response_time_ms": round(response_time * 1000, 2),
+                "redis_info": {
+                    "connected_clients": info.get('connected_clients', 0),
+                    "used_memory_human": info.get('used_memory_human', '0B'),
+                    "keyspace_hits": info.get('keyspace_hits', 0),
+                    "keyspace_misses": info.get('keyspace_misses', 0),
+                    "expired_keys": info.get('expired_keys', 0)
+                },
+                "cache_stats": self.stats.copy()
+            }
+            
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "cache_stats": self.stats.copy()
+            }
+    
+    def util_get_cache_hit_rate(self) -> float:
+        """캐시 히트율 반환"""
+        total_gets = self.stats['cache_hits'] + self.stats['cache_misses']
+        if total_gets == 0:
+            return 0.0
+        return (self.stats['cache_hits'] / total_gets) * 100
+
+# 전역 인스턴스 (싱글톤 패턴)
+_redis_manager: Optional[RedisManager] = None
+
+async def get_redis_manager() -> RedisManager:
+    """Redis 매니저 인스턴스 반환"""
+    global _redis_manager
+    if _redis_manager is None:
+        _redis_manager = RedisManager()
+        await _redis_manager.initialize()
+    return _redis_manager
+
+async def close_redis_manager():
+    """Redis 매니저 종료"""
+    global _redis_manager
+    if _redis_manager:
+        await _redis_manager.close()
+        _redis_manager = None 

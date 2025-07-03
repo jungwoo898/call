@@ -1,0 +1,203 @@
+#!/usr/bin/env python3
+"""
+빠른 분석 서비스 - 사전 로딩된 모델 활용
+분석 요청 시 즉시 처리 (모델 로딩 시간 제거)
+"""
+
+import asyncio
+import logging
+import time
+from typing import Dict, Any, List
+from pathlib import Path
+import librosa
+import numpy as np
+
+from .model_preloader import model_preloader
+
+logger = logging.getLogger(__name__)
+
+class FastAnalyzer:
+    """사전 로딩된 모델을 활용한 빠른 분석"""
+    
+    def __init__(self):
+        self.ready = False
+        
+    async def wait_for_models(self, timeout: int = 300):
+        """모델 준비 대기"""
+        start_time = time.time()
+        
+        while time.time() - start_time < timeout:
+            if model_preloader.preload_complete:
+                self.ready = True
+                logger.info("✅ 모든 모델 준비 완료 - 빠른 분석 가능")
+                return True
+            
+            await asyncio.sleep(2)
+            logger.info("⏳ 모델 로딩 대기 중...")
+        
+        logger.error("❌ 모델 로딩 타임아웃")
+        return False
+    
+    async def analyze_audio_fast(self, audio_path: str) -> Dict[str, Any]:
+        """🚀 빠른 오디오 분석 (사전 로딩된 모델 사용)"""
+        
+        if not self.ready:
+            raise ValueError("모델이 준비되지 않았습니다. wait_for_models()를 먼저 호출하세요.")
+        
+        start_time = time.time()
+        logger.info(f"🎯 빠른 분석 시작: {audio_path}")
+        
+        try:
+            # 오디오 파일 로드
+            audio_data, sample_rate = librosa.load(audio_path, sr=16000)
+            
+            # 병렬 분석 실행
+            tasks = [
+                self._transcribe_fast(audio_data, sample_rate),
+                self._diarize_fast(audio_data, sample_rate),
+            ]
+            
+            # 음성 인식 + 화자 분리 병렬 실행
+            transcription_result, diarization_result = await asyncio.gather(*tasks)
+            
+            # 텍스트 기반 분석 (순차 실행 - 빠름)
+            text_content = transcription_result.get('text', '')
+            
+            # 문장 부호 복원
+            punctuated_text = await self._restore_punctuation_fast(text_content)
+            
+            # 감정 분석 
+            sentiment_result = await self._analyze_sentiment_fast(punctuated_text)
+            
+            # 결과 통합
+            total_time = time.time() - start_time
+            
+            result = {
+                "audio_path": audio_path,
+                "processing_time": f"{total_time:.2f}초",
+                "transcription": transcription_result,
+                "speaker_diarization": diarization_result,
+                "punctuated_text": punctuated_text,
+                "sentiment_analysis": sentiment_result,
+                "status": "completed",
+                "fast_analysis": True
+            }
+            
+            logger.info(f"✅ 빠른 분석 완료: {total_time:.2f}초")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 빠른 분석 실패: {e}")
+            raise
+    
+    async def _transcribe_fast(self, audio_data: np.ndarray, sample_rate: int) -> Dict[str, Any]:
+        """빠른 음성 인식 (사전 로딩된 Whisper 사용)"""
+        try:
+            whisper_model = model_preloader.get_model('whisper')
+            
+            # 즉시 추론 (모델 이미 로딩됨)
+            result = whisper_model.transcribe(audio_data)
+            
+            return {
+                "text": result["text"],
+                "language": result.get("language", "ko"),
+                "segments": result.get("segments", [])
+            }
+            
+        except Exception as e:
+            logger.error(f"음성 인식 실패: {e}")
+            return {"text": "", "error": str(e)}
+    
+    async def _diarize_fast(self, audio_data: np.ndarray, sample_rate: int) -> Dict[str, Any]:
+        """빠른 화자 분리 (사전 로딩된 모델 사용)"""
+        try:
+            diarization_model = model_preloader.get_model('diarization')
+            
+            # 오디오 데이터 준비
+            import torch
+            waveform = torch.from_numpy(audio_data).unsqueeze(0)
+            if model_preloader.device == "cuda":
+                waveform = waveform.cuda()
+            
+            audio_input = {
+                "waveform": waveform,
+                "sample_rate": sample_rate
+            }
+            
+            # 즉시 추론 (모델 이미 로딩됨)
+            diarization_result = diarization_model(audio_input)
+            
+            # 결과 처리
+            segments = []
+            for turn, _, speaker in diarization_result.itertracks(yield_label=True):
+                segments.append({
+                    "start": turn.start,
+                    "end": turn.end,
+                    "speaker": speaker
+                })
+            
+            return {
+                "segments": segments,
+                "num_speakers": len(set(seg["speaker"] for seg in segments))
+            }
+            
+        except Exception as e:
+            logger.error(f"화자 분리 실패: {e}")
+            return {"segments": [], "error": str(e)}
+    
+    async def _restore_punctuation_fast(self, text: str) -> str:
+        """빠른 문장 부호 복원"""
+        try:
+            punctuation_model = model_preloader.get_model('punctuation')
+            
+            # 즉시 추론
+            result = punctuation_model(text)
+            
+            return result[0]["generated_text"] if result else text
+            
+        except Exception as e:
+            logger.error(f"문장 부호 복원 실패: {e}")
+            return text
+    
+    async def _analyze_sentiment_fast(self, text: str) -> Dict[str, Any]:
+        """빠른 감정 분석"""
+        try:
+            sentiment_model = model_preloader.get_model('sentiment')
+            
+            # 텍스트 분할 (긴 텍스트 처리)
+            chunks = [text[i:i+512] for i in range(0, len(text), 512)]
+            
+            results = []
+            for chunk in chunks:
+                if chunk.strip():
+                    result = sentiment_model(chunk)
+                    results.extend(result)
+            
+            # 평균 점수 계산
+            if results:
+                avg_score = sum(r["score"] for r in results) / len(results)
+                dominant_label = max(set(r["label"] for r in results), 
+                                   key=lambda x: sum(1 for r in results if r["label"] == x))
+                
+                return {
+                    "overall_sentiment": dominant_label,
+                    "confidence": avg_score,
+                    "details": results
+                }
+            
+            return {"overall_sentiment": "neutral", "confidence": 0.5}
+            
+        except Exception as e:
+            logger.error(f"감정 분석 실패: {e}")
+            return {"overall_sentiment": "unknown", "error": str(e)}
+    
+    def text_get_status(self) -> Dict[str, Any]:
+        """분석기 상태 확인"""
+        return {
+            "ready": self.ready,
+            "models_ready": model_preloader.preload_complete,
+            "model_status": model_preloader.text_get_status()
+        }
+
+# 전역 인스턴스
+fast_analyzer = FastAnalyzer() 

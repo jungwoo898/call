@@ -4,121 +4,169 @@
 한국어 문장 부호 복원 및 텍스트 정제
 """
 
-import os
-import logging
-from typing import Dict, Any
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+import asyncio
+from typing import Dict, List, Optional
+from contextlib import asynccontextmanager
+
+from fastapi import HTTPException
+from pydantic import BaseModel
 import uvicorn
+
+# BaseService 패턴 적용
+from ..utils.base_service import ModelService
+from ..utils.type_definitions import JsonDict, StringList
+from ..utils.api_schemas import (
+    HealthResponse,
+    MetricsResponse,
+    SuccessResponse,
+    create_success_response,
+    create_error_response
+)
 
 # 문장 부호 복원 모듈 import
 from .advanced_analysis import AdvancedCommunicationAnalyzer
 
-# 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 요청/응답 스키마 정의
+class PunctuationRestoreRequest(BaseModel):
+    """문장 부호 복원 요청"""
+    transcriptions: Optional[List[str]] = None
+    text_data: str | None = None
 
-app = FastAPI(title="Punctuation Restorer Service", version="1.0.0")
+class PunctuationRestoreResponse(BaseModel):
+    """문장 부호 복원 응답"""
+    status: str
+    message: str
+    data: JsonDict
+    restored_text: str
+    original_text: str | None = None
 
-# 문장 부호 복원기 인스턴스
-restorer = AdvancedCommunicationAnalyzer()
+class TextPunctuationRequest(BaseModel):
+    """텍스트 기반 문장 부호 복원 요청"""
+    text: str
 
-@app.get("/health")
-async def health_check():
-    """헬스체크 엔드포인트"""
-    return JSONResponse({
-        "status": "healthy",
-        "service": "punctuation-restorer",
-        "version": "1.0.0"
-    })
+class PunctuationRestorerService(ModelService):
+    """문장 부호 복원 서비스 클래스"""
+    
+    def __init__(self):
+        super().__init__(
+            service_name="punctuation-restorer",
+            version="1.0.0",
+            description="한국어 문장 부호 복원 및 텍스트 정제 서비스"
+        )
+        self.restorer: Optional[AdvancedCommunicationAnalyzer] = None
+    
+    async def initialize_models(self) -> None:
+        """모델 초기화"""
+        try:
+            self.logger.info("문장 부호 복원 모델 초기화 시작")
+            self.restorer = AdvancedCommunicationAnalyzer()
+            self.model_ready = True
+            self.logger.info("문장 부호 복원 모델 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"모델 초기화 실패: {e}")
+            self.model_ready = False
+            raise e
+    
+    async def cleanup_models(self) -> None:
+        """모델 정리"""
+        if self.restorer:
+            self.logger.info("문장 부호 복원 모델 정리")
+            # 필요시 모델 정리 로직 추가
+            self.restorer = None
+    
+    def text_get_custom_metrics(self) -> JsonDict:
+        """커스텀 메트릭 반환"""
+        return {
+            "model_loaded": self.restorer is not None,
+            "model_type": "punctuation_restorer",
+            "supported_languages": ["ko"]
+        }
 
-@app.get("/metrics")
-async def get_metrics():
-    """메트릭 엔드포인트"""
-    try:
-        import psutil
-        
-        cpu_percent = psutil.cpu_percent(interval=1)
-        memory = psutil.virtual_memory()
-        
-        return JSONResponse({
-            "cpu_percent": cpu_percent,
-            "memory_percent": memory.percent,
-            "memory_available_gb": memory.available / 1024**3,
-            "service": "punctuation-restorer"
-        })
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# 서비스 인스턴스 생성
+service = PunctuationRestorerService()
 
-@app.post("/restore")
-async def restore_punctuation(data: Dict[str, Any]):
+@asynccontextmanager
+async def lifespan(app):
+    """애플리케이션 생명주기 관리"""
+    await service.startup()
+    yield
+    await service.shutdown()
+
+# FastAPI 앱 생성
+app = service.create_app(lifespan=lifespan)
+
+@app.post("/restore", response_model=PunctuationRestoreResponse)
+async def restore_punctuation(request: PunctuationRestoreRequest) -> PunctuationRestoreResponse:
     """문장 부호 복원 엔드포인트"""
     try:
-        transcriptions = data.get('transcriptions', [])
-        text_data = data.get('text_data', '')
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
         
-        if not transcriptions and not text_data:
+        if not request.transcriptions and not request.text_data:
             raise HTTPException(status_code=400, detail="transcriptions 또는 text_data가 필요합니다")
         
-        logger.info(f"문장 부호 복원 시작: {len(transcriptions)}개 전사 또는 텍스트")
+        service.logger.info(f"문장 부호 복원 시작: {len(request.transcriptions or [])}개 전사 또는 텍스트")
         
         # 문장 부호 복원 실행
-        if transcriptions:
-            restored_text = await restorer.restore_punctuation_async(transcriptions)
+        if request.transcriptions:
+            restored_text = await service.restorer.restore_punctuation_async(request.transcriptions)
+            original_text = " ".join(request.transcriptions)
         else:
-            restored_text = await restorer.restore_punctuation_text_async(text_data)
+            restored_text = await service.restorer.restore_punctuation_text_async(request.text_data)
+            original_text = request.text_data
         
-        logger.info("문장 부호 복원 완료")
+        service.logger.info("문장 부호 복원 완료")
         
-        return JSONResponse({
-            "status": "success",
-            "restored_text": restored_text,
-            "message": "문장 부호 복원이 완료되었습니다"
-        })
+        return PunctuationRestoreResponse(
+            status="success",
+            message="문장 부호 복원이 완료되었습니다",
+            data={
+                "input_type": "transcriptions" if request.transcriptions else "text_data",
+                "input_length": len(request.transcriptions or []) if request.transcriptions else len(request.text_data or ""),
+                "output_length": len(restored_text),
+                "processing_time": service.get_processing_time()
+            },
+            restored_text=restored_text,
+            original_text=original_text
+        )
         
     except Exception as e:
-        logger.error(f"문장 부호 복원 실패: {e}")
+        service.logger.error(f"문장 부호 복원 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/restore_text")
-async def restore_text_punctuation(data: Dict[str, Any]):
+@app.post("/restore_text", response_model=PunctuationRestoreResponse)
+async def restore_text_punctuation(request: TextPunctuationRequest) -> PunctuationRestoreResponse:
     """텍스트 기반 문장 부호 복원 엔드포인트"""
     try:
-        text = data.get('text', '')
-        if not text:
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
+        
+        if not request.text:
             raise HTTPException(status_code=400, detail="text가 필요합니다")
         
-        logger.info(f"텍스트 문장 부호 복원 시작: {len(text)}자")
+        service.logger.info(f"텍스트 문장 부호 복원 시작: {len(request.text)}자")
         
         # 텍스트 기반 문장 부호 복원 실행
-        restored_text = await restorer.restore_punctuation_text_async(text)
+        restored_text = await service.restorer.restore_punctuation_text_async(request.text)
         
-        logger.info("텍스트 문장 부호 복원 완료")
+        service.logger.info("텍스트 문장 부호 복원 완료")
         
-        return JSONResponse({
-            "status": "success",
-            "original_text": text,
-            "restored_text": restored_text,
-            "message": "텍스트 문장 부호 복원이 완료되었습니다"
-        })
+        return PunctuationRestoreResponse(
+            status="success",
+            message="텍스트 문장 부호 복원이 완료되었습니다",
+            data={
+                "input_type": "text",
+                "input_length": len(request.text),
+                "output_length": len(restored_text),
+                "processing_time": service.get_processing_time()
+            },
+            restored_text=restored_text,
+            original_text=request.text
+        )
         
     except Exception as e:
-        logger.error(f"텍스트 문장 부호 복원 실패: {e}")
+        service.logger.error(f"텍스트 문장 부호 복원 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/")
-async def root():
-    """루트 엔드포인트"""
-    return {
-        "message": "Punctuation Restorer Service가 실행 중입니다",
-        "version": "1.0.0",
-        "endpoints": {
-            "health": "/health",
-            "metrics": "/metrics",
-            "restore": "/restore",
-            "restore_text": "/restore_text"
-        }
-    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8004) 

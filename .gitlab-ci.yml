@@ -1,0 +1,109 @@
+# GitLab CI 설정 - Callytics 프로젝트
+stages:
+  - version_check
+  - build
+  - test
+
+variables:
+  PYTHON_VERSION: "3.11"
+  DOCKER_DRIVER: overlay2
+
+# 버전 호환성 검사
+version_compatibility_check:
+  stage: version_check
+  image: python:${PYTHON_VERSION}
+  script:
+    - pip install requests packaging
+    - python version_compatibility_analyzer.py
+    - |
+      if [ -f "version_compatibility_report.json" ]; then
+        conflicts=$(python -c "import json; data=json.load(open('version_compatibility_report.json')); print(data['summary']['version_conflicts'])")
+        if [ "$conflicts" -gt 0 ]; then
+          echo "❌ Version conflicts detected: $conflicts"
+          exit 1
+        else
+          echo "✅ No version conflicts detected"
+        fi
+      fi
+    - |
+      if [ -f "version_compatibility_report.json" ]; then
+        issues=$(python -c "import json; data=json.load(open('version_compatibility_report.json')); print(data['summary']['compatibility_issues'])")
+        if [ "$issues" -gt 0 ]; then
+          echo "⚠️ Compatibility issues detected: $issues"
+          echo "Please review the report"
+        else
+          echo "✅ No compatibility issues detected"
+        fi
+      fi
+  artifacts:
+    reports:
+      junit: version_compatibility_report.json
+    paths:
+      - version_compatibility_report.json
+    expire_in: 1 week
+  rules:
+    - changes:
+        - requirements*.txt
+        - Dockerfile*
+        - src/**/*
+        - .gitlab-ci.yml
+
+# 버전 통일 검증
+version_unification_verify:
+  stage: version_check
+  image: python:${PYTHON_VERSION}
+  script:
+    - python verify_version_unification.py
+    - |
+      if [ -f "version_unification_verification_report.json" ]; then
+        echo "✅ Version unification verification completed"
+      else
+        echo "❌ Version unification verification failed"
+        exit 1
+      fi
+  artifacts:
+    paths:
+      - version_unification_verification_report.json
+    expire_in: 1 week
+  rules:
+    - changes:
+        - requirements*.txt
+        - Dockerfile*
+        - verify_version_unification.py
+
+# Docker 이미지 빌드 (선택적)
+build_images:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - docker build -f Dockerfile.audio-processor -t callytics/audio-processor:latest .
+    - docker build -f Dockerfile.llm-analyzer -t callytics/llm-analyzer:latest .
+    - docker build -f Dockerfile.speech-recognizer -t callytics/speech-recognizer:latest .
+    - docker build -f Dockerfile.speaker-diarizer -t callytics/speaker-diarizer:latest .
+    - docker build -f Dockerfile.database-service -t callytics/database-service:latest .
+    - docker build -f Dockerfile.gateway -t callytics/gateway:latest .
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# 통합 테스트
+integration_test:
+  stage: test
+  image: python:${PYTHON_VERSION}
+  script:
+    - pip install -r requirements_common.txt
+    - pip install pytest pytest-asyncio
+    - python -m pytest tests/ -v
+  artifacts:
+    reports:
+      junit: test-results.xml
+    paths:
+      - test-results.xml
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"

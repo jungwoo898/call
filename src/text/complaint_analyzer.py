@@ -329,7 +329,7 @@ class ComplaintAnalyzer:
                 "source": "에러"
             }
     
-    def unload(self):
+    def text_unload(self):
         """리소스 해제"""
         self.korean_model_manager.unload_all()
         self.llm_orchestrator.manager.unload_all() 

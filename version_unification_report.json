@@ -1,0 +1,91 @@
+{
+  "summary": {
+    "total_fixes": 14,
+    "fix_types": {
+      "cuda_unification": 2,
+      "common_requirements": 1,
+      "service_requirements_refactor": 8,
+      "dockerfile_standardization": 1,
+      "ci_integration": 2
+    },
+    "standard_versions": {
+      "python": "3.11",
+      "cuda": "11.8.2",
+      "cudnn": "8",
+      "ubuntu": "20.04"
+    }
+  },
+  "fixes": [
+    {
+      "file": "Dockerfile.speaker-diarizer",
+      "type": "cuda_unification",
+      "description": "CUDA 버전 11.8.2로 통일"
+    },
+    {
+      "file": "Dockerfile.speech-recognizer",
+      "type": "cuda_unification",
+      "description": "CUDA 버전 11.8.2로 통일"
+    },
+    {
+      "file": "requirements_common.txt",
+      "type": "common_requirements",
+      "description": "공통 requirements.txt 생성"
+    },
+    {
+      "file": "requirements.audio-processor.txt",
+      "type": "service_requirements_refactor",
+      "description": "audio-processor 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "requirements.database-service.txt",
+      "type": "service_requirements_refactor",
+      "description": "database-service 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "requirements.gateway.txt",
+      "type": "service_requirements_refactor",
+      "description": "gateway 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "requirements.llm-analyzer.txt",
+      "type": "service_requirements_refactor",
+      "description": "llm-analyzer 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "requirements.punctuation-restorer.txt",
+      "type": "service_requirements_refactor",
+      "description": "punctuation-restorer 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "requirements.sentiment-analyzer.txt",
+      "type": "service_requirements_refactor",
+      "description": "sentiment-analyzer 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "requirements.speaker-diarizer.txt",
+      "type": "service_requirements_refactor",
+      "description": "speaker-diarizer 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "requirements.speech-recognizer.txt",
+      "type": "service_requirements_refactor",
+      "description": "speech-recognizer 서비스 requirements 리팩토링"
+    },
+    {
+      "file": "Dockerfile.template",
+      "type": "dockerfile_standardization",
+      "description": "표준 Dockerfile 템플릿 생성"
+    },
+    {
+      "file": ".github/workflows/version-check.yml",
+      "type": "ci_integration",
+      "description": "GitHub Actions CI 설정 생성"
+    },
+    {
+      "file": ".gitlab-ci.yml",
+      "type": "ci_integration",
+      "description": "GitLab CI 설정 생성"
+    }
+  ],
+  "backup_location": "backups\\version_unification"
+}

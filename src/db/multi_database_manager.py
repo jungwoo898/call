@@ -1,709 +1,744 @@
 #!/usr/bin/env python3
 """
-Callytics 다중 데이터베이스 관리자
-오디오 분석 DB, 상담 품질 분석 DB, 대시보드 DB를 통합 관리
+Callytics PostgreSQL 통합 데이터베이스 관리자
+오디오 분석, 상담 품질 분석을 PostgreSQL로 통합 관리
 """
 
-import sqlite3
 import os
 import logging
+import asyncio
 from typing import Dict, Any, List, Optional, Tuple
-from contextlib import contextmanager
 from datetime import datetime
 import json
 import yaml
 
+# PostgreSQL 매니저 import
+from .postgres_manager import PostgreSQLManager
+
 logger = logging.getLogger(__name__)
 
 class MultiDatabaseManager:
-    """다중 데이터베이스 관리자"""
+    """PostgreSQL 통합 데이터베이스 관리자"""
     
-    def __init__(self, db_dir: str = "data", config_path: str = "config/config.yaml"):
-        self.db_dir = db_dir
+    def __init__(self, config_path: str = "config/config.yaml"):
         self.config_path = config_path
         
-        # 설정에서 데이터베이스 경로 로드
-        db_paths = self._load_db_paths()
+        # PostgreSQL 매니저 초기화
+        self.postgres_manager: Optional[PostgreSQLManager] = None
         
-        self.audio_db_path = db_paths['audio_analysis']
-        self.quality_db_path = db_paths['consultation_quality']
-        
-        # 데이터베이스 디렉토리 생성
-        os.makedirs(db_dir, exist_ok=True)
-        
-        # 데이터베이스 연결 초기화
-        self.audio_conn = None
-        self.quality_conn = None
-        
-        # 데이터베이스 초기화
-        self._init_databases()
-        
-        logger.info(f"다중 데이터베이스 관리자 초기화 완료")
-        logger.info(f"오디오 분석 DB: {self.audio_db_path}")
-        logger.info(f"상담 품질 DB: {self.quality_db_path}")
-    
-    def _init_databases(self):
-        """데이터베이스 초기화 및 스키마 생성"""
+        # 비동기 초기화를 위한 이벤트 루프 확인
         try:
-            # 오디오 분석 데이터베이스 초기화
-            self._init_audio_database()
-            
-            # 상담 품질 분석 데이터베이스 초기화
-            self._init_quality_database()
-            
-            logger.info("모든 데이터베이스 초기화 완료")
-            
-        except Exception as e:
-            logger.error(f"데이터베이스 초기화 실패: {e}")
-            raise
+            self.loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
+        
+        # PostgreSQL 매니저 초기화
+        self._init_postgresql()
+        
+        logger.info("PostgreSQL 통합 데이터베이스 관리자 초기화 완료")
     
-    def _init_audio_database(self):
-        """오디오 분석 데이터베이스 초기화"""
+    def _init_postgresql(self):
+        """PostgreSQL 매니저 초기화 (전용)"""
         try:
-            conn = sqlite3.connect(self.audio_db_path)
-            cursor = conn.cursor()
+            # PostgreSQL 환경변수 확인
+            postgres_configured = all([
+                os.getenv('POSTGRES_HOST'),
+                os.getenv('POSTGRES_DB'),
+                os.getenv('POSTGRES_USER'),
+                os.getenv('POSTGRES_PASSWORD')
+            ])
             
-            # 오디오 분석 스키마 로드 및 실행
-            schema_file = "src/db/sql/audio_analysis_schema.sql"
-            if os.path.exists(schema_file):
-                with open(schema_file, 'r', encoding='utf-8') as f:
-                    schema = f.read()
-                cursor.executescript(schema)
-                conn.commit()
-                logger.info("오디오 분석 데이터베이스 스키마 생성 완료")
+            if postgres_configured:
+                logger.info("PostgreSQL 설정 발견 - PostgreSQL 연결 시도")
+                self.postgres_manager = PostgreSQLManager()
+                # 비동기 초기화 실행
+                self.loop.run_until_complete(self.postgres_manager.initialize())
+                logger.info("✅ PostgreSQL 연결 풀 초기화 완료")
             else:
-                logger.warning(f"오디오 분석 스키마 파일을 찾을 수 없음: {schema_file}")
-            
-            conn.close()
-            
-        except Exception as e:
-            logger.error(f"오디오 분석 데이터베이스 초기화 실패: {e}")
-            raise
-    
-    def _init_quality_database(self):
-        """상담 품질 분석 데이터베이스 초기화"""
-        try:
-            conn = sqlite3.connect(self.quality_db_path)
-            cursor = conn.cursor()
-            
-            # 상담 품질 분석 스키마 로드 및 실행
-            schema_file = "src/db/sql/consultation_quality_schema.sql"
-            if os.path.exists(schema_file):
-                with open(schema_file, 'r', encoding='utf-8') as f:
-                    schema = f.read()
-                cursor.executescript(schema)
-                conn.commit()
-                logger.info("상담 품질 분석 데이터베이스 스키마 생성 완료")
-            else:
-                logger.warning(f"상담 품질 분석 스키마 파일을 찾을 수 없음: {schema_file}")
-            
-            conn.close()
+                logger.error("❌ PostgreSQL 설정 부족 - 필수 환경변수가 없습니다")
+                logger.error("다음 환경변수를 설정하세요:")
+                logger.error("POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD")
+                raise ValueError("PostgreSQL 설정이 완료되지 않았습니다")
             
         except Exception as e:
-            logger.error(f"상담 품질 분석 데이터베이스 초기화 실패: {e}")
+            logger.error(f"PostgreSQL 초기화 실패: {e}")
             raise
     
-
+    async def _ensure_connection(self):
+        """PostgreSQL 연결 확인"""
+        if not self.postgres_manager:
+            raise RuntimeError("PostgreSQL 매니저가 초기화되지 않았습니다")
+            
+        if not self.postgres_manager.is_connected:
+            try:
+                await self.postgres_manager.initialize()
+                return True
+            except Exception as e:
+                logger.error(f"PostgreSQL 재연결 실패: {e}")
+                raise
+        return True
     
-    # 🎵 오디오 분석 DB 메서드들
+    def db_is_postgresql_available(self) -> bool:
+        """PostgreSQL 사용 가능 여부 확인"""
+        return self.postgres_manager is not None and self.postgres_manager.is_connected
     
-    def save_audio_file(self, file_path: str, file_name: str, file_size: int, 
+    # 🎵 오디오 분석 DB 메서드들 (PostgreSQL 호환)
+    
+    async def save_audio_file_async(self, file_path: str, file_name: str, file_size: int, 
+                                   duration_seconds: float, sample_rate: int, channels: int, 
+                                   format_type: str) -> int:
+        """오디오 파일 정보 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        query = None"
+        INSERT INTO audio_files (file_path, file_name, file_size, duration_seconds, 
+                               sample_rate, channels, format)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+        """
+        
+        result = await self.postgres_manager.execute_query(
+            query, file_path, file_name, file_size, duration_seconds, 
+            sample_rate, channels, format_type, fetch_mode="val"
+        )
+        return result
+    
+    def db_save_audio_file(self, file_path: str, file_name: str, file_size: int, 
                        duration_seconds: float, sample_rate: int, channels: int, 
                        format_type: str) -> int:
-        """오디오 파일 정보 저장"""
-        conn = self.get_connection("audio")
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO audio_files (file_path, file_name, file_size, duration_seconds, 
-                                   sample_rate, channels, format)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (file_path, file_name, file_size, duration_seconds, sample_rate, channels, format_type))
-        conn.commit()
-        return cursor.lastrowid
+        """오디오 파일 정보 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_audio_file_async(file_path, file_name, file_size, 
+                                     duration_seconds, sample_rate, channels, format_type)
+        )
     
-    def save_speaker_segments(self, audio_file_id: int, segments: List[Dict[str, Any]]):
-        """화자 분리 결과 저장"""
-        conn = self.get_connection("audio")
-        cursor = conn.cursor()
+    async def save_speaker_segments_async(self, audio_file_id: int, segments: List[Dict[str, Any]]):
+        """화자 분리 결과 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        if not segments:
+            return
+        
+        # 대량 삽입을 위한 데이터 준비
+        data = []
         for segment in segments:
-            cursor.execute("""
-                INSERT INTO speaker_segments (audio_file_id, speaker_id, start_time, 
-                                            end_time, confidence, speaker_type)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (audio_file_id, segment['speaker_id'], segment['start_time'], 
-                 segment['end_time'], segment.get('confidence'), segment.get('speaker_type')))
-        conn.commit()
+            data.append((
+                audio_file_id,
+                segment['speaker_id'],
+                segment['start_time'],
+                segment['end_time'],
+                segment.get('confidence'),
+                segment.get('speaker_type', 'unknown')
+            ))
+        
+        columns = ['audio_file_id', 'speaker_id', 'start_time', 'end_time', 'confidence', 'speaker_type']
+        await self.postgres_manager.bulk_insert('speaker_segments', columns, data)
     
-    def save_transcriptions(self, audio_file_id: int, transcriptions: List[Dict[str, Any]]):
-        """음성 인식 결과 저장"""
-        conn = self.get_connection("audio")
-        cursor = conn.cursor()
+    def db_save_speaker_segments(self, audio_file_id: int, segments: List[Dict[str, Any]]):
+        """화자 분리 결과 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_speaker_segments_async(audio_file_id, segments)
+        )
+    
+    async def save_transcriptions_async(self, audio_file_id: int, transcriptions: List[Dict[str, Any]]):
+        """음성 인식 결과 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        if not transcriptions:
+            return
+        
+        # 대량 삽입을 위한 데이터 준비
+        data = []
         for trans in transcriptions:
-            cursor.execute("""
-                INSERT INTO transcriptions (audio_file_id, speaker_segment_id, text_content,
-                                          start_time, end_time, confidence, language)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (audio_file_id, trans.get('speaker_segment_id'), trans['text_content'],
-                 trans['start_time'], trans['end_time'], trans.get('confidence'), trans.get('language', 'ko')))
-        conn.commit()
+            data.append((
+                audio_file_id,
+                trans.get('speaker_segment_id'),
+                trans['text_content'],
+                trans['start_time'],
+                trans['end_time'],
+                trans.get('confidence'),
+                trans.get('language', 'ko'),
+                trans.get('punctuation_restored', False)
+            ))
+        
+        columns = ['audio_file_id', 'speaker_segment_id', 'text_content', 'start_time', 
+                  'end_time', 'confidence', 'language', 'punctuation_restored']
+        await self.postgres_manager.bulk_insert('transcriptions', columns, data)
     
-    def save_audio_metrics(self, audio_file_id: int, metrics: Dict[str, Any]):
-        """오디오 품질 지표 저장"""
-        conn = self.get_connection("audio")
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO audio_metrics (audio_file_id, snr_db, clarity_score, volume_level,
-                                     background_noise_level, speech_rate, pause_frequency, audio_quality_score)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (audio_file_id, metrics.get('snr_db'), metrics.get('clarity_score'),
-             metrics.get('volume_level'), metrics.get('background_noise_level'),
-             metrics.get('speech_rate'), metrics.get('pause_frequency'), metrics.get('audio_quality_score')))
-        conn.commit()
+    def db_save_transcriptions(self, audio_file_id: int, transcriptions: List[Dict[str, Any]]):
+        """음성 인식 결과 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_transcriptions_async(audio_file_id, transcriptions)
+        )
     
-    def update_audio_processing_status(self, audio_file_id: int, status: str, error_message: str = None):
-        """오디오 처리 상태 업데이트"""
-        conn = self.get_connection("audio")
-        cursor = conn.cursor()
+    async def save_audio_metrics_async(self, audio_file_id: int, metrics: Dict[str, Any]):
+        """오디오 품질 지표 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        query = None"
+        INSERT INTO audio_metrics (audio_file_id, snr_db, clarity_score, volume_level,
+                                 background_noise_level, speech_rate, pause_frequency, audio_quality_score)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (audio_file_id) DO UPDATE SET
+            snr_db = EXCLUDED.snr_db,
+            clarity_score = EXCLUDED.clarity_score,
+            volume_level = EXCLUDED.volume_level,
+            background_noise_level = EXCLUDED.background_noise_level,
+            speech_rate = EXCLUDED.speech_rate,
+            pause_frequency = EXCLUDED.pause_frequency,
+            audio_quality_score = EXCLUDED.audio_quality_score
+        """
+        
+        await self.postgres_manager.execute_query(
+            query, audio_file_id, metrics.get('snr_db'), metrics.get('clarity_score'),
+            metrics.get('volume_level'), metrics.get('background_noise_level'),
+            metrics.get('speech_rate'), metrics.get('pause_frequency'), metrics.get('audio_quality_score'),
+            fetch_mode="none"
+        )
+    
+    def db_save_audio_metrics(self, audio_file_id: int, metrics: Dict[str, Any]):
+        """오디오 품질 지표 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_audio_metrics_async(audio_file_id, metrics)
+        )
+    
+    async def update_audio_processing_status_async(self, audio_file_id: int, status: str, error_message: str = None):
+        """오디오 처리 상태 업데이트 (비동기)"""
+        await self._ensure_connection()
+        
         if status == 'completed':
-            cursor.execute("""
+            query = None"
                 UPDATE audio_files 
-                SET processing_status = ?, processing_completed_at = CURRENT_TIMESTAMP, error_message = ?
-                WHERE id = ?
-            """, (status, error_message, audio_file_id))
+            SET processing_status = $1, processing_completed_at = CURRENT_TIMESTAMP, error_message = $2
+            WHERE id = $3
+            """
         else:
-            cursor.execute("""
+            query = None"
                 UPDATE audio_files 
-                SET processing_status = ?, error_message = ?
-                WHERE id = ?
-            """, (status, error_message, audio_file_id))
-        conn.commit()
+            SET processing_status = $1, error_message = $2
+            WHERE id = $3
+            """
+        
+        await self.postgres_manager.execute_query(
+            query, status, error_message, audio_file_id, fetch_mode="none"
+        )
     
-    # 🧠 상담 품질 분석 DB 메서드들
+    def db_update_audio_processing_status(self, audio_file_id: int, status: str, error_message: str = None):
+        """오디오 처리 상태 업데이트 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.update_audio_processing_status_async(audio_file_id, status, error_message)
+        )
     
-    def create_consultation_session(self, audio_file_id: int, session_date: str, 
+    # 🧠 상담 품질 분석 DB 메서드들 (PostgreSQL 호환)
+    
+    async def create_consultation_session_async(self, audio_file_id: int, session_date: str, 
+                                              duration_minutes: float, agent_name: str = None, 
+                                              customer_id: str = None, consultation_type: str = 'other') -> int:
+        """상담 세션 생성 (비동기)"""
+        await self._ensure_connection()
+        
+        query = None"
+        INSERT INTO consultation_sessions (audio_file_id, session_date, duration_minutes,
+                                         agent_name, customer_id, consultation_type)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+        """
+        
+        result = await self.postgres_manager.execute_query(
+            query, audio_file_id, session_date, duration_minutes, agent_name, customer_id, consultation_type,
+            fetch_mode="val"
+        )
+        return result
+    
+    def db_create_consultation_session(self, audio_file_id: int, session_date: str, 
                                   duration_minutes: float, agent_name: str = None, 
                                   customer_id: str = None, consultation_type: str = 'other') -> int:
-        """상담 세션 생성"""
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO consultation_sessions (audio_file_id, session_date, duration_minutes,
+        """상담 세션 생성 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.create_consultation_session_async(audio_file_id, session_date, duration_minutes,
                                              agent_name, customer_id, consultation_type)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (audio_file_id, session_date, duration_minutes, agent_name, customer_id, consultation_type))
-        conn.commit()
-        return cursor.lastrowid
+        )
     
-    def save_quality_metrics(self, session_id: int, metrics: List[Dict[str, Any]]):
-        """품질 평가 지표 저장"""
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
+    async def save_quality_metrics_async(self, session_id: int, metrics: List[Dict[str, Any]]):
+        """품질 평가 지표 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        if not metrics:
+            return
+        
+        # 대량 삽입을 위한 데이터 준비
+        data = []
         for metric in metrics:
-            cursor.execute("""
-                INSERT INTO quality_metrics (session_id, metric_name, metric_value, 
-                                           metric_description, weight, category)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (session_id, metric['name'], metric['value'], metric.get('description'),
-                 metric.get('weight', 1.0), metric.get('category')))
-        conn.commit()
+            data.append((
+                session_id,
+                metric['metric_name'],
+                metric['metric_value'],
+                metric.get('metric_description'),
+                metric.get('weight', 1.0),
+                metric.get('category')
+            ))
+        
+        columns = ['session_id', 'metric_name', 'metric_value', 'metric_description', 'weight', 'category']
+        await self.postgres_manager.bulk_insert('quality_metrics', columns, data)
     
-    def save_sentiment_analysis(self, session_id: int, sentiment_data: List[Dict[str, Any]]):
-        """감정 분석 결과 저장"""
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
+    def db_save_quality_metrics(self, session_id: int, metrics: List[Dict[str, Any]]):
+        """품질 평가 지표 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_quality_metrics_async(session_id, metrics)
+        )
+    
+    async def save_sentiment_analysis_async(self, session_id: int, sentiment_data: List[Dict[str, Any]]):
+        """감정 분석 결과 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        if not sentiment_data:
+            return
+        
+        # 대량 삽입을 위한 데이터 준비
+        data = []
         for sentiment in sentiment_data:
-            cursor.execute("""
-                INSERT INTO sentiment_analysis (session_id, speaker_type, sentiment_score,
-                                              emotion_category, confidence)
-                VALUES (?, ?, ?, ?, ?)
-            """, (session_id, sentiment['speaker_type'], sentiment['sentiment_score'],
-                 sentiment.get('emotion_category'), sentiment.get('confidence')))
-        conn.commit()
+            data.append((
+                session_id,
+                sentiment['speaker_type'],
+                sentiment.get('time_segment_start'),
+                sentiment.get('time_segment_end'),
+                sentiment['sentiment_score'],
+                sentiment.get('emotion_category'),
+                sentiment.get('confidence'),
+                sentiment.get('emotion_intensity')
+            ))
+        
+        columns = ['session_id', 'speaker_type', 'time_segment_start', 'time_segment_end',
+                  'sentiment_score', 'emotion_category', 'confidence', 'emotion_intensity']
+        await self.postgres_manager.bulk_insert('sentiment_analysis', columns, data)
     
-    def save_communication_patterns(self, session_id: int, patterns: List[Dict[str, Any]]):
-        """커뮤니케이션 패턴 저장"""
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
+    def db_save_sentiment_analysis(self, session_id: int, sentiment_data: List[Dict[str, Any]]):
+        """감정 분석 결과 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_sentiment_analysis_async(session_id, sentiment_data)
+        )
+    
+    async def save_communication_patterns_async(self, session_id: int, patterns: List[Dict[str, Any]]):
+        """커뮤니케이션 패턴 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        if not patterns:
+            return
+        
+        # 대량 삽입을 위한 데이터 준비
+        data = []
         for pattern in patterns:
-            cursor.execute("""
-                INSERT INTO communication_patterns (session_id, pattern_type, frequency,
-                                                  severity_score, description, impact_on_quality)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (session_id, pattern['pattern_type'], pattern.get('frequency', 0),
-                 pattern.get('severity_score'), pattern.get('description'), pattern.get('impact_on_quality')))
-        conn.commit()
+            data.append((
+                session_id,
+                pattern['pattern_type'],
+                pattern.get('frequency', 0),
+                pattern.get('severity_score'),
+                pattern.get('description'),
+                pattern.get('impact_on_quality'),
+                json.dumps(pattern.get('time_segments', []))
+            ))
+        
+        columns = ['session_id', 'pattern_type', 'frequency', 'severity_score', 
+                  'description', 'impact_on_quality', 'time_segments']
+        await self.postgres_manager.bulk_insert('communication_patterns', columns, data)
     
-    def save_improvement_suggestions(self, session_id: int, suggestions: List[Dict[str, Any]]):
-        """개선 제안사항 저장"""
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
+    def db_save_communication_patterns(self, session_id: int, patterns: List[Dict[str, Any]]):
+        """커뮤니케이션 패턴 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_communication_patterns_async(session_id, patterns)
+        )
+    
+    async def save_improvement_suggestions_async(self, session_id: int, suggestions: List[Dict[str, Any]]):
+        """개선 제안사항 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        if not suggestions:
+            return
+        
+        # 대량 삽입을 위한 데이터 준비
+        data = []
         for suggestion in suggestions:
-            cursor.execute("""
-                INSERT INTO improvement_suggestions (session_id, suggestion_category, suggestion_text,
-                                                   priority, implementation_difficulty, expected_impact, target_audience)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (session_id, suggestion['category'], suggestion['text'], suggestion['priority'],
-                 suggestion.get('implementation_difficulty'), suggestion.get('expected_impact'),
-                 suggestion.get('target_audience')))
-        conn.commit()
+            data.append((
+                session_id,
+                suggestion['suggestion_category'],
+                suggestion['suggestion_text'],
+                suggestion['priority'],
+                suggestion.get('implementation_difficulty'),
+                suggestion.get('expected_impact'),
+                suggestion.get('target_audience'),
+                suggestion.get('estimated_effort_hours')
+            ))
+        
+        columns = ['session_id', 'suggestion_category', 'suggestion_text', 'priority',
+                  'implementation_difficulty', 'expected_impact', 'target_audience', 'estimated_effort_hours']
+        await self.postgres_manager.bulk_insert('improvement_suggestions', columns, data)
     
-    def update_consultation_analysis_status(self, session_id: int, status: str, 
+    def db_save_improvement_suggestions(self, session_id: int, suggestions: List[Dict[str, Any]]):
+        """개선 제안사항 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_improvement_suggestions_async(session_id, suggestions)
+        )
+    
+    async def update_consultation_analysis_status_async(self, session_id: int, status: str, 
+                                                      overall_quality_score: float = None, 
+                                                      customer_satisfaction_score: float = None,
+                                                      summary: str = None, key_issues: str = None,
+                                                      resolution_status: str = None):
+        """상담 분석 상태 업데이트 (비동기)"""
+        await self._ensure_connection()
+        
+        query = None"
+        UPDATE consultation_sessions 
+        SET analysis_status = $1, analysis_completed_at = CURRENT_TIMESTAMP,
+            overall_quality_score = $2, customer_satisfaction_score = $3,
+            summary = $4, key_issues = $5, resolution_status = $6
+        WHERE id = $7
+        """
+        
+        # key_issues를 JSONB로 변환
+        key_issues_json = None
+        if key_issues:
+            try:
+                key_issues_json = json.loads(key_issues) if isinstance(key_issues, str) else key_issues
+            except:
+                key_issues_json = {"content": str(key_issues)}
+        
+        await self.postgres_manager.execute_query(
+            query, status, overall_quality_score, customer_satisfaction_score,
+            summary, key_issues_json, resolution_status, session_id, fetch_mode="none"
+        )
+    
+    def db_update_consultation_analysis_status(self, session_id: int, status: str, 
                                           overall_quality_score: float = None, 
                                           customer_satisfaction_score: float = None,
                                           summary: str = None, key_issues: str = None,
                                           resolution_status: str = None):
-        """상담 분석 상태 업데이트"""
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
-        if status == 'completed':
-            cursor.execute("""
-                UPDATE consultation_sessions 
-                SET analysis_status = ?, analysis_completed_at = CURRENT_TIMESTAMP,
-                    overall_quality_score = ?, customer_satisfaction_score = ?,
-                    summary = ?, key_issues = ?, resolution_status = ?
-                WHERE id = ?
-            """, (status, overall_quality_score, customer_satisfaction_score,
-                 summary, key_issues, resolution_status, session_id))
-        else:
-            cursor.execute("""
-                UPDATE consultation_sessions 
-                SET analysis_status = ?
-                WHERE id = ?
-            """, (status, session_id))
-        conn.commit()
+        """상담 분석 상태 업데이트 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.update_consultation_analysis_status_async(session_id, status, overall_quality_score,
+                                                         customer_satisfaction_score, summary, key_issues, resolution_status)
+        )
     
-
+    # 🔍 조회 메서드들 (PostgreSQL 호환)
     
-    # 🔍 통합 조회 메서드들
+    async def get_audio_file_by_path_async(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """파일 경로로 오디오 파일 조회 (비동기)"""
+        await self._ensure_connection()
+        
+        query = "SELECT * FROM audio_files WHERE file_path = $1"
+        result = await self.postgres_manager.execute_query(query, file_path, fetch_mode="one")
+        return dict(result) if result else None
     
-    def get_audio_file_by_path(self, file_path: str) -> Optional[Dict[str, Any]]:
-        """파일 경로로 오디오 파일 정보 조회"""
-        conn = self.get_connection("audio")
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM audio_files WHERE file_path = ?", (file_path,))
-        row = cursor.fetchone()
-        return dict(row) if row else None
+    def db_get_audio_file_by_path(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """파일 경로로 오디오 파일 조회 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.get_audio_file_by_path_async(file_path)
+        )
     
-    def get_session_by_audio_file_id(self, audio_file_id: int) -> Optional[Dict[str, Any]]:
-        """오디오 파일 ID로 상담 세션 조회"""
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM consultation_sessions WHERE audio_file_id = ?", (audio_file_id,))
-        row = cursor.fetchone()
-        return dict(row) if row else None
+    async def get_session_by_audio_file_id_async(self, audio_file_id: int) -> Optional[Dict[str, Any]]:
+        """오디오 파일 ID로 상담 세션 조회 (비동기)"""
+        await self._ensure_connection()
+        
+        query = "SELECT * FROM consultation_sessions WHERE audio_file_id = $1"
+        result = await self.postgres_manager.execute_query(query, audio_file_id, fetch_mode="one")
+        return dict(result) if result else None
     
-    def get_complete_analysis_result(self, audio_file_id: int) -> Dict[str, Any]:
-        """완전한 분석 결과 조회 (오디오 + 상담 품질)"""
+    def db_get_session_by_audio_file_id(self, audio_file_id: int) -> Optional[Dict[str, Any]]:
+        """오디오 파일 ID로 상담 세션 조회 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.get_session_by_audio_file_id_async(audio_file_id)
+        )
+    
+    async def get_complete_analysis_result_async(self, audio_file_id: int) -> Dict[str, Any]:
+        """완전한 분석 결과 조회 (비동기)"""
+        await self._ensure_connection()
+        
+        # 오디오 파일 정보
+        audio_query = "SELECT * FROM audio_files WHERE id = $1"
+        audio_result = await self.postgres_manager.execute_query(audio_query, audio_file_id, fetch_mode="one")
+        
+        if not audio_result:
+            return {"status": "error": "오디오 파일을 찾을 수 없습니다"}
+        
         result = {
-            'audio_analysis': {},
-            'consultation_quality': {}
+            "audio_file": dict(audio_result),
+            "speaker_segments": [],
+            "transcriptions": [],
+            "audio_metrics": None,
+            "consultation_session": None,
+            "quality_metrics": [],
+            "sentiment_analysis": [],
+            "communication_patterns": [],
+            "improvement_suggestions": []
         }
         
-        # 오디오 분석 결과
-        conn = self.get_connection("audio")
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT af.*, am.*, 
-                   COUNT(ss.id) as speaker_segments_count,
-                   COUNT(t.id) as transcription_count
-            FROM audio_files af
-            LEFT JOIN audio_metrics am ON af.id = am.audio_file_id
-            LEFT JOIN speaker_segments ss ON af.id = ss.audio_file_id
-            LEFT JOIN transcriptions t ON af.id = t.audio_file_id
-            WHERE af.id = ?
-            GROUP BY af.id
-        """, (audio_file_id,))
-        row = cursor.fetchone()
-        if row:
-            result['audio_analysis'] = dict(row)
+        # 화자 분리 결과
+        segments_query = "SELECT * FROM speaker_segments WHERE audio_file_id = $1 ORDER BY start_time"
+        segments_result = await self.postgres_manager.execute_query(segments_query, audio_file_id, fetch_mode="all")
+        result["speaker_segments"] = [dict(row) for row in segments_result]
         
-        # 상담 품질 분석 결과
-        conn = self.get_connection("quality")
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT cs.*, 
-                   COUNT(qm.id) as metrics_count,
-                   COUNT(sa.id) as sentiment_analyses_count,
-                   COUNT(cp.id) as communication_patterns_count,
-                   COUNT(is.id) as improvement_suggestions_count
-            FROM consultation_sessions cs
-            LEFT JOIN quality_metrics qm ON cs.id = qm.session_id
-            LEFT JOIN sentiment_analysis sa ON cs.id = sa.session_id
-            LEFT JOIN communication_patterns cp ON cs.id = cp.session_id
-            LEFT JOIN improvement_suggestions is ON cs.id = is.session_id
-            WHERE cs.audio_file_id = ?
-            GROUP BY cs.id
-        """, (audio_file_id,))
-        row = cursor.fetchone()
-        if row:
-            result['consultation_quality'] = dict(row)
+        # 음성 인식 결과
+        trans_query = "SELECT * FROM transcriptions WHERE audio_file_id = $1 ORDER BY start_time"
+        trans_result = await self.postgres_manager.execute_query(trans_query, audio_file_id, fetch_mode="all")
+        result["transcriptions"] = [dict(row) for row in trans_result]
+        
+        # 오디오 품질 지표
+        metrics_query = "SELECT * FROM audio_metrics WHERE audio_file_id = $1"
+        metrics_result = await self.postgres_manager.execute_query(metrics_query, audio_file_id, fetch_mode="one")
+        if metrics_result:
+            result["audio_metrics"] = dict(metrics_result)
+        
+        # 상담 세션 정보
+        session_query = "SELECT * FROM consultation_sessions WHERE audio_file_id = $1"
+        session_result = await self.postgres_manager.execute_query(session_query, audio_file_id, fetch_mode="one")
+        if session_result:
+            result["consultation_session"] = dict(session_result)
+            session_id = session_result['id']
+            
+            # 품질 지표
+            quality_query = "SELECT * FROM quality_metrics WHERE session_id = $1"
+            quality_result = await self.postgres_manager.execute_query(quality_query, session_id, fetch_mode="all")
+            result["quality_metrics"] = [dict(row) for row in quality_result]
+            
+            # 감정 분석
+            sentiment_query = "SELECT * FROM sentiment_analysis WHERE session_id = $1 ORDER BY time_segment_start"
+            sentiment_result = await self.postgres_manager.execute_query(sentiment_query, session_id, fetch_mode="all")
+            result["sentiment_analysis"] = [dict(row) for row in sentiment_result]
+            
+            # 커뮤니케이션 패턴
+            pattern_query = "SELECT * FROM communication_patterns WHERE session_id = $1"
+            pattern_result = await self.postgres_manager.execute_query(pattern_query, session_id, fetch_mode="all")
+            result["communication_patterns"] = [dict(row) for row in pattern_result]
+            
+            # 개선 제안사항
+            suggestion_query = "SELECT * FROM improvement_suggestions WHERE session_id = $1 ORDER BY priority"
+            suggestion_result = await self.postgres_manager.execute_query(suggestion_query, session_id, fetch_mode="all")
+            result["improvement_suggestions"] = [dict(row) for row in suggestion_result]
         
         return result
     
-    def get_database_stats(self) -> Dict[str, Any]:
-        """데이터베이스 통계 정보 반환"""
+    def db_get_complete_analysis_result(self, audio_file_id: int) -> Dict[str, Any]:
+        """완전한 분석 결과 조회 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.get_complete_analysis_result_async(audio_file_id)
+        )
+    
+    # 📊 통계 및 관리 메서드들
+    
+    async def get_database_stats_async(self) -> Dict[str, Any]:
+        """데이터베이스 통계 조회 (비동기)"""
+        await self._ensure_connection()
+        
         stats = {}
         
-        try:
-            # 오디오 분석 DB 통계
-            audio_conn = self.get_connection("audio")
-            audio_cursor = audio_conn.cursor()
-            
-            # 테이블 목록 조회
-            audio_cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            audio_tables = [row[0] for row in audio_cursor.fetchall()]
-            
-            audio_stats = {}
-            for table in audio_tables:
-                audio_cursor.execute(f"SELECT COUNT(*) FROM {table}")
-                count = audio_cursor.fetchone()[0]
-                audio_stats[table] = count
-            
-            stats['audio_analysis'] = {
-                'database_path': self.audio_db_path,
-                'tables': audio_stats
-            }
-            
-            # 상담 품질 DB 통계
-            quality_conn = self.get_connection("quality")
-            quality_cursor = quality_conn.cursor()
-            
-            # 테이블 목록 조회
-            quality_cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            quality_tables = [row[0] for row in quality_cursor.fetchall()]
-            
-            quality_stats = {}
-            for table in quality_tables:
-                quality_cursor.execute(f"SELECT COUNT(*) FROM {table}")
-                count = quality_cursor.fetchone()[0]
-                quality_stats[table] = count
-            
-            stats['consultation_quality'] = {
-                'database_path': self.quality_db_path,
-                'tables': quality_stats
-            }
-            
-        except Exception as e:
-            logger.error(f"데이터베이스 통계 조회 실패: {e}")
-            stats['error'] = str(e)
+        # 테이블별 레코드 수
+        tables = [
+            'audio_files', 'speaker_segments', 'transcriptions', 'audio_metrics',
+            'consultation_sessions', 'quality_metrics', 'sentiment_analysis',
+            'communication_patterns', 'improvement_suggestions'
+        ]
+        
+        for table in tables:
+            try:
+                count_query = f"SELECT COUNT(*) FROM {table}"
+                count = await self.postgres_manager.execute_query(count_query, fetch_mode="val")
+                stats[f"{table}_count"] = count
+            except Exception as e:
+                logger.warning(f"{table} 통계 조회 실패: {e}")
+                stats[f"{table}_count"] = 0
+        
+        # PostgreSQL 연결 풀 통계
+        if self.postgres_manager:
+            pool_stats = self.postgres_manager.get_stats()
+            stats["postgres_pool_stats"] = pool_stats
         
         return stats
 
-    def _load_db_paths(self) -> Dict[str, str]:
-        """설정에서 데이터베이스 경로 로드 (환경 변수 우선순위)"""
+    def db_get_database_stats(self) -> Dict[str, Any]:
+        """데이터베이스 통계 조회 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.get_database_stats_async()
+        )
+    
+    # 🔄 기존 호환성 메서드들 (PostgreSQL로 변환)
+    
+    async def db_save_audio_analysis_async(self, result: Dict[str, Any]) -> int | None:
+        """오디오 분석 결과 저장 (통합) - 비동기"""
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
+            # 오디오 파일 정보 저장
+            audio_file_id = await self.save_audio_file_async(
+                result['audio_path'],
+                result.get('file_name', ''),
+                result.get('file_size', 0),
+                result.get('duration_seconds', 0),
+                result.get('sample_rate', 16000),
+                result.get('channels', 1),
+                result.get('format', 'mp3')
+            )
             
-            # 환경 변수 우선 확인
-            env_db_url = os.getenv('DATABASE_URL')
-            if env_db_url:
-                # SQLite URL 형식 처리: sqlite:///path/to/db.sqlite
-                if env_db_url.startswith('sqlite:///'):
-                    db_path = env_db_url.replace('sqlite:///', '')
-                    logger.info(f"환경 변수에서 데이터베이스 경로 로드: {db_path}")
-                    return {
-                        'audio_analysis': db_path,
-                        'consultation_quality': db_path
-                    }
+            # 화자 분리 결과 저장
+            if 'speaker_segments' in result:
+                await self.save_speaker_segments_async(audio_file_id, result['speaker_segments'])
             
-            # 설정 파일에서 로드
-            db_config = config.get('database', {})
+            # 음성 인식 결과 저장
+            if 'transcriptions' in result:
+                await self.save_transcriptions_async(audio_file_id, result['transcriptions'])
             
-            # 상담 품질 분석 DB (새로 신설)
-            consultation_quality_db = db_config.get('consultation_quality_db', 'data/callytics_consultation_quality.db')
+            # 오디오 품질 지표 저장
+            if 'audio_metrics' in result:
+                await self.save_audio_metrics_async(audio_file_id, result['audio_metrics'])
             
-            # 오디오 분석 DB (기존)
-            audio_analysis_db = db_config.get('audio_analysis_db', 'Callytics_new.sqlite')
+            # 처리 상태 업데이트
+            await self.update_audio_processing_status_async(audio_file_id, 'completed')
             
-            # 기본값 설정
-            defaults = config.get('environment', {}).get('defaults', {})
-            if not consultation_quality_db:
-                consultation_quality_db = defaults.get('DATABASE_URL', 'data/callytics_consultation_quality.db')
-                if consultation_quality_db.startswith('sqlite:///'):
-                    consultation_quality_db = consultation_quality_db.replace('sqlite:///', '')
-            
-            logger.info(f"설정 파일에서 데이터베이스 경로 로드: audio={audio_analysis_db}, quality={consultation_quality_db}")
-            
-            return {
-                'audio_analysis': audio_analysis_db,
-                'consultation_quality': consultation_quality_db
-            }
+            return audio_file_id
             
         except Exception as e:
-            logger.warning(f"설정 파일 로드 실패, 기본 경로 사용: {e}")
-            return {
-                'audio_analysis': 'Callytics_new.sqlite',
-                'consultation_quality': 'data/callytics_consultation_quality.db'
-            }
-
-    def get_connection(self, db_type: str) -> sqlite3.Connection:
-        """데이터베이스 연결 반환"""
-        if db_type == "audio":
-            if not self.audio_conn:
-                self.audio_conn = sqlite3.connect(self.audio_db_path)
-                self.audio_conn.row_factory = sqlite3.Row
-            return self.audio_conn
-        elif db_type == "quality":
-            if not self.quality_conn:
-                self.quality_conn = sqlite3.connect(self.quality_db_path)
-                self.quality_conn.row_factory = sqlite3.Row
-            return self.quality_conn
-        else:
-            raise ValueError(f"지원하지 않는 데이터베이스 타입: {db_type}")
+            logger.error(f"오디오 분석 결과 저장 실패: {e}")
+            if 'audio_file_id' in locals():
+                await self.update_audio_processing_status_async(audio_file_id, 'failed', str(e))
+            raise
     
-    def close_connections(self):
-        """모든 데이터베이스 연결 종료"""
-        if self.audio_conn:
-            self.audio_conn.close()
-            self.audio_conn = None
-        if self.quality_conn:
-            self.quality_conn.close()
-            self.quality_conn = None
-        logger.info("모든 데이터베이스 연결 종료")
-
+    def db_save_audio_analysis_async(self, result: Dict[str, Any]) -> int | None:
+        """오디오 분석 결과 저장 (통합) - 동기 래퍼"""
+        return self.loop.run_until_complete(
+            self.db_save_audio_analysis_async(result)
+        )
+    
+    async def db_save_quality_analysis_async(self, result: Dict[str, Any]) -> int | None:
+        """상담 품질 분석 결과 저장 (통합) - 비동기"""
+        try:
+            # 상담 세션 생성
+            session_id = await self.create_consultation_session_async(
+                result.get('audio_file_id'),
+                result.get('session_date', get_current_time().strftime("%Y-%m-%d %H:%M:%S")),
+                result.get('duration_minutes', 0),
+                result.get('agent_name'),
+                result.get('customer_id'),
+                result.get('consultation_type', 'other')
+            )
+            
+            # 품질 지표 저장
+            if 'quality_metrics' in result:
+                await self.save_quality_metrics_async(session_id, result['quality_metrics'])
+            
+            # 감정 분석 저장
+            if 'sentiment_analysis' in result:
+                await self.save_sentiment_analysis_async(session_id, result['sentiment_analysis'])
+            
+            # 커뮤니케이션 패턴 저장
+            if 'communication_patterns' in result:
+                await self.save_communication_patterns_async(session_id, result['communication_patterns'])
+            
+            # 개선 제안사항 저장
+            if 'improvement_suggestions' in result:
+                await self.save_improvement_suggestions_async(session_id, result['improvement_suggestions'])
+            
+            # 분석 상태 업데이트
+            await self.update_consultation_analysis_status_async(
+                session_id, 'completed',
+                result.get('overall_quality_score'),
+                result.get('customer_satisfaction_score'),
+                result.get('summary'),
+                result.get('key_issues'),
+                result.get('resolution_status')
+            )
+            
+            return session_id
+            
+        except Exception as e:
+            logger.error(f"상담 품질 분석 결과 저장 실패: {e}")
+            raise
+    
+    def db_save_quality_analysis_async(self, result: Dict[str, Any]) -> int | None:
+        """상담 품질 분석 결과 저장 (통합) - 동기 래퍼"""
+        return self.loop.run_until_complete(
+            self.db_save_quality_analysis_async(result)
+        )
+    
+    # 🧹 정리 메서드들
+    
+    async def close_async(self):
+        """PostgreSQL 연결 정리 (비동기)"""
+        if self.postgres_manager:
+            await self.postgres_manager.db_close()
+    
+    def db_close(self):
+        """PostgreSQL 연결 정리 (동기 래퍼)"""
+        if self.postgres_manager:
+            self.loop.run_until_complete(self.postgres_manager.db_close())
+    
     def __del__(self):
-        """소멸자: 연결 종료"""
-        self.close_connections()
-    
-    # 🔄 구 버전 호환성 메서드들 (기존 코드와의 호환성 유지)
-    
-    def insert_analysis_history(self, data: Dict[str, Any]) -> bool:
-        """분석 이력 저장 (구 버전 호환성)"""
+        """소멸자"""
         try:
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO analysis_history (
-                    session_id, analysis_type, status, started_at, completed_at,
-                    result_summary, error_message, triggered_by, parameters
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                data.get('session_id'), data.get('analysis_type'), data.get('status'),
-                data.get('started_at'), data.get('completed_at'), data.get('result_summary'),
-                data.get('error_message'), data.get('triggered_by'), data.get('parameters')
-            ))
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"분석 이력 저장 실패: {e}")
-            return False
+            self.db_close()
+        except:
+            pass
     
-    def insert_consultation_analysis(self, data: Dict[str, Any]) -> bool:
-        """상담 분석 결과 저장 (구 버전 호환성)"""
-        try:
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO consultation_analysis (
-                    consultation_id, audio_path, business_type, classification_type,
-                    detail_classification, consultation_result, summary, customer_request,
-                    solution, additional_info, confidence, processing_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                data.get('consultation_id'), data.get('audio_path'), data.get('business_type'),
-                data.get('classification_type'), data.get('detail_classification'),
-                data.get('consultation_result'), data.get('summary'), data.get('customer_request'),
-                data.get('solution'), data.get('additional_info'), data.get('confidence'),
-                data.get('processing_time')
-            ))
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"상담 분석 결과 저장 실패: {e}")
-            return False
+    async def save_communication_quality_async(self, audio_file_id: int, consultation_id: str, 
+                                             quality_metrics: Dict[str, Any]):
+        """커뮤니케이션 품질 분석 결과 저장 (비동기)"""
+        await self._ensure_connection()
+        
+        query = None"
+        INSERT INTO communication_quality (
+            audio_file_id, consultation_id,
+            honorific_ratio, positive_word_ratio, negative_word_ratio,
+            euphonious_word_ratio, empathy_ratio, apology_ratio,
+            total_sentences, 
+            customer_sentiment_early, customer_sentiment_late, customer_sentiment_trend,
+            avg_response_latency, task_ratio,
+            suggestions, interruption_count, silence_ratio, talk_ratio,
+            analysis_details, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, CURRENT_TIMESTAMP)
+        ON CONFLICT (audio_file_id, consultation_id) DO UPDATE SET
+            honorific_ratio = EXCLUDED.honorific_ratio,
+            positive_word_ratio = EXCLUDED.positive_word_ratio,
+            negative_word_ratio = EXCLUDED.negative_word_ratio,
+            euphonious_word_ratio = EXCLUDED.euphonious_word_ratio,
+            empathy_ratio = EXCLUDED.empathy_ratio,
+            apology_ratio = EXCLUDED.apology_ratio,
+            total_sentences = EXCLUDED.total_sentences,
+            customer_sentiment_early = EXCLUDED.customer_sentiment_early,
+            customer_sentiment_late = EXCLUDED.customer_sentiment_late,
+            customer_sentiment_trend = EXCLUDED.customer_sentiment_trend,
+            avg_response_latency = EXCLUDED.avg_response_latency,
+            task_ratio = EXCLUDED.task_ratio,
+            suggestions = EXCLUDED.suggestions,
+            interruption_count = EXCLUDED.interruption_count,
+            silence_ratio = EXCLUDED.silence_ratio,
+            talk_ratio = EXCLUDED.talk_ratio,
+            analysis_details = EXCLUDED.analysis_details,
+            updated_at = CURRENT_TIMESTAMP
+        """
+        
+        await self.postgres_manager.execute_query(
+            query, 
+            audio_file_id, consultation_id,
+            quality_metrics.get('honorific_ratio', 0.0),
+            quality_metrics.get('positive_word_ratio', 0.0),
+            quality_metrics.get('negative_word_ratio', 0.0),
+            quality_metrics.get('euphonious_word_ratio', 0.0),
+            quality_metrics.get('empathy_ratio', 0.0),
+            quality_metrics.get('apology_ratio', 0.0),
+            quality_metrics.get('total_sentences', 0),
+            quality_metrics.get('customer_sentiment_early', 0.0),
+            quality_metrics.get('customer_sentiment_late', 0.0),
+            quality_metrics.get('customer_sentiment_trend', 0.0),
+            quality_metrics.get('avg_response_latency', 0.0),
+            quality_metrics.get('task_ratio', 0.0),
+            quality_metrics.get('suggestions', 0.0),
+            quality_metrics.get('interruption_count', 0),
+            quality_metrics.get('silence_ratio', 0.0),
+            quality_metrics.get('talk_ratio', 0.0),
+            json.dumps(quality_metrics.get('analysis_details', {})),
+            fetch_mode="none"
+        )
     
-    def insert_communication_quality(self, data: Dict[str, Any]) -> bool:
-        """커뮤니케이션 품질 분석 결과 저장 (구 버전 호환성)"""
-        try:
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO communication_quality (
-                    audio_path, consultation_id, honorific_ratio, positive_word_ratio,
-                    negative_word_ratio, euphonious_word_ratio, empathy_ratio, apology_ratio,
-                    total_sentences, customer_sentiment_early, customer_sentiment_late,
-                    customer_sentiment_trend, avg_response_latency, task_ratio,
-                    suggestions, interruption_count, silence_ratio, talk_ratio, analysis_details
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                data.get('audio_path'), data.get('consultation_id'), data.get('honorific_ratio'),
-                data.get('positive_word_ratio'), data.get('negative_word_ratio'),
-                data.get('euphonious_word_ratio'), data.get('empathy_ratio'), data.get('apology_ratio'),
-                data.get('total_sentences'), data.get('customer_sentiment_early'),
-                data.get('customer_sentiment_late'), data.get('customer_sentiment_trend'),
-                data.get('avg_response_latency'), data.get('task_ratio'), data.get('suggestions'),
-                data.get('interruption_count'), data.get('silence_ratio'), data.get('talk_ratio'),
-                data.get('analysis_details')
-            ))
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"커뮤니케이션 품질 분석 결과 저장 실패: {e}")
-            return False
-    
-    def insert_utterance(self, data: Dict[str, Any]) -> bool:
-        """발화 내용 저장 (구 버전 호환성)"""
-        try:
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO utterances (
-                    audio_path, speaker, start_time, end_time, text, confidence,
-                    sequence, sentiment, profane
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                data.get('audio_path'), data.get('speaker'), data.get('start_time'),
-                data.get('end_time'), data.get('text'), data.get('confidence'),
-                data.get('sequence'), data.get('sentiment'), data.get('profane')
-            ))
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"발화 내용 저장 실패: {e}")
-            return False
-    
-    def get_analysis_statistics(self) -> Dict[str, Any]:
-        """분석 통계 조회 (구 버전 호환성)"""
-        try:
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            
-            # 전체 상담 수
-            cursor.execute("SELECT COUNT(*) FROM consultation_analysis")
-            total_consultations = cursor.fetchone()[0]
-            
-            # 업무 유형별 통계
-            cursor.execute("""
-                SELECT business_type, COUNT(*) as count 
-                FROM consultation_analysis 
-                GROUP BY business_type 
-                ORDER BY count DESC
-            """)
-            business_type_stats = dict(cursor.fetchall())
-            
-            # 분류 유형별 통계
-            cursor.execute("""
-                SELECT classification_type, COUNT(*) as count 
-                FROM consultation_analysis 
-                GROUP BY classification_type 
-                ORDER BY count DESC
-            """)
-            classification_stats = dict(cursor.fetchall())
-            
-            # 평균 처리 시간
-            cursor.execute("SELECT AVG(processing_time) FROM consultation_analysis")
-            avg_processing_time = cursor.fetchone()[0] or 0.0
-            
-            # 전체 발화 수
-            cursor.execute("SELECT COUNT(*) FROM utterances")
-            total_utterances = cursor.fetchone()[0]
-            
-            return {
-                'total_consultations': total_consultations,
-                'total_utterances': total_utterances,
-                'business_type_distribution': business_type_stats,
-                'classification_type_distribution': classification_stats,
-                'average_processing_time': avg_processing_time
-            }
-            
-        except Exception as e:
-            logger.error(f"통계 조회 실패: {e}")
-            return {}
-    
-    # 🔄 구 버전 SQL 파일 실행 메서드들
-    
-    def fetch(self, sql_file_path: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
-        """SQL 파일을 실행하고 결과를 반환 (구 버전 호환성)"""
-        try:
-            # SQL 파일 읽기
-            with open(sql_file_path, 'r', encoding='utf-8') as f:
-                sql_query = f.read().strip()
-            
-            if not sql_query:
-                logger.warning(f"빈 SQL 파일: {sql_file_path}")
-                return []
-            
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            
-            if params:
-                cursor.execute(sql_query, params)
-            else:
-                cursor.execute(sql_query)
-            
-            rows = cursor.fetchall()
-            
-            if rows:
-                columns = [description[0] for description in cursor.description]
-                return [dict(zip(columns, row)) for row in rows]
-            else:
-                return []
-                
-        except FileNotFoundError:
-            logger.error(f"SQL 파일을 찾을 수 없습니다: {sql_file_path}")
-            return []
-        except Exception as e:
-            logger.error(f"SQL 실행 실패 ({sql_file_path}): {e}")
-            return []
-    
-    def insert(self, sql_file_path: str, params: Optional[tuple] = None) -> Optional[int]:
-        """SQL 파일을 실행하고 마지막 ID 반환 (구 버전 호환성)"""
-        try:
-            # SQL 파일 읽기
-            with open(sql_file_path, 'r', encoding='utf-8') as f:
-                sql_query = f.read().strip()
-            
-            if not sql_query:
-                logger.warning(f"빈 SQL 파일: {sql_file_path}")
-                return None
-            
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            
-            if params:
-                cursor.execute(sql_query, params)
-            else:
-                cursor.execute(sql_query)
-            
-            conn.commit()
-            last_id = cursor.lastrowid
-            logger.info(f"SQL 실행 완료: {sql_file_path}, last_id: {last_id}")
-            return last_id
-                
-        except FileNotFoundError:
-            logger.error(f"SQL 파일을 찾을 수 없습니다: {sql_file_path}")
-            return None
-        except Exception as e:
-            logger.error(f"SQL 실행 실패 ({sql_file_path}): {e}")
-            return None
-    
-    def execute(self, sql_file_path: str, params: Optional[tuple] = None) -> bool:
-        """SQL 파일을 실행 (구 버전 호환성)"""
-        try:
-            # SQL 파일 읽기
-            with open(sql_file_path, 'r', encoding='utf-8') as f:
-                sql_query = f.read().strip()
-            
-            if not sql_query:
-                logger.warning(f"빈 SQL 파일: {sql_file_path}")
-                return False
-            
-            conn = self.get_connection("quality")
-            cursor = conn.cursor()
-            
-            if params:
-                cursor.execute(sql_query, params)
-            else:
-                cursor.execute(sql_query)
-            
-            conn.commit()
-            logger.info(f"SQL 실행 완료: {sql_file_path}")
-            return True
-                
-        except FileNotFoundError:
-            logger.error(f"SQL 파일을 찾을 수 없습니다: {sql_file_path}")
-            return False
-        except Exception as e:
-            logger.error(f"SQL 실행 실패 ({sql_file_path}): {e}")
-            return False 
+    def db_save_communication_quality(self, audio_file_id: int, consultation_id: str, 
+                                 quality_metrics: Dict[str, Any]):
+        """커뮤니케이션 품질 분석 결과 저장 (동기 래퍼)"""
+        return self.loop.run_until_complete(
+            self.save_communication_quality_async(audio_file_id, consultation_id, quality_metrics)
+        ) 

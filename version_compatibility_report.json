@@ -1,0 +1,2370 @@
+{
+  "summary": {
+    "dockerfiles": 12,
+    "requirements_files": 11,
+    "version_conflicts": 69,
+    "compatibility_issues": 1
+  },
+  "dockerfile_versions": {
+    "Dockerfile": {
+      "Base Image": [
+        [
+          "ubuntu",
+          "20.04.6"
+        ],
+        [
+          "nemo.collections.asr.models.msdd_models import NeuralDiarizer; print('NeuralDiarizer import successful')\" && \\\n    python -c \"from pyannote.audio import Pipeline; print('PyAnnote Pipeline import successful')\" && \\\n    python -c \"from demucs.pretrained import get_model; print('Demucs model import successful')\" && \\\n    python -c \"from transformers import pipeline; print('Transformers pipeline import successful')\"\n\n# NLTK 데이터 다운로드 (빌드 시간 단축을 위해 최소한만)\nRUN python -c \"import nltk; nltk.download('punkt', quiet=True); nltk.download('stopwords', quiet=True)\"\n\n# 런타임 스테이지 - 고정 버전\nFROM ubuntu",
+          "20.04.6"
+        ]
+      ]
+    },
+    "Dockerfile.audio-processor": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.database-service": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.db-migrator": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.gateway": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.llm-analyzer": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.monitoring": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.punctuation-restorer": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.sentiment-analyzer": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    },
+    "Dockerfile.speaker-diarizer": {
+      "Base Image": [
+        [
+          "nvidia/cuda",
+          "11.8.0"
+        ]
+      ],
+      "CUDA": [
+        "11.8.0"
+      ],
+      "Python ENV": [
+        "3.11"
+      ]
+    },
+    "Dockerfile.speech-recognizer": {
+      "Base Image": [
+        [
+          "nvidia/cuda",
+          "11.8.2"
+        ]
+      ],
+      "CUDA": [
+        "11.8.2"
+      ],
+      "Python ENV": [
+        "3.11"
+      ]
+    },
+    "Dockerfile.test": {
+      "Python": [
+        "3.11"
+      ],
+      "Base Image": [
+        [
+          "python",
+          "3.11"
+        ]
+      ]
+    }
+  },
+  "requirements_versions": {
+    "requirements.audio-processor.txt": {
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "httpx": [
+        "==0.25.2"
+      ],
+      "psutil": [
+        "==5.9.6"
+      ],
+      "librosa": [
+        "==0.10.1"
+      ],
+      "soundfile": [
+        "==0.12.1"
+      ],
+      "numpy": [
+        "==1.24.4"
+      ],
+      "scipy": [
+        "==1.11.4"
+      ],
+      "scikit-learn": [
+        "==1.3.2"
+      ],
+      "noisereduce": [
+        "==3.0.0"
+      ],
+      "pydub": [
+        "==0.25.1"
+      ],
+      "joblib": [
+        "==1.3.2"
+      ],
+      "structlog": [
+        "==23.2.0"
+      ],
+      "prometheus-client": [
+        "==0.19.0"
+      ]
+    },
+    "requirements.database-service.txt": {
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "httpx": [
+        "==0.25.2"
+      ],
+      "psutil": [
+        "==5.9.6"
+      ],
+      "aiosqlite": [
+        "==0.19.0"
+      ],
+      "sqlalchemy": [
+        "==2.0.23"
+      ],
+      "structlog": [
+        "==23.2.0"
+      ],
+      "prometheus-client": [
+        "==0.19.0"
+      ]
+    },
+    "requirements.gateway.txt": {
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "httpx": [
+        "==0.25.2"
+      ],
+      "psutil": [
+        "==5.9.6"
+      ],
+      "redis": [
+        "==5.0.1"
+      ],
+      "aioredis": [
+        "==2.0.1"
+      ],
+      "aiofiles": [
+        "==23.2.1"
+      ],
+      "structlog": [
+        "==23.2.0"
+      ],
+      "prometheus-client": [
+        "==0.19.0"
+      ]
+    },
+    "requirements.llm-analyzer.txt": {
+      "openai": [
+        "==1.6.1"
+      ],
+      "langchain": [
+        "==0.1.0"
+      ],
+      "langchain-openai": [
+        "==0.0.2"
+      ],
+      "langdetect": [
+        "==1.0.9"
+      ],
+      "torch": [
+        "==2.1.2"
+      ],
+      "torchaudio": [
+        "==2.1.2"
+      ],
+      "torchvision": [
+        "==0.16.2"
+      ],
+      "transformers": [
+        "==4.35.2"
+      ],
+      "tokenizers": [
+        "==0.14.1"
+      ],
+      "accelerate": [
+        "==0.25.0"
+      ],
+      "huggingface-hub": [
+        "==0.19.4"
+      ],
+      "sentence-transformers": [
+        "==2.2.2"
+      ],
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "numpy": [
+        "==1.24.4"
+      ],
+      "python-dotenv": [
+        "==1.0.0"
+      ],
+      "tqdm": [
+        "==4.66.1"
+      ]
+    },
+    "requirements.punctuation-restorer.txt": {
+      "deepmultilingualpunctuation": [
+        "==1.0.1"
+      ],
+      "transformers": [
+        "==4.35.2"
+      ],
+      "tokenizers": [
+        "==0.14.1"
+      ],
+      "torch": [
+        "==2.1.2"
+      ],
+      "torchaudio": [
+        "==2.1.2"
+      ],
+      "torchvision": [
+        "==0.16.2"
+      ],
+      "accelerate": [
+        "==0.25.0"
+      ],
+      "huggingface-hub": [
+        "==0.19.4"
+      ],
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "numpy": [
+        "==1.24.4"
+      ],
+      "python-dotenv": [
+        "==1.0.0"
+      ],
+      "tqdm": [
+        "==4.66.1"
+      ],
+      "konlpy": [
+        "==0.6.0"
+      ],
+      "structlog": [
+        "==23.2.0"
+      ],
+      "prometheus-client": [
+        "==0.19.0"
+      ]
+    },
+    "requirements.sentiment-analyzer.txt": {
+      "transformers": [
+        "==4.35.2"
+      ],
+      "tokenizers": [
+        "==0.14.1"
+      ],
+      "sentence-transformers": [
+        "==2.2.2"
+      ],
+      "konlpy": [
+        "==0.6.0"
+      ],
+      "soynlp": [
+        "==0.0.493"
+      ],
+      "torch": [
+        "==2.1.2"
+      ],
+      "torchaudio": [
+        "==2.1.2"
+      ],
+      "torchvision": [
+        "==0.16.2"
+      ],
+      "accelerate": [
+        "==0.25.0"
+      ],
+      "huggingface-hub": [
+        "==0.19.4"
+      ],
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "numpy": [
+        "==1.24.4"
+      ],
+      "scipy": [
+        "==1.11.4"
+      ],
+      "python-dotenv": [
+        "==1.0.0"
+      ],
+      "tqdm": [
+        "==4.66.1"
+      ]
+    },
+    "requirements.speaker-diarizer.txt": {
+      "pyannote-audio": [
+        "==3.1.1"
+      ],
+      "nemo-toolkit": [
+        "==1.23.0"
+      ],
+      "MPSENet": [
+        "==1.0.3"
+      ],
+      "ctc-forced-aligner": [
+        "==1.0.2"
+      ],
+      "torch": [
+        "==2.1.2"
+      ],
+      "torchaudio": [
+        "==2.1.2"
+      ],
+      "torchvision": [
+        "==0.16.2"
+      ],
+      "librosa": [
+        "==0.10.1"
+      ],
+      "soundfile": [
+        "==0.12.1"
+      ],
+      "pydub": [
+        "==0.25.1"
+      ],
+      "transformers": [
+        "==4.35.2"
+      ],
+      "tokenizers": [
+        "==0.14.1"
+      ],
+      "accelerate": [
+        "==0.25.0"
+      ],
+      "huggingface-hub": [
+        "==0.19.4"
+      ],
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "numpy": [
+        "==1.24.4"
+      ],
+      "scipy": [
+        "==1.11.4"
+      ],
+      "python-dotenv": [
+        "==1.0.0"
+      ],
+      "omegaconf": [
+        "==2.3.0"
+      ],
+      "tqdm": [
+        "==4.66.1"
+      ]
+    },
+    "requirements.speech-recognizer.txt": {
+      "librosa": [
+        "==0.10.1"
+      ],
+      "soundfile": [
+        "==0.12.1"
+      ],
+      "faster-whisper": [
+        "==0.10.0"
+      ],
+      "openai-whisper": [
+        "==20231117"
+      ],
+      "torch": [
+        "==2.1.2"
+      ],
+      "torchaudio": [
+        "==2.1.2"
+      ],
+      "torchvision": [
+        "==0.16.2"
+      ],
+      "transformers": [
+        "==4.35.2"
+      ],
+      "tokenizers": [
+        "==0.14.1"
+      ],
+      "accelerate": [
+        "==0.25.0"
+      ],
+      "huggingface-hub": [
+        "==0.19.4"
+      ],
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "numpy": [
+        "==1.24.4"
+      ],
+      "scipy": [
+        "==1.11.4"
+      ],
+      "python-dotenv": [
+        "==1.0.0"
+      ],
+      "tqdm": [
+        "==4.66.1"
+      ]
+    },
+    "requirements.test.txt": {
+      "pytest": [
+        "==7.4.3"
+      ],
+      "httpx": [
+        "==0.25.2"
+      ],
+      "requests": [
+        "==2.31.0"
+      ]
+    },
+    "requirements.txt": {
+      "numpy": [
+        "==1.24.4"
+      ],
+      "scipy": [
+        "==1.11.4"
+      ],
+      "pandas": [
+        "==2.1.4"
+      ],
+      "scikit-learn": [
+        "==1.3.2"
+      ],
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "httpx": [
+        "==0.25.2"
+      ],
+      "aiohttp": [
+        "==3.9.1"
+      ],
+      "aiofiles": [
+        "==23.2.1"
+      ],
+      "aioredis": [
+        "==2.0.1"
+      ],
+      "requests": [
+        "==2.31.0"
+      ],
+      "psutil": [
+        "==5.9.6"
+      ],
+      "librosa": [
+        "==0.10.1"
+      ],
+      "soundfile": [
+        "==0.12.1"
+      ],
+      "pydub": [
+        "==0.25.1"
+      ],
+      "noisereduce": [
+        "==3.0.0"
+      ],
+      "faster-whisper": [
+        "==0.10.0"
+      ],
+      "openai-whisper": [
+        "==20231117"
+      ],
+      "torch": [
+        "==2.1.2"
+      ],
+      "torchaudio": [
+        "==2.1.2"
+      ],
+      "torchvision": [
+        "==0.16.2"
+      ],
+      "transformers": [
+        "==4.35.2"
+      ],
+      "tokenizers": [
+        "==0.14.1"
+      ],
+      "datasets": [
+        "==2.16.1"
+      ],
+      "accelerate": [
+        "==0.25.0"
+      ],
+      "huggingface-hub": [
+        "==0.19.4"
+      ],
+      "sentence-transformers": [
+        "==2.2.2"
+      ],
+      "speechbrain": [
+        "==0.5.16"
+      ],
+      "pyannote-audio": [
+        "==3.1.1"
+      ],
+      "demucs": [
+        "==4.0.0"
+      ],
+      "nemo-toolkit": [
+        "==1.23.0"
+      ],
+      "MPSENet": [
+        "==1.0.3"
+      ],
+      "ctc-forced-aligner": [
+        "==1.0.2"
+      ],
+      "openai": [
+        "==1.6.1"
+      ],
+      "langchain": [
+        "==0.1.0"
+      ],
+      "langchain-openai": [
+        "==0.0.2"
+      ],
+      "langdetect": [
+        "==1.0.9"
+      ],
+      "deepmultilingualpunctuation": [
+        "==1.0.1"
+      ],
+      "konlpy": [
+        "==0.6.0"
+      ],
+      "soynlp": [
+        "==0.0.493"
+      ],
+      "nltk": [
+        "==3.8.1"
+      ],
+      "textblob": [
+        "==0.17.1"
+      ],
+      "python-dotenv": [
+        "==1.0.0"
+      ],
+      "pyyaml": [
+        "==6.0.1"
+      ],
+      "omegaconf": [
+        "==2.3.0"
+      ],
+      "hydra-core": [
+        "==1.3.2"
+      ],
+      "watchdog": [
+        "==3.0.0"
+      ],
+      "tqdm": [
+        "==4.66.1"
+      ],
+      "rich": [
+        "==13.7.0"
+      ],
+      "click": [
+        "==8.1.7"
+      ],
+      "joblib": [
+        "==1.3.2"
+      ],
+      "memory-profiler": [
+        "==0.61.0"
+      ],
+      "cython": [
+        "==3.0.6"
+      ],
+      "structlog": [
+        "==23.2.0"
+      ],
+      "prometheus-client": [
+        "==0.19.0"
+      ],
+      "nvidia-ml-py": [
+        "==12.535.133"
+      ],
+      "gpustat": [
+        "==1.1.1"
+      ],
+      "pytest": [
+        "==7.4.3"
+      ],
+      "black": [
+        "==23.11.0"
+      ],
+      "isort": [
+        "==5.12.0"
+      ],
+      "ipython": [
+        "==8.18.1"
+      ],
+      "matplotlib": [
+        "==3.8.2"
+      ],
+      "treetable": [
+        "==0.2.5"
+      ],
+      "aiosqlite": [
+        "==0.19.0"
+      ],
+      "sqlalchemy": [
+        "==2.0.23"
+      ],
+      "redis": [
+        "==5.0.1"
+      ]
+    },
+    "requirements_hybrid.txt": {
+      "numpy": [
+        "==1.24.4"
+      ],
+      "scipy": [
+        "==1.11.4"
+      ],
+      "requests": [
+        "==2.31.0"
+      ],
+      "python-dotenv": [
+        "==1.0.0"
+      ],
+      "pyyaml": [
+        "==6.0.1"
+      ],
+      "omegaconf": [
+        "==2.3.0"
+      ],
+      "hydra-core": [
+        "==1.3.2"
+      ],
+      "watchdog": [
+        "==3.0.0"
+      ],
+      "pydub": [
+        "==0.25.1"
+      ],
+      "soundfile": [
+        "==0.12.1"
+      ],
+      "librosa": [
+        "==0.10.1"
+      ],
+      "noisereduce": [
+        "==3.0.0"
+      ],
+      "nltk": [
+        "==3.8.1"
+      ],
+      "openai": [
+        "==1.6.1"
+      ],
+      "aiohttp": [
+        "==3.9.1"
+      ],
+      "httpx": [
+        "==0.25.2"
+      ],
+      "huggingface-hub": [
+        "==0.19.4"
+      ],
+      "pydantic": [
+        "==2.5.2"
+      ],
+      "fastapi": [
+        "==0.104.1"
+      ],
+      "uvicorn": [
+        "==0.24.0"
+      ],
+      "psutil": [
+        "==5.9.6"
+      ],
+      "accelerate": [
+        "==0.25.0"
+      ],
+      "transformers": [
+        "==4.35.2"
+      ],
+      "IPython": [
+        "==8.18.1"
+      ],
+      "treetable": [
+        "==0.2.5"
+      ],
+      "gradio": [
+        "==5.8.0"
+      ],
+      "pyannote-audio": [
+        "==3.1.1"
+      ],
+      "speechbrain": [
+        "==0.5.16"
+      ],
+      "xumx-slicq": [
+        "==0.4.0"
+      ],
+      "webrtcvad": [
+        "==2.0.10"
+      ],
+      "sentence-transformers": [
+        "==2.2.2"
+      ],
+      "datasets": [
+        "==2.16.1"
+      ],
+      "tokenizers": [
+        "==0.14.1"
+      ],
+      "sentencepiece": [
+        "==0.1.99"
+      ],
+      "faster-whisper": [
+        "==0.10.0"
+      ],
+      "MPSENet": [
+        "==1.0.3"
+      ],
+      "ctc-forced-aligner": [
+        "==1.0.2"
+      ],
+      "langdetect": [
+        "==1.0.9"
+      ],
+      "deepmultilingualpunctuation": [
+        "==1.0.1"
+      ],
+      "pandas": [
+        "==2.1.4"
+      ],
+      "matplotlib": [
+        "==3.8.2"
+      ],
+      "scikit-learn": [
+        "==1.3.2"
+      ],
+      "memory-profiler": [
+        "==0.61.0"
+      ],
+      "cython": [
+        "==3.0.6"
+      ],
+      "langchain": [
+        "==0.1.0"
+      ],
+      "langchain-openai": [
+        "==0.0.2"
+      ],
+      "nvidia-ml-py": [
+        "==12.535.133"
+      ],
+      "gpustat": [
+        "==1.1.1"
+      ],
+      "pytest": [
+        "==7.4.3"
+      ],
+      "black": [
+        "==23.11.0"
+      ],
+      "isort": [
+        "==5.12.0"
+      ],
+      "tqdm": [
+        "==4.66.1"
+      ],
+      "rich": [
+        "==13.7.0"
+      ],
+      "click": [
+        "==8.1.7"
+      ],
+      "redis": [
+        "==5.0.1"
+      ],
+      "celery": [
+        "==5.3.4"
+      ],
+      "flower": [
+        "==2.0.1"
+      ]
+    }
+  },
+  "version_conflicts": [
+    {
+      "package": "fastapi",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.database-service.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.gateway.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements.txt",
+          "==0.104.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.104.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "uvicorn",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.database-service.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.gateway.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements.txt",
+          "==0.24.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.24.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "pydantic",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.database-service.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.gateway.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.llm-analyzer.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements.txt",
+          "==2.5.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==2.5.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "httpx",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==0.25.2"
+        ],
+        [
+          "requirements.database-service.txt",
+          "==0.25.2"
+        ],
+        [
+          "requirements.gateway.txt",
+          "==0.25.2"
+        ],
+        [
+          "requirements.test.txt",
+          "==0.25.2"
+        ],
+        [
+          "requirements.txt",
+          "==0.25.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.25.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "psutil",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==5.9.6"
+        ],
+        [
+          "requirements.database-service.txt",
+          "==5.9.6"
+        ],
+        [
+          "requirements.gateway.txt",
+          "==5.9.6"
+        ],
+        [
+          "requirements.txt",
+          "==5.9.6"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==5.9.6"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "librosa",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==0.10.1"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.10.1"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.10.1"
+        ],
+        [
+          "requirements.txt",
+          "==0.10.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.10.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "soundfile",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==0.12.1"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.12.1"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.12.1"
+        ],
+        [
+          "requirements.txt",
+          "==0.12.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.12.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "numpy",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==1.24.4"
+        ],
+        [
+          "requirements.llm-analyzer.txt",
+          "==1.24.4"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==1.24.4"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==1.24.4"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==1.24.4"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==1.24.4"
+        ],
+        [
+          "requirements.txt",
+          "==1.24.4"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.24.4"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "scipy",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==1.11.4"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==1.11.4"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==1.11.4"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==1.11.4"
+        ],
+        [
+          "requirements.txt",
+          "==1.11.4"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.11.4"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "scikit-learn",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==1.3.2"
+        ],
+        [
+          "requirements.txt",
+          "==1.3.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.3.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "noisereduce",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==3.0.0"
+        ],
+        [
+          "requirements.txt",
+          "==3.0.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==3.0.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "pydub",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==0.25.1"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.25.1"
+        ],
+        [
+          "requirements.txt",
+          "==0.25.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.25.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "joblib",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==1.3.2"
+        ],
+        [
+          "requirements.txt",
+          "==1.3.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "structlog",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==23.2.0"
+        ],
+        [
+          "requirements.database-service.txt",
+          "==23.2.0"
+        ],
+        [
+          "requirements.gateway.txt",
+          "==23.2.0"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==23.2.0"
+        ],
+        [
+          "requirements.txt",
+          "==23.2.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "prometheus-client",
+      "conflicts": [
+        [
+          "requirements.audio-processor.txt",
+          "==0.19.0"
+        ],
+        [
+          "requirements.database-service.txt",
+          "==0.19.0"
+        ],
+        [
+          "requirements.gateway.txt",
+          "==0.19.0"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.19.0"
+        ],
+        [
+          "requirements.txt",
+          "==0.19.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "aiosqlite",
+      "conflicts": [
+        [
+          "requirements.database-service.txt",
+          "==0.19.0"
+        ],
+        [
+          "requirements.txt",
+          "==0.19.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "sqlalchemy",
+      "conflicts": [
+        [
+          "requirements.database-service.txt",
+          "==2.0.23"
+        ],
+        [
+          "requirements.txt",
+          "==2.0.23"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "redis",
+      "conflicts": [
+        [
+          "requirements.gateway.txt",
+          "==5.0.1"
+        ],
+        [
+          "requirements.txt",
+          "==5.0.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==5.0.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "aioredis",
+      "conflicts": [
+        [
+          "requirements.gateway.txt",
+          "==2.0.1"
+        ],
+        [
+          "requirements.txt",
+          "==2.0.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "aiofiles",
+      "conflicts": [
+        [
+          "requirements.gateway.txt",
+          "==23.2.1"
+        ],
+        [
+          "requirements.txt",
+          "==23.2.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "openai",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==1.6.1"
+        ],
+        [
+          "requirements.txt",
+          "==1.6.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.6.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "langchain",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.1.0"
+        ],
+        [
+          "requirements.txt",
+          "==0.1.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.1.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "langchain-openai",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.0.2"
+        ],
+        [
+          "requirements.txt",
+          "==0.0.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.0.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "langdetect",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==1.0.9"
+        ],
+        [
+          "requirements.txt",
+          "==1.0.9"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.0.9"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "torch",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.txt",
+          "==2.1.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "torchaudio",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==2.1.2"
+        ],
+        [
+          "requirements.txt",
+          "==2.1.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "torchvision",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.16.2"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.16.2"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.16.2"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.16.2"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.16.2"
+        ],
+        [
+          "requirements.txt",
+          "==0.16.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "transformers",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==4.35.2"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==4.35.2"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==4.35.2"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==4.35.2"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==4.35.2"
+        ],
+        [
+          "requirements.txt",
+          "==4.35.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==4.35.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "tokenizers",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.14.1"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.14.1"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.14.1"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.14.1"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.14.1"
+        ],
+        [
+          "requirements.txt",
+          "==0.14.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.14.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "accelerate",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.25.0"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.25.0"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.25.0"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.25.0"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.25.0"
+        ],
+        [
+          "requirements.txt",
+          "==0.25.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.25.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "huggingface-hub",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==0.19.4"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.19.4"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.19.4"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==0.19.4"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.19.4"
+        ],
+        [
+          "requirements.txt",
+          "==0.19.4"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.19.4"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "sentence-transformers",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==2.2.2"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==2.2.2"
+        ],
+        [
+          "requirements.txt",
+          "==2.2.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==2.2.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "python-dotenv",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==1.0.0"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==1.0.0"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==1.0.0"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==1.0.0"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==1.0.0"
+        ],
+        [
+          "requirements.txt",
+          "==1.0.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.0.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "tqdm",
+      "conflicts": [
+        [
+          "requirements.llm-analyzer.txt",
+          "==4.66.1"
+        ],
+        [
+          "requirements.punctuation-restorer.txt",
+          "==4.66.1"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==4.66.1"
+        ],
+        [
+          "requirements.speaker-diarizer.txt",
+          "==4.66.1"
+        ],
+        [
+          "requirements.speech-recognizer.txt",
+          "==4.66.1"
+        ],
+        [
+          "requirements.txt",
+          "==4.66.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==4.66.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "deepmultilingualpunctuation",
+      "conflicts": [
+        [
+          "requirements.punctuation-restorer.txt",
+          "==1.0.1"
+        ],
+        [
+          "requirements.txt",
+          "==1.0.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.0.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "konlpy",
+      "conflicts": [
+        [
+          "requirements.punctuation-restorer.txt",
+          "==0.6.0"
+        ],
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.6.0"
+        ],
+        [
+          "requirements.txt",
+          "==0.6.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "soynlp",
+      "conflicts": [
+        [
+          "requirements.sentiment-analyzer.txt",
+          "==0.0.493"
+        ],
+        [
+          "requirements.txt",
+          "==0.0.493"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "pyannote-audio",
+      "conflicts": [
+        [
+          "requirements.speaker-diarizer.txt",
+          "==3.1.1"
+        ],
+        [
+          "requirements.txt",
+          "==3.1.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==3.1.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "nemo-toolkit",
+      "conflicts": [
+        [
+          "requirements.speaker-diarizer.txt",
+          "==1.23.0"
+        ],
+        [
+          "requirements.txt",
+          "==1.23.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "MPSENet",
+      "conflicts": [
+        [
+          "requirements.speaker-diarizer.txt",
+          "==1.0.3"
+        ],
+        [
+          "requirements.txt",
+          "==1.0.3"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.0.3"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "ctc-forced-aligner",
+      "conflicts": [
+        [
+          "requirements.speaker-diarizer.txt",
+          "==1.0.2"
+        ],
+        [
+          "requirements.txt",
+          "==1.0.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.0.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "omegaconf",
+      "conflicts": [
+        [
+          "requirements.speaker-diarizer.txt",
+          "==2.3.0"
+        ],
+        [
+          "requirements.txt",
+          "==2.3.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==2.3.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "faster-whisper",
+      "conflicts": [
+        [
+          "requirements.speech-recognizer.txt",
+          "==0.10.0"
+        ],
+        [
+          "requirements.txt",
+          "==0.10.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.10.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "openai-whisper",
+      "conflicts": [
+        [
+          "requirements.speech-recognizer.txt",
+          "==20231117"
+        ],
+        [
+          "requirements.txt",
+          "==20231117"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "pytest",
+      "conflicts": [
+        [
+          "requirements.test.txt",
+          "==7.4.3"
+        ],
+        [
+          "requirements.txt",
+          "==7.4.3"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==7.4.3"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "requests",
+      "conflicts": [
+        [
+          "requirements.test.txt",
+          "==2.31.0"
+        ],
+        [
+          "requirements.txt",
+          "==2.31.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==2.31.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "pandas",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==2.1.4"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==2.1.4"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "aiohttp",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==3.9.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==3.9.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "datasets",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==2.16.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==2.16.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "speechbrain",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==0.5.16"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.5.16"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "nltk",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==3.8.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==3.8.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "pyyaml",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==6.0.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==6.0.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "hydra-core",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==1.3.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.3.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "watchdog",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==3.0.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==3.0.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "rich",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==13.7.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==13.7.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "click",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==8.1.7"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==8.1.7"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "memory-profiler",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==0.61.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.61.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "cython",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==3.0.6"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==3.0.6"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "nvidia-ml-py",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==12.535.133"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==12.535.133"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "gpustat",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==1.1.1"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==1.1.1"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "black",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==23.11.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==23.11.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "isort",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==5.12.0"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==5.12.0"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "matplotlib",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==3.8.2"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==3.8.2"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "treetable",
+      "conflicts": [
+        [
+          "requirements.txt",
+          "==0.2.5"
+        ],
+        [
+          "requirements_hybrid.txt",
+          "==0.2.5"
+        ]
+      ],
+      "type": "multiple_versions"
+    },
+    {
+      "package": "transformers vs tokenizers",
+      "conflicts": [
+        [
+          "transformers",
+          "4.40.0"
+        ],
+        [
+          "tokenizers",
+          "<0.14.0"
+        ]
+      ],
+      "type": "known_compatibility_issue"
+    },
+    {
+      "package": "transformers vs tokenizers",
+      "conflicts": [
+        [
+          "transformers",
+          "4.35.0"
+        ],
+        [
+          "tokenizers",
+          "<0.13.0"
+        ]
+      ],
+      "type": "known_compatibility_issue"
+    },
+    {
+      "package": "torch vs torchvision",
+      "conflicts": [
+        [
+          "torch",
+          "2.0.0"
+        ],
+        [
+          "torchvision",
+          "<0.15.0"
+        ]
+      ],
+      "type": "known_compatibility_issue"
+    },
+    {
+      "package": "torch vs torchaudio",
+      "conflicts": [
+        [
+          "torch",
+          "1.13.0"
+        ],
+        [
+          "torchaudio",
+          "<0.13.0"
+        ]
+      ],
+      "type": "known_compatibility_issue"
+    },
+    {
+      "package": "numpy vs pandas",
+      "conflicts": [
+        [
+          "numpy",
+          ">=1.24.0"
+        ],
+        [
+          "pandas",
+          "<2.0.0"
+        ]
+      ],
+      "type": "known_compatibility_issue"
+    }
+  ],
+  "compatibility_issues": [
+    {
+      "type": "cuda_version_mismatch",
+      "versions": [
+        "11.8.0",
+        "11.8.2"
+      ],
+      "description": "여러 CUDA 버전이 사용됨"
+    }
+  ]
+}

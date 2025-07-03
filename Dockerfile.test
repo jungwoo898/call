@@ -1,18 +1,53 @@
-# 테스트용 Dockerfile
+# test 서비스 Dockerfile
+# 표준화된 Dockerfile.template 기반 (테스트 전용)
+
 FROM python:3.11-slim
+
+# 시스템 패키지 업데이트 및 필수 패키지 설치
+RUN apt-get update && apt-get install -y \
+    locales \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# 로케일 및 시간대 설정
+ENV TZ=Asia/Seoul
+ENV LANG=ko_KR.UTF-8
+ENV LC_ALL=ko_KR.UTF-8
+ENV PYTHONIOENCODING=utf-8
+RUN echo "ko_KR.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen ko_KR.UTF-8 && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
 
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# 최소한의 requirements 복사 및 설치
+# Python 환경 설정
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# 공통 requirements 설치
+COPY requirements_common.txt .
+RUN pip install --no-cache-dir -r requirements_common.txt
+
+# 서비스별 requirements 설치
 COPY requirements.test.txt .
 RUN pip install --no-cache-dir -r requirements.test.txt
 
-# 간단한 테스트 서버
+# 애플리케이션 코드 복사
+COPY src/ ./src/
+COPY config/ ./config/
+
+# 간단한 테스트 서버 생성
 RUN echo 'from fastapi import FastAPI; app = FastAPI(); @app.get("/"); def root(): return {"message": "test"}' > main.py
 
 # 포트 노출
-EXPOSE 8000
+EXPOSE 8010
+
+# 헬스체크
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8010/ || exit 1
 
 # 서비스 실행
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8010"] 

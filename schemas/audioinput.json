@@ -1,0 +1,27 @@
+{
+  "type": "object",
+  "properties": {
+    "audio_data": {
+      "type": "string",
+      "description": "Base64 인코딩된 오디오 데이터"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "description": "샘플링 레이트 (Hz)",
+      "default": 16000
+    },
+    "format": {
+      "type": "string",
+      "description": "오디오 포맷",
+      "enum": [
+        "wav",
+        "mp3",
+        "flac"
+      ],
+      "default": "wav"
+    }
+  },
+  "required": [
+    "audio_data"
+  ]
+}

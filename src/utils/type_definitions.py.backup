@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+"""
+Callytics 표준 타입 정의
+프로젝트 전체에서 일관되게 사용할 타입 힌트 정의
+"""
+
+from typing import Dict, Any, List, Optional, Union, Tuple, Callable, Awaitable
+from datetime import datetime
+from pathlib import Path
+
+# =============================================================================
+# 기본 타입 별칭 (Aliases)
+# =============================================================================
+
+# 일반적으로 사용되는 타입들
+JsonDict = Dict[str, Any]
+StringDict = Dict[str, str]
+NumberDict = Dict[str, Union[int, float]]
+OptionalJsonDict = Optional[Dict[str, Any]]
+
+# 리스트 타입들
+StringList = List[str]
+NumberList = List[Union[int, float]]
+JsonList = List[Dict[str, Any]]
+
+# 경로 관련 타입들
+PathLike = Union[str, Path]
+OptionalPath = Optional[Union[str, Path]]
+
+# 시간 관련 타입들
+Timestamp = Union[datetime, str, float]
+OptionalTimestamp = Optional[Union[datetime, str, float]]
+
+# 함수 타입들
+AsyncCallable = Callable[..., Awaitable[Any]]
+SyncCallable = Callable[..., Any]
+
+# =============================================================================
+# 오디오 처리 관련 타입
+# =============================================================================
+
+AudioSegment = Dict[str, Union[float, str]]
+AudioSegmentList = List[AudioSegment]
+AudioMetadata = Dict[str, Union[str, float, int, bool]]
+
+# 화자 관련 타입
+SpeakerInfo = Dict[str, Union[str, float]]
+SpeakerSegment = Dict[str, Union[str, float]]
+SpeakerSegmentList = List[SpeakerSegment]
+
+# =============================================================================
+# 텍스트 분석 관련 타입
+# =============================================================================
+
+# 음성 인식 타입
+TranscriptionResult = Dict[str, Union[str, float, Optional[str]]]
+TranscriptionList = List[TranscriptionResult]
+
+# 감정 분석 타입
+SentimentResult = Dict[str, Union[str, float, Dict[str, float]]]
+SentimentList = List[SentimentResult]
+
+# LLM 분석 타입
+LLMResult = Dict[str, Union[str, float, List[str], Dict[str, Any]]]
+LLMAnalysisResult = Dict[str, Union[str, float, Dict[str, Any]]]
+
+# 품질 분석 타입
+QualityMetrics = Dict[str, Union[float, Dict[str, float]]]
+QualityAssessment = Dict[str, Union[float, str, List[str]]]
+
+# =============================================================================
+# 서비스 관련 타입
+# =============================================================================
+
+# 헬스체크 타입
+HealthStatus = Dict[str, Union[str, bool, float, Dict[str, Any]]]
+ServiceMetrics = Dict[str, Union[str, float, int, Dict[str, Any]]]
+
+# 요청/응답 타입
+RequestData = Dict[str, Any]
+ResponseData = Dict[str, Any]
+ServiceResponse = Dict[str, Union[str, Dict[str, Any], List[Any]]]
+
+# 설정 타입
+ConfigDict = Dict[str, Union[str, int, float, bool, Dict[str, Any]]]
+ServiceConfig = Dict[str, Union[str, int, bool, Dict[str, Any]]]
+
+# =============================================================================
+# 데이터베이스 관련 타입
+# =============================================================================
+
+# 데이터베이스 결과 타입
+DBRecord = Dict[str, Any]
+DBRecordList = List[Dict[str, Any]]
+DBResult = Union[Dict[str, Any], List[Dict[str, Any]], None]
+
+# SQL 쿼리 관련 타입
+SQLQuery = str
+SQLParams = Union[Tuple[Any, ...], Dict[str, Any], None]
+SQLResult = Union[List[Tuple[Any, ...]], List[Dict[str, Any]], None]
+
+# =============================================================================
+# 통합 분석 관련 타입
+# =============================================================================
+
+# 통합 분석 결과
+IntegratedResult = Dict[str, Union[
+    str, float, int, bool,
+    AudioSegmentList,
+    TranscriptionList,
+    SentimentResult,
+    LLMResult,
+    Dict[str, Any]
+]]
+
+# 처리 상태 타입
+ProcessingStatus = Dict[str, Union[str, float, bool, Dict[str, Any]]]
+ProcessingResult = Dict[str, Union[str, float, Dict[str, Any], List[Any]]]
+
+# =============================================================================
+# 오류 처리 관련 타입
+# =============================================================================
+
+# 오류 정보 타입
+ErrorInfo = Dict[str, Union[str, int, Dict[str, Any]]]
+ErrorDetails = Dict[str, Union[str, List[str], Dict[str, Any]]]
+ValidationError = Dict[str, Union[str, List[str]]]
+
+# =============================================================================
+# 유틸리티 타입 체커 함수
+# =============================================================================
+
+def is_json_dict(value: Any) -> bool:
+    """값이 JsonDict 타입인지 확인"""
+    return isinstance(value, dict) and all(isinstance(k, str) for k in value.keys())
+
+def is_string_list(value: Any) -> bool:
+    """값이 StringList 타입인지 확인"""
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+def is_audio_segment(value: Any) -> bool:
+    """값이 AudioSegment 타입인지 확인"""
+    if not isinstance(value, dict):
+        return False
+    
+    required_keys = ['start_time', 'end_time']
+    return all(key in value for key in required_keys)
+
+def is_transcription_result(value: Any) -> bool:
+    """값이 TranscriptionResult 타입인지 확인"""
+    if not isinstance(value, dict):
+        return False
+    
+    return 'text' in value
+
+def is_sentiment_result(value: Any) -> bool:
+    """값이 SentimentResult 타입인지 확인"""
+    if not isinstance(value, dict):
+        return False
+    
+    required_keys = ['emotion', 'confidence']
+    return all(key in value for key in required_keys)
+
+# =============================================================================
+# 타입 변환 유틸리티 함수
+# =============================================================================
+
+def ensure_json_dict(value: Any, default: Optional[JsonDict] = None) -> JsonDict:
+    """값을 JsonDict로 변환 (안전한 변환)"""
+    if is_json_dict(value):
+        return value
+    elif default is not None:
+        return default
+    else:
+        return {}
+
+def ensure_string_list(value: Any, default: Optional[StringList] = None) -> StringList:
+    """값을 StringList로 변환 (안전한 변환)"""
+    if is_string_list(value):
+        return value
+    elif isinstance(value, (list, tuple)):
+        return [str(item) for item in value]
+    elif default is not None:
+        return default
+    else:
+        return []
+
+def ensure_path_like(value: Any) -> Optional[Path]:
+    """값을 Path 객체로 변환"""
+    if isinstance(value, Path):
+        return value
+    elif isinstance(value, str):
+        return Path(value)
+    else:
+        return None
+
+# =============================================================================
+# 타입 검증 함수
+# =============================================================================
+
+def validate_audio_segment(segment: Dict[str, Any]) -> bool:
+    """AudioSegment 타입 검증"""
+    try:
+        required_fields = ['start_time', 'end_time']
+        
+        # 필수 필드 존재 확인
+        if not all(field in segment for field in required_fields):
+            return False
+        
+        # 타입 확인
+        if not isinstance(segment['start_time'], (int, float)):
+            return False
+        if not isinstance(segment['end_time'], (int, float)):
+            return False
+        
+        # 논리적 검증
+        if segment['start_time'] >= segment['end_time']:
+            return False
+        
+        return True
+    except:
+        return False
+
+def validate_transcription_result(result: Dict[str, Any]) -> bool:
+    """TranscriptionResult 타입 검증"""
+    try:
+        # 필수 필드 확인
+        if 'text' not in result:
+            return False
+        
+        if not isinstance(result['text'], str):
+            return False
+        
+        # 선택적 필드 타입 확인
+        if 'confidence' in result and not isinstance(result['confidence'], (int, float)):
+            return False
+        
+        return True
+    except:
+        return False
+
+def validate_sentiment_result(result: Dict[str, Any]) -> bool:
+    """SentimentResult 타입 검증"""
+    try:
+        required_fields = ['emotion', 'confidence']
+        
+        # 필수 필드 존재 확인
+        if not all(field in result for field in required_fields):
+            return False
+        
+        # 타입 확인
+        if not isinstance(result['emotion'], str):
+            return False
+        if not isinstance(result['confidence'], (int, float)):
+            return False
+        
+        # 범위 확인
+        if not (0.0 <= result['confidence'] <= 1.0):
+            return False
+        
+        return True
+    except:
+        return False
+
+# =============================================================================
+# 표준 응답 생성 함수
+# =============================================================================
+
+def create_standard_response(
+    status: str = "success",
+    message: str = "",
+    data: Optional[JsonDict] = None,
+    error_details: Optional[ErrorDetails] = None
+) -> JsonDict:
+    """표준 응답 형식 생성"""
+    response: JsonDict = {
+        "status": status,
+        "message": message,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    if data is not None:
+        response["data"] = data
+    
+    if error_details is not None:
+        response["error_details"] = error_details
+    
+    return response
+
+def create_error_response(
+    error_message: str,
+    error_code: Optional[str] = None,
+    error_details: Optional[ErrorDetails] = None
+) -> JsonDict:
+    """표준 오류 응답 생성"""
+    return create_standard_response(
+        status="error",
+        message=error_message,
+        error_details=error_details or {"error_code": error_code} if error_code else None
+    ) 

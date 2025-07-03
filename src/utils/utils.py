@@ -59,7 +59,7 @@ class Logger:
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
 
-    def log(
+    def util_log(
             self,
             message: Annotated[str, "The message to log"],
             level: Annotated[int, "The logging level (e.g., logging.INFO)"] = logging.INFO,
@@ -84,12 +84,12 @@ class Logger:
         Examples
         --------
         >>> logger = Logger("ExampleLogger", logging.DEBUG)
-        >>> logger.log("This is a debug message", logging.DEBUG)
+        >>> logger.util_log("This is a debug message", logging.DEBUG)
         This is a debug message
         """
         if print_output:
             print(message)
-        self.logger.log(level, message)
+        self.logger.util_log(level, message)
 
 
 class Cleaner:
@@ -108,7 +108,7 @@ class Cleaner:
         pass
 
     @staticmethod
-    def cleanup(*paths: str) -> None:
+    def util_cleanup(*paths: str) -> None:
         """
         Deletes files, directories, or symbolic links at the specified paths.
 
@@ -130,7 +130,7 @@ class Cleaner:
 
         Examples
         --------
-        >>> Cleaner.cleanup("/path/to/file", "/path/to/directory")
+        >>> Cleaner.util_cleanup("/path/to/file", "/path/to/directory")
         File /path/to/file has been deleted.
         Directory /path/to/directory has been deleted.
         """
@@ -145,7 +145,7 @@ class Cleaner:
                 print(f"Path {path} is not a file or directory.")
 
     @staticmethod
-    def cleanup_temp_files(temp_dir: str) -> None:
+    def util_cleanup_temp_files(temp_dir: str) -> None:
         """
         Cleans up temporary files in the specified directory.
 
@@ -166,8 +166,8 @@ class Cleaner:
 
         Examples
         --------
-        >>> Cleaner.cleanup_temp_files("/app/.temp")
-        Temporary files cleaned up from /app/.temp
+        >>> Cleaner.util_cleanup_temp_files("/app/temp")
+        Temporary files cleaned up from /app/temp
         """
         try:
             if not os.path.exists(temp_dir):
@@ -231,7 +231,7 @@ class Watcher(FileSystemEventHandler):
         super().__init__()
         self.callback = callback
 
-    def on_created(self, event) -> None:
+    def util_on_created(self, event) -> None:
         """
         Handle the creation of a new file event.
 
@@ -252,7 +252,7 @@ class Watcher(FileSystemEventHandler):
             asyncio.run(self.callback(event.src_path))
 
     @classmethod
-    def start_watcher(cls, directory: str, callback) -> None:
+    def util_start_watcher(cls, directory: str, callback) -> None:
         """
         Starts the file system watcher on the specified directory.
 
@@ -294,19 +294,19 @@ if __name__ == "__main__":
     path_to_file = "sample_file.txt"
     path_to_directory = "sample_directory"
 
-    with open(path_to_file, "w") as file:
+    with open(file_path, "w", encoding="utf-8") as file:
         file.write("This is a sample file for testing the Cleaner class.")
 
     os.makedirs(path_to_directory, exist_ok=True)
 
     print(f"Attempting to delete file: {path_to_file}")
-    Cleaner.cleanup(path_to_file)
+    Cleaner.util_cleanup(path_to_file)
 
     print(f"Attempting to delete directory: {path_to_directory}")
-    Cleaner.cleanup(path_to_directory)
+    Cleaner.util_cleanup(path_to_directory)
 
     non_existent_path = "non_existent_path"
     print(f"Attempting to delete non-existent path: {non_existent_path}")
-    Cleaner.cleanup(non_existent_path)
+    Cleaner.util_cleanup(non_existent_path)
 
-    Cleaner.cleanup(path_to_file, path_to_directory)
+    Cleaner.util_cleanup(path_to_file, path_to_directory)

@@ -1,0 +1,206 @@
+{
+  "common_requirements": {
+    "status": "success",
+    "categories": 10,
+    "packages": 40,
+    "categories_list": [
+      "웹 프레임워크 및 API",
+      "HTTP 클라이언트 및 네트워킹",
+      "시스템 모니터링 및 유틸리티",
+      "데이터 처리 및 과학 계산",
+      "딥러닝 프레임워크 (PyTorch)",
+      "Transformers 및 Hugging Face",
+      "오디오 처리",
+      "음성 인식 및 분석",
+      "텍스트 처리 및 언어 분석",
+      "개발 도구 (테스트, 포맷팅, 디버깅)"
+    ]
+  },
+  "service_requirements": {
+    "audio-processor": {
+      "status": "success",
+      "packages": 9,
+      "package_list": [
+        "ffmpeg-python",
+        "pyloudnorm",
+        "webrtcvad",
+        "py-webrtcvad",
+        "matplotlib",
+        "seaborn",
+        "joblib",
+        "multiprocessing-logging",
+        "memory-profiler"
+      ]
+    },
+    "database-service": {
+      "status": "success",
+      "packages": 2,
+      "package_list": [
+        "aiosqlite",
+        "sqlalchemy"
+      ]
+    },
+    "gateway": {
+      "status": "success",
+      "packages": 3,
+      "package_list": [
+        "redis",
+        "aioredis",
+        "aiofiles"
+      ]
+    },
+    "llm-analyzer": {
+      "status": "success",
+      "packages": 14,
+      "package_list": [
+        "openai",
+        "llama-cpp-python",
+        "ctransformers",
+        "textblob",
+        "vaderSentiment",
+        "spacy",
+        "kiwipiepy",
+        "pykospacing",
+        "py-hanspell",
+        "chromadb",
+        "faiss-cpu",
+        "redis",
+        "cachetools",
+        "asyncio-mqtt"
+      ]
+    },
+    "punctuation-restorer": {
+      "status": "success",
+      "packages": 1,
+      "package_list": [
+        "deepmultilingualpunctuation"
+      ]
+    },
+    "sentiment-analyzer": {
+      "status": "success",
+      "packages": 0,
+      "package_list": []
+    },
+    "speaker-diarizer": {
+      "status": "success",
+      "packages": 3,
+      "package_list": [
+        "MPSENet",
+        "ctc-forced-aligner",
+        "omegaconf"
+      ]
+    },
+    "speech-recognizer": {
+      "status": "success",
+      "packages": 0,
+      "package_list": []
+    },
+    "test": {
+      "status": "success",
+      "packages": 3,
+      "package_list": [
+        "pytest",
+        "httpx",
+        "requests"
+      ]
+    }
+  },
+  "dockerfiles": {
+    "audio-processor": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "database-service": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "db-migrator": {
+      "status": "success",
+      "base_image": "python:3.11",
+      "python_version": null,
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "gateway": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "llm-analyzer": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "monitoring": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "punctuation-restorer": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "sentiment-analyzer": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "speaker-diarizer": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "speech-recognizer": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "template": {
+      "status": "warning",
+      "cuda_version": "11.8.0",
+      "python_version": "11",
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    },
+    "test": {
+      "status": "success",
+      "base_image": "python:3.11",
+      "python_version": null,
+      "has_common_requirements": true,
+      "has_healthcheck": true
+    }
+  },
+  "ci_config": {
+    ".github/workflows/version-check.yml": {
+      "status": "success",
+      "python_version": "3.11",
+      "has_automation": true
+    },
+    ".gitlab-ci.yml": {
+      "status": "success",
+      "python_version": "3.11",
+      "has_automation": true
+    }
+  }
+}

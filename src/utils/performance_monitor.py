@@ -17,8 +17,8 @@ class PerformanceMetrics:
     memory_percent: float
     memory_used_gb: float
     disk_usage_percent: float
-    gpu_memory_percent: Optional[float] = None
-    gpu_memory_used_gb: Optional[float] = None
+    gpu_memory_percent: float | None = None
+    gpu_memory_used_gb: float | None = None
 
 
 class PerformanceMonitor:
@@ -58,7 +58,7 @@ class PerformanceMonitor:
         except ImportError:
             return False
     
-    def get_current_metrics(self) -> PerformanceMetrics:
+    def util_get_current_metrics(self) -> PerformanceMetrics:
         """현재 시스템 메트릭을 수집합니다."""
         # CPU 사용률
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -97,7 +97,7 @@ class PerformanceMonitor:
             gpu_memory_used_gb=gpu_memory_used_gb
         )
     
-    def start_monitoring(self):
+    def util_start_monitoring(self):
         """성능 모니터링을 시작합니다."""
         if self.monitoring:
             print("모니터링이 이미 실행 중입니다.")
@@ -105,10 +105,10 @@ class PerformanceMonitor:
         
         self.monitoring = True
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
-        self.monitor_thread.start()
+        self.monitor_thread.util_start()
         print(f"성능 모니터링 시작 (간격: {self.interval}초)")
     
-    def stop_monitoring(self):
+    def util_stop_monitoring(self):
         """성능 모니터링을 중지합니다."""
         self.monitoring = False
         if self.monitor_thread:
@@ -119,7 +119,7 @@ class PerformanceMonitor:
         """모니터링 루프"""
         while self.monitoring:
             try:
-                metrics = self.get_current_metrics()
+                metrics = self.util_get_current_metrics()
                 self.metrics_history.append(metrics)
                 
                 # 로그 파일에 저장
@@ -158,7 +158,7 @@ class PerformanceMonitor:
         except Exception as e:
             print(f"메트릭 저장 실패: {e}")
     
-    def get_summary_stats(self) -> Dict[str, Any]:
+    def util_get_summary_stats(self) -> Dict[str, Any]:
         """성능 통계 요약을 반환합니다."""
         if not self.metrics_history:
             return {"message": "수집된 메트릭이 없습니다."}
@@ -190,7 +190,7 @@ class PerformanceMonitor:
         
         return stats
     
-    def cleanup_old_logs(self, max_days: int = 7):
+    def util_cleanup_old_logs(self, max_days: int = 7):
         """오래된 로그 파일을 정리합니다."""
         current_time = time.time()
         max_age_seconds = max_days * 24 * 3600
@@ -203,7 +203,7 @@ class PerformanceMonitor:
                 except Exception as e:
                     print(f"로그 파일 삭제 실패: {e}")
     
-    def get_system_info(self):
+    def util_get_system_info(self):
         import os
         import platform
         info = {
@@ -226,11 +226,11 @@ class PerformanceMonitor:
             info['disk_free'] = None
         return info
     
-    def start(self):
+    def util_start(self):
         """처리 시간 측정 시작"""
         self._start_time = time.time()
     
-    def get_elapsed_time(self) -> float:
+    def util_get_elapsed_time(self) -> float:
         """시작 이후 경과 시간(초) 반환"""
         if self._start_time is None:
             return 0.0

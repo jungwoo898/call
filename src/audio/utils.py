@@ -13,7 +13,7 @@ class TokenizerUtils:
 
     Methods
     -------
-    find_numeral_symbol_tokens(tokenizer)
+    audio_find_numeral_symbol_tokens(tokenizer)
         Returns a list of token IDs that include numerals or symbols like '%', '$', or '£'.
     """
 
@@ -22,7 +22,7 @@ class TokenizerUtils:
         pass
 
     @staticmethod
-    def find_numeral_symbol_tokens(tokenizer) -> List[int]:
+    def audio_find_numeral_symbol_tokens(tokenizer) -> List[int]:
         """
         Identifies tokens that contain numerals or certain symbols in the tokenizer vocabulary.
 
@@ -38,11 +38,11 @@ class TokenizerUtils:
 
         Examples
         --------
-        >>> TokenizerUtils.find_numeral_symbol_tokens(tokenizer)
+        >>> TokenizerUtils.audio_find_numeral_symbol_tokens(tokenizer)
         [-1, 123, 456, 789]
         """
         numeral_symbol_tokens = [-1]
-        for token, token_id in tokenizer.get_vocab().items():
+        for token, token_id in tokenizer.audio_get_vocab().items():
             if any(c in "0123456789%$£" for c in token):
                 numeral_symbol_tokens.append(token_id)
         return numeral_symbol_tokens
@@ -54,9 +54,9 @@ class Formatter:
 
     Methods
     -------
-    add_indices_to_ssm(ssm: List[Dict], reference_length: int = None) -> List[Dict]:
+    audio_add_indices_to_ssm(ssm: List[Dict], reference_length: int = None) -> List[Dict]:
         Adds an index key to each item in the SSM list and checks for length mismatches with a reference.
-    format_ssm_as_dialogue(
+    audio_format_ssm_as_dialogue(
         ssm: List[Dict],
         print_output: bool = False,
         return_dict: bool = False
@@ -66,7 +66,7 @@ class Formatter:
     """
 
     @staticmethod
-    def add_indices_to_ssm(ssm: List[Dict], reference_length: int = None) -> List[Dict]:
+    def audio_add_indices_to_ssm(ssm: List[Dict], reference_length: int = None) -> List[Dict]:
         """
         Adds an index key to each item in the SSM list and optionally checks for length mismatches with a reference
         length.
@@ -109,7 +109,7 @@ class Formatter:
         return ssm
 
     @staticmethod
-    def format_ssm_as_dialogue(
+    def audio_format_ssm_as_dialogue(
             ssm: List[Dict],
             print_output: bool = False,
             return_dict: bool = False
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     # noinspection PyMissingOrEmptyDocstring
     class DummyTokenizer:
         @staticmethod
-        def get_vocab():
+        def audio_get_vocab():
             return {
                 "hello": 1,
                 "world": 2,
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
 
     dummy_tokenizer = DummyTokenizer()
-    numeral_tokens = TokenizerUtils.find_numeral_symbol_tokens(dummy_tokenizer)
+    numeral_tokens = TokenizerUtils.audio_find_numeral_symbol_tokens(dummy_tokenizer)
     print(f"Numeral and symbol tokens: {numeral_tokens}")
 
     speaker_sentence_mapping = [
@@ -185,5 +185,5 @@ if __name__ == "__main__":
         {"speaker": "Speaker 1", "text": "I'm doing great, thanks for asking."}
     ]
 
-    formatted_dialogue_str = Formatter.format_ssm_as_dialogue(speaker_sentence_mapping, print_output=True)
+    formatted_dialogue_str = Formatter.audio_format_ssm_as_dialogue(speaker_sentence_mapping, print_output=True)
     print(f"Formatted Dialogue:\n{formatted_dialogue_str}")

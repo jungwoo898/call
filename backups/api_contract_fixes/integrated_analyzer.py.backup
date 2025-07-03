@@ -1,0 +1,398 @@
+"""
+🎯 간소화된 통합 분석 파이프라인
+키워드 + LLM 하이브리드 분류로 정확도 향상
+"""
+
+import asyncio
+import logging
+from typing import Dict, List, Any, Optional
+from datetime import datetime, date
+import json
+
+from src.text.advanced_analysis import SimplifiedClassifier, ClassificationResult
+from src.db.advanced_manager import SimplifiedDBManager
+from src.utils.structured_logger import StructuredLogger
+
+logger = logging.getLogger(__name__)
+
+class IntegratedAnalyzer:
+    """통합 분석기 - 간소화된 분류 체계"""
+    
+    def __init__(self, db_config: Dict[str, str]):
+        self.classifier = SimplifiedClassifier()
+        self.db_manager = SimplifiedDBManager(db_config)
+        self.logger = StructuredLogger()
+        
+    async def analyze_audio_file(self, audio_file_path: str, audio_file_id: int) -> Dict[str, Any]:
+        """오디오 파일 통합 분석"""
+        try:
+            self.logger.info("분석 시작", {
+                "audio_file_path": audio_file_path,
+                "audio_file_id": audio_file_id,
+                "analysis_type": "integrated"
+            })
+            
+            # 1. 텍스트 추출 및 전처리
+            text_content = await self._extract_and_preprocess_text(audio_file_path)
+            
+            # 2. 상담 분류 (하이브리드)
+            classification_result = await self._classify_consultation(text_content)
+            
+            # 3. 품질 지표 계산
+            quality_metrics = await self._calculate_quality_metrics(text_content)
+            
+            # 4. 감정 분석
+            sentiment_analysis = await self._analyze_sentiment(text_content)
+            
+            # 5. 결과 통합
+            integrated_result = await self._integrate_results(
+                audio_file_id, classification_result, 
+                quality_metrics, sentiment_analysis
+            )
+            
+            # 6. DB 저장
+            await self._save_results(audio_file_id, integrated_result)
+            
+            self.logger.info("분석 완료", {
+                "audio_file_id": audio_file_id,
+                "classification_method": classification_result.classification_method,
+                "confidence_score": classification_result.confidence_score
+            })
+            
+            return integrated_result
+            
+        except Exception as e:
+            self.logger.error("분석 실패", {
+                "audio_file_id": audio_file_id,
+                "error": str(e)
+            })
+            await self._update_processing_status(audio_file_id, 'failed', str(e))
+            raise
+    
+    async def _extract_and_preprocess_text(self, audio_file_path: str) -> str:
+        """텍스트 추출 및 전처리"""
+        try:
+            # 음성 인식 (실제 구현에서는 speech recognition 서비스 호출)
+            # 현재는 더미 텍스트 반환
+            dummy_texts = [
+                "요금제 변경하고 싶은데 어떻게 해야 하나요?",
+                "휴대폰 분실했는데 어떻게 해야 하나요?",
+                "부가서비스 해지하고 싶습니다",
+                "요금이 너무 비싸서 불만입니다",
+                "소액결제 한도 설정하고 싶어요"
+            ]
+            
+            import random
+            return random.choice(dummy_texts)
+            
+        except Exception as e:
+            logger.error(f"텍스트 추출 실패: {e}")
+            return ""
+    
+    async def _classify_consultation(self, text_content: str) -> ClassificationResult:
+        """상담 분류 (하이브리드)"""
+        try:
+            # 하이브리드 분류 실행
+            result = self.classifier.classify(text_content, method='hybrid')
+            
+            logger.info(f"상담 분류 완료: {result.classification_method}, 신뢰도: {result.confidence_score:.2f}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"상담 분류 실패: {e}")
+            # 기본값 반환
+            return ClassificationResult(
+                consultation_subject='기타',
+                consultation_requirement='단일 요건 민원',
+                consultation_content='일반 문의 상담',
+                consultation_reason='민원인',
+                consultation_result='추가상담필요',
+                business_area='기타',
+                confidence_score=0.0,
+                classification_method='error'
+            )
+    
+    async def _calculate_quality_metrics(self, text_content: str) -> Dict[str, float]:
+        """품질 지표 계산"""
+        try:
+            metrics = {}
+            
+            # 텍스트 품질 지표
+            if text_content:
+                word_count = len(text_content.split())
+                metrics['text_length_quality'] = min(word_count / 100.0, 1.0)  # 100단어 기준
+                metrics['text_clarity_quality'] = 0.8  # 기본값
+            
+            # 통합 품질 점수
+            if metrics:
+                metrics['overall_quality'] = sum(metrics.values()) / len(metrics)
+            else:
+                metrics['overall_quality'] = 0.0
+            
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"품질 지표 계산 실패: {e}")
+            return {'overall_quality': 0.0}
+    
+    async def _analyze_sentiment(self, text_content: str) -> List[Dict[str, Any]]:
+        """감정 분석"""
+        try:
+            # 간단한 감정 분석 (실제로는 더 정교한 분석 필요)
+            sentiment_data = []
+            
+            if text_content:
+                # 긍정/부정 키워드 기반 감정 분석
+                positive_words = ['좋', '만족', '감사', '고맙', '해결', '완료']
+                negative_words = ['불만', '문제', '어려움', '힘들', '짜증', '화나']
+                
+                text_lower = text_content.lower()
+                positive_count = sum(1 for word in positive_words if word in text_lower)
+                negative_count = sum(1 for word in negative_words if word in text_lower)
+                
+                if positive_count > negative_count:
+                    sentiment_score = 0.7
+                    emotion_category = 'satisfied'
+                elif negative_count > positive_count:
+                    sentiment_score = -0.5
+                    emotion_category = 'frustrated'
+                else:
+                    sentiment_score = 0.0
+                    emotion_category = 'neutral'
+                
+                sentiment_data.append({
+                    'speaker_type': 'customer',
+                    'time_segment_start': 0.0,
+                    'time_segment_end': 300.0,  # 5분 가정
+                    'sentiment_score': sentiment_score,
+                    'emotion_category': emotion_category,
+                    'confidence': 0.8,
+                    'emotion_intensity': abs(sentiment_score)
+                })
+            
+            return sentiment_data
+            
+        except Exception as e:
+            logger.error(f"감정 분석 실패: {e}")
+            return []
+    
+    async def _integrate_results(self, 
+                               audio_file_id: int,
+                               classification_result: ClassificationResult,
+                               quality_metrics: Dict[str, float],
+                               sentiment_analysis: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """결과 통합"""
+        try:
+            # 상담 요약 생성
+            summary = self._generate_summary(classification_result, quality_metrics)
+            
+            # 핵심 이슈 추출
+            key_issues = self._extract_key_issues(classification_result, sentiment_analysis)
+            
+            # 해결 상태 판단
+            resolution_status = self._determine_resolution_status(classification_result, quality_metrics)
+            
+            # 고객 만족도 추정
+            customer_satisfaction = self._estimate_customer_satisfaction(sentiment_analysis, quality_metrics)
+            
+            integrated_result = {
+                'audio_file_id': audio_file_id,
+                'duration_minutes': 5.0,  # 기본값
+                'business_area': classification_result.business_area,
+                'consultation_subject': classification_result.consultation_subject,
+                'consultation_requirement': classification_result.consultation_requirement,
+                'consultation_content': classification_result.consultation_content,
+                'consultation_reason': classification_result.consultation_reason,
+                'consultation_result': classification_result.consultation_result,
+                'overall_quality_score': quality_metrics.get('overall_quality', 0.0),
+                'customer_satisfaction_score': customer_satisfaction,
+                'resolution_status': resolution_status,
+                'summary': summary,
+                'key_issues': key_issues,
+                'classification_method': classification_result.classification_method,
+                'confidence_score': classification_result.confidence_score,
+                'quality_metrics': quality_metrics,
+                'sentiment_analysis': sentiment_analysis
+            }
+            
+            return integrated_result
+            
+        except Exception as e:
+            logger.error(f"결과 통합 실패: {e}")
+            return {}
+    
+    def _generate_summary(self, classification_result: ClassificationResult, quality_metrics: Dict[str, float]) -> str:
+        """상담 요약 생성"""
+        try:
+            subject = classification_result.consultation_subject
+            content = classification_result.consultation_content
+            result = classification_result.consultation_result
+            quality = quality_metrics.get('overall_quality', 0.0)
+            
+            summary = f"{subject}에 대한 {content}로 {result} 상태"
+            
+            if quality > 0.7:
+                summary += "이며, 전반적으로 양호한 품질의 상담입니다."
+            elif quality > 0.4:
+                summary += "이며, 보통 수준의 상담입니다."
+            else:
+                summary += "이며, 개선이 필요한 상담입니다."
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"요약 생성 실패: {e}")
+            return "상담 분석 완료"
+    
+    def _extract_key_issues(self, classification_result: ClassificationResult, sentiment_analysis: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """핵심 이슈 추출"""
+        try:
+            key_issues = {
+                'main_issue': classification_result.consultation_subject,
+                'business_area': classification_result.business_area,
+                'resolution': classification_result.consultation_result,
+                'sentiment': 'neutral'
+            }
+            
+            # 감정 분석 결과 반영
+            if sentiment_analysis:
+                avg_sentiment = sum(s.get('sentiment_score', 0) for s in sentiment_analysis) / len(sentiment_analysis)
+                if avg_sentiment > 0.3:
+                    key_issues['sentiment'] = 'positive'
+                elif avg_sentiment < -0.3:
+                    key_issues['sentiment'] = 'negative'
+            
+            return key_issues
+            
+        except Exception as e:
+            logger.error(f"핵심 이슈 추출 실패: {e}")
+            return {'main_issue': '분석 오류'}
+    
+    def _determine_resolution_status(self, classification_result: ClassificationResult, quality_metrics: Dict[str, float]) -> str:
+        """해결 상태 판단"""
+        try:
+            result = classification_result.consultation_result
+            quality = quality_metrics.get('overall_quality', 0.0)
+            
+            if result == '만족':
+                return 'resolved'
+            elif result == '미흡':
+                return 'partially_resolved'
+            elif result == '해결 불가':
+                return 'unresolved'
+            elif result == '추가상담필요':
+                return 'escalated'
+            else:
+                return 'unresolved'
+                
+        except Exception as e:
+            logger.error(f"해결 상태 판단 실패: {e}")
+            return 'unresolved'
+    
+    def _estimate_customer_satisfaction(self, sentiment_analysis: List[Dict[str, Any]], quality_metrics: Dict[str, float]) -> float:
+        """고객 만족도 추정"""
+        try:
+            # 감정 분석 기반 만족도
+            if sentiment_analysis:
+                avg_sentiment = sum(s.get('sentiment_score', 0) for s in sentiment_analysis) / len(sentiment_analysis)
+                sentiment_satisfaction = (avg_sentiment + 1) / 2  # -1~1을 0~1로 변환
+            else:
+                sentiment_satisfaction = 0.5
+            
+            # 품질 지표 기반 만족도
+            quality_satisfaction = quality_metrics.get('overall_quality', 0.5)
+            
+            # 가중 평균
+            estimated_satisfaction = (sentiment_satisfaction * 0.6 + quality_satisfaction * 0.4)
+            
+            return min(max(estimated_satisfaction, 0.0), 1.0)
+            
+        except Exception as e:
+            logger.error(f"고객 만족도 추정 실패: {e}")
+            return 0.5
+    
+    async def _save_results(self, audio_file_id: int, integrated_result: Dict[str, Any]):
+        """결과 DB 저장"""
+        try:
+            # 상담 분류 결과 저장
+            session_id = self.db_manager.save_consultation_classification(
+                audio_file_id, integrated_result
+            )
+            
+            # 품질 지표 저장
+            if 'quality_metrics' in integrated_result:
+                self.db_manager.save_quality_metrics(session_id, integrated_result['quality_metrics'])
+            
+            # 감정 분석 저장
+            if 'sentiment_analysis' in integrated_result:
+                self.db_manager.save_sentiment_analysis(session_id, integrated_result['sentiment_analysis'])
+            
+            # 오디오 처리 상태 업데이트
+            await self._update_processing_status(audio_file_id, 'completed')
+            
+            logger.info(f"결과 저장 완료: session_id={session_id}")
+            
+        except Exception as e:
+            logger.error(f"결과 저장 실패: {e}")
+            await self._update_processing_status(audio_file_id, 'failed', str(e))
+            raise
+    
+    async def _update_processing_status(self, audio_file_id: int, status: str, error_message: str = None):
+        """처리 상태 업데이트"""
+        try:
+            self.db_manager.update_audio_processing_status(audio_file_id, status, error_message)
+        except Exception as e:
+            logger.error(f"처리 상태 업데이트 실패: {e}")
+    
+    async def get_analysis_report(self) -> Dict[str, Any]:
+        """분석 리포트 생성"""
+        try:
+            # 분류 정확도 리포트
+            accuracy_report = self.db_manager.get_classification_accuracy_report()
+            
+            # 업무 분야 통계
+            business_stats = self.db_manager.get_business_area_statistics()
+            
+            return {
+                'accuracy_report': accuracy_report,
+                'business_statistics': business_stats,
+                'generated_at': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"분석 리포트 생성 실패: {e}")
+            return {}
+
+# 사용 예시
+async def main():
+    # DB 설정
+    db_config = {
+        'host': 'localhost',
+        'port': 5432,
+        'database': 'callytics',
+        'user': 'callytics_user',
+        'password': '1234'
+    }
+    
+    analyzer = IntegratedAnalyzer(db_config)
+    
+    # 테스트 분석
+    audio_file_path = "test_audio.wav"
+    audio_file_id = 1
+    
+    try:
+        result = await analyzer.analyze_audio_file(audio_file_path, audio_file_id)
+        print(f"분석 결과: {result}")
+        
+        # 리포트 생성
+        report = await analyzer.get_analysis_report()
+        print(f"분석 리포트: {report}")
+        
+    except Exception as e:
+        print(f"분석 실패: {e}")
+    finally:
+        analyzer.db_manager.disconnect()
+
+if __name__ == "__main__":
+    asyncio.run(main()) 

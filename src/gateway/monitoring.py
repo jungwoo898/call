@@ -61,21 +61,21 @@ class ServiceMonitor:
         self.service_health = {}
         self.last_check = {}
     
-    def record_service_call(self, service_name: str, duration: float, success: bool):
+    def gateway_record_service_call(self, service_name: str, duration: float, success: bool):
         """서비스 호출 기록"""
         status = 'success' if success else 'failed'
         SERVICE_CALL_COUNT.labels(service_name=service_name, status=status).inc()
         SERVICE_CALL_DURATION.labels(service_name=service_name).observe(duration)
     
-    def record_queue_message(self, topic: str, status: str):
+    def gateway_record_queue_message(self, topic: str, status: str):
         """큐 메시지 기록"""
         QUEUE_MESSAGE_COUNT.labels(topic=topic, status=status).inc()
     
-    def update_saga_count(self, count: int):
+    def gateway_update_saga_count(self, count: int):
         """Saga 개수 업데이트"""
         ACTIVE_SAGAS.set(count)
     
-    def record_processing_time(self, duration: float):
+    def gateway_record_processing_time(self, duration: float):
         """처리 시간 기록"""
         PROCESSING_TIME.observe(duration)
 
@@ -109,7 +109,7 @@ class CentralizedLogger:
         # 로그 레벨 설정
         logging.basicConfig(level=getattr(logging, log_level.upper()))
     
-    def log_request(self, request: Request, response: Response, duration: float):
+    def gateway_log_request(self, request: Request, response: Response, duration: float):
         """HTTP 요청 로깅"""
         self.logger.info(
             "HTTP Request",
@@ -121,7 +121,7 @@ class CentralizedLogger:
             client_ip=request.client.host if request.client else None
         )
     
-    def log_service_call(self, service_name: str, endpoint: str, duration: float, success: bool, error: Optional[str] = None):
+    def gateway_log_service_call(self, service_name: str, endpoint: str, duration: float, success: bool, error: str | None = None):
         """서비스 호출 로깅"""
         self.logger.info(
             "Service Call",
@@ -132,7 +132,7 @@ class CentralizedLogger:
             error=error
         )
     
-    def log_saga_event(self, saga_id: str, step_name: str, status: str, duration: Optional[float] = None, error: Optional[str] = None):
+    def gateway_log_saga_event(self, saga_id: str, step_name: str, status: str, duration: float | None = None, error: str | None = None):
         """Saga 이벤트 로깅"""
         self.logger.info(
             "Saga Event",
@@ -143,7 +143,7 @@ class CentralizedLogger:
             error=error
         )
     
-    def log_queue_event(self, topic: str, message_id: str, event_type: str, data: Optional[Dict[str, Any]] = None):
+    def gateway_log_queue_event(self, topic: str, message_id: str, event_type: str, data: Optional[Dict[str, Any]] = None):
         """큐 이벤트 로깅"""
         self.logger.info(
             "Queue Event",
@@ -153,7 +153,7 @@ class CentralizedLogger:
             data=data
         )
     
-    def log_error(self, error: Exception, context: Optional[Dict[str, Any]] = None):
+    def gateway_log_error(self, error: Exception, context: Optional[Dict[str, Any]] = None):
         """에러 로깅"""
         self.logger.error(
             "Error occurred",
@@ -162,7 +162,7 @@ class CentralizedLogger:
             context=context or {}
         )
     
-    def log_metric(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None):
+    def gateway_log_metric(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None):
         """메트릭 로깅"""
         self.logger.info(
             "Metric",
@@ -243,7 +243,7 @@ class MetricsExporter:
         )
     
     @staticmethod
-    def get_service_metrics() -> Dict[str, Any]:
+    def gateway_get_service_metrics() -> Dict[str, Any]:
         """서비스별 메트릭 수집"""
         return {
             'http_requests': {
@@ -270,3 +270,127 @@ service_monitor = ServiceMonitor()
 centralized_logger = CentralizedLogger("gateway")
 health_checker = HealthChecker({})  # 서비스 URL은 나중에 설정
 metrics_exporter = MetricsExporter() 
+
+# FastAPI 애플리케이션 생성 및 메인 실행 부분 추가
+if __name__ == "__main__":
+    import uvicorn
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    import os
+    
+    app = FastAPI(
+        title="Callytics Monitoring Service",
+        description="시스템 모니터링 및 헬스체크 서비스",
+        version="1.0.0"
+    )
+    
+    # 헬스체크 서비스 URL 설정
+    health_checker.services = {
+        "audio-processor": os.getenv("AUDIO_PROCESSOR_URL", "http://audio-processor:8001"),
+        "speaker-diarizer": os.getenv("SPEAKER_DIARIZER_URL", "http://speaker-diarizer:8002"),
+        "speech-recognizer": os.getenv("SPEECH_RECOGNIZER_URL", "http://speech-recognizer:8003"),
+        "punctuation-restorer": os.getenv("PUNCTUATION_RESTORER_URL", "http://punctuation-restorer:8004"),
+        "sentiment-analyzer": os.getenv("SENTIMENT_ANALYZER_URL", "http://sentiment-analyzer:8005"),
+        "llm-analyzer": os.getenv("LLM_ANALYZER_URL", "http://llm-analyzer:8006"),
+        "database-service": os.getenv("DATABASE_SERVICE_URL", "http://database-service:8007"),
+    }
+    
+    @app.get("/health")
+    async def health_check():
+        """모니터링 서비스 자체 헬스체크"""
+        return {"status": "healthy", "service": "monitoring", "timestamp": time.time()}
+    
+    @app.get("/health/all")
+    async def health_check_all():
+        """모든 서비스 헬스체크"""
+        try:
+            health_status = await health_checker.check_all_services()
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "services": health_status,
+                    "timestamp": time.time()
+                }
+            )
+        except Exception as e:
+            centralized_logger.gateway_log_error(e, {"endpoint": "/health/all"})
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "error": str(e),
+                    "timestamp": time.time()
+                }
+            )
+    
+    @app.get("/metrics")
+    async def get_metrics():
+        """Prometheus 메트릭"""
+        return await metrics_exporter.get_metrics()
+    
+    @app.get("/metrics/service")
+    async def gateway_get_service_metrics():
+        """서비스별 메트릭"""
+        try:
+            metrics = metrics_exporter.gateway_get_service_metrics()
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "metrics": metrics,
+                    "timestamp": time.time()
+                }
+            )
+        except Exception as e:
+            centralized_logger.gateway_log_error(e, {"endpoint": "/metrics/service"})
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "error": str(e),
+                    "timestamp": time.time()
+                }
+            )
+    
+    @app.get("/status")
+    async def get_system_status():
+        """시스템 전체 상태"""
+        try:
+            health_status = await health_checker.check_all_services()
+            metrics = metrics_exporter.gateway_get_service_metrics()
+            
+            # 전체 시스템 상태 계산
+            healthy_services = sum(1 for status in health_status.values() if status.get('status') == 'healthy')
+            total_services = len(health_status)
+            system_healthy = healthy_services == total_services
+            
+            return JSONResponse(
+                content={
+                    "status": "healthy" if system_healthy else "degraded",
+                    "healthy_services": healthy_services,
+                    "total_services": total_services,
+                    "services": health_status,
+                    "metrics": metrics,
+                    "timestamp": time.time()
+                }
+            )
+        except Exception as e:
+            centralized_logger.gateway_log_error(e, {"endpoint": "/status"})
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "error": str(e),
+                    "timestamp": time.time()
+                }
+            )
+    
+    # 서버 실행
+    port = int(os.getenv("PORT", 8008))
+    centralized_logger.logger.info("Starting monitoring service", port=port)
+    
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port,
+        log_level="info"
+    ) 

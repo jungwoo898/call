@@ -1,33 +1,60 @@
-# LLM 분석 서비스 - GPU 최적화
-FROM nvidia/cuda:11.8-devel-ubuntu20.04
+# 🤖 LLM 분석 서비스 - Python 3.11 + GPU 전용
+FROM nvidia/cuda:11.8.0-runtime-ubuntu20.04
 
-# 시스템 패키지 설치
+# 시스템 패키지 업데이트 및 필수 패키지 설치
 RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y \
     python3.11 \
     python3.11-pip \
     python3.11-dev \
-    gcc \
-    g++ \
+    build-essential \
+    cmake \
+    locales \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+# 로케일 및 시간대 설정
+ENV TZ=Asia/Seoul
+ENV LANG=ko_KR.UTF-8
+ENV LC_ALL=ko_KR.UTF-8
+ENV PYTHONIOENCODING=utf-8
+RUN echo "ko_KR.UTF-8 UTF-8" > /etc/locale.gen && \
+    locale-gen ko_KR.UTF-8 && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone
 
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# GPU 최적화된 requirements 복사 및 설치
-COPY requirements.llm-analyzer.txt .
-RUN pip3 install --no-cache-dir -r requirements.llm-analyzer.txt
+# Python 환경 설정
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV CUDA_VISIBLE_DEVICES=0
 
-# 소스 코드 복사
+# 공통 requirements 설치
+COPY requirements_common.txt .
+RUN pip install --no-cache-dir -r requirements_common.txt
+
+# 서비스별 requirements 설치
+COPY requirements.llm-analyzer.txt .
+RUN pip install --no-cache-dir -r requirements.llm-analyzer.txt
+
+# spaCy 한국어 모델 다운로드
+RUN python -m spacy download ko_core_news_sm
+
+# 애플리케이션 코드 복사
 COPY src/ ./src/
 COPY config/ ./config/
 
-# 환경 변수 설정
-ENV PYTHONPATH=/app
-ENV DEVICE=cuda
-ENV CUDA_VISIBLE_DEVICES=0
+# 🚀 실행
+EXPOSE 8002
 
-# 포트 노출
-EXPOSE 8006
+# 헬스체크
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
 
-# 서비스 실행
-CMD ["python3", "-m", "src.text.llm_analyzer"] 
+# 실행 명령
+CMD ["python", "-m", "src.text.main"] 

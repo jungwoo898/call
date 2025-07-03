@@ -4,174 +4,264 @@ LLM 분석 서비스
 OpenAI/GPT 기반 상담 품질 분석 및 통찰 생성
 """
 
-import os
-import logging
-from typing import Dict, Any
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+import asyncio
+from typing import Dict, List, Optional, Any
+from contextlib import asynccontextmanager
+
+from fastapi import HTTPException
+from pydantic import BaseModel
 import uvicorn
+
+# BaseService 패턴 적용
+from ..utils.base_service import ModelService
+from ..utils.type_definitions import JsonDict, StringList
+from ..utils.api_schemas import (
+    HealthResponse,
+    MetricsResponse,
+    SuccessResponse,
+    create_success_response,
+    create_error_response
+)
 
 # LLM 분석 모듈 import
 from .advanced_analysis import AdvancedCommunicationAnalyzer
 
-# 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 요청/응답 스키마 정의
+class CommunicationAnalysisRequest(BaseModel):
+    """통신 품질 분석 요청"""
+    text_data: str
 
-app = FastAPI(title="LLM Analyzer Service", version="1.0.0")
+class CommunicationAnalysisResponse(BaseModel):
+    """통신 품질 분석 응답"""
+    status: str
+    message: str
+    data: JsonDict
+    communication_analysis: JsonDict
 
-# LLM 분석기 인스턴스
-analyzer = AdvancedCommunicationAnalyzer()
+class TrendAnalysisRequest(BaseModel):
+    """추이 분석 요청"""
+    text_data: str | None = None
+    segments: Optional[List[Dict[str, Any]]] = None
 
-@app.get("/health")
-async def health_check():
-    """헬스체크 엔드포인트"""
-    return JSONResponse({
-        "status": "healthy",
-        "service": "llm-analyzer",
-        "version": "1.0.0"
-    })
+class TrendAnalysisResponse(BaseModel):
+    """추이 분석 응답"""
+    status: str
+    message: str
+    data: JsonDict
+    communication_analysis_with_trend: JsonDict
 
-@app.get("/metrics")
-async def get_metrics():
-    """메트릭 엔드포인트"""
-    try:
-        import psutil
-        
-        cpu_percent = psutil.cpu_percent(interval=1)
-        memory = psutil.virtual_memory()
-        
-        return JSONResponse({
-            "cpu_percent": cpu_percent,
-            "memory_percent": memory.percent,
-            "memory_available_gb": memory.available / 1024**3,
-            "service": "llm-analyzer"
-        })
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class InsightGenerationRequest(BaseModel):
+    """통찰 생성 요청"""
+    text_data: str
+    analysis_data: Optional[JsonDict] = {}
 
-@app.post("/analyze")
-async def analyze_communication(data: Dict[str, Any]):
+class InsightGenerationResponse(BaseModel):
+    """통찰 생성 응답"""
+    status: str
+    message: str
+    data: JsonDict
+    insights: JsonDict
+
+class ComplaintAnalysisRequest(BaseModel):
+    """불만 분석 요청"""
+    text_data: str
+
+class ComplaintAnalysisResponse(BaseModel):
+    """불만 분석 응답"""
+    status: str
+    message: str
+    data: JsonDict
+    complaint_analysis: JsonDict
+
+class LLMAnalyzerService(ModelService):
+    """LLM 분석 서비스 클래스"""
+    
+    def __init__(self):
+        super().__init__(
+            service_name="llm-analyzer",
+            version="1.0.0",
+            description="OpenAI/GPT 기반 상담 품질 분석 및 통찰 생성 서비스"
+        )
+        self.analyzer: Optional[AdvancedCommunicationAnalyzer] = None
+    
+    async def initialize_models(self) -> None:
+        """모델 초기화"""
+        try:
+            self.logger.info("LLM 분석 모델 초기화 시작")
+            self.analyzer = AdvancedCommunicationAnalyzer()
+            self.model_ready = True
+            self.logger.info("LLM 분석 모델 초기화 완료")
+        except Exception as e:
+            self.logger.error(f"모델 초기화 실패: {e}")
+            self.model_ready = False
+            raise e
+    
+    async def cleanup_models(self) -> None:
+        """모델 정리"""
+        if self.analyzer:
+            self.logger.info("LLM 분석 모델 정리")
+            # 필요시 모델 정리 로직 추가
+            self.analyzer = None
+    
+    def text_get_custom_metrics(self) -> JsonDict:
+        """커스텀 메트릭 반환"""
+        return {
+            "model_loaded": self.analyzer is not None,
+            "model_type": "llm_analyzer",
+            "supported_languages": ["ko"],
+            "analysis_types": [
+                "communication_quality",
+                "trend_analysis", 
+                "insight_generation",
+                "complaint_analysis"
+            ]
+        }
+
+# 서비스 인스턴스 생성
+service = LLMAnalyzerService()
+
+@asynccontextmanager
+async def lifespan(app):
+    """애플리케이션 생명주기 관리"""
+    await service.startup()
+    yield
+    await service.shutdown()
+
+# FastAPI 앱 생성
+app = service.create_app(lifespan=lifespan)
+
+@app.post("/analyze", response_model=CommunicationAnalysisResponse)
+async def analyze_communication(request: CommunicationAnalysisRequest) -> CommunicationAnalysisResponse:
     """통신 품질 분석 엔드포인트"""
     try:
-        text_data = data.get('text_data', '')
-        if not text_data:
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
+        
+        if not request.text_data:
             raise HTTPException(status_code=400, detail="text_data가 필요합니다")
         
-        logger.info(f"통신 품질 분석 시작: {len(text_data)}자")
+        service.logger.info(f"통신 품질 분석 시작: {len(request.text_data)}자")
         
         # 통신 품질 분석 실행
-        analysis_result = await analyzer.analyze_communication_quality_async(text_data)
+        analysis_result = await service.analyzer.analyze_communication_quality_async(request.text_data)
         
-        logger.info("통신 품질 분석 완료")
+        service.logger.info("통신 품질 분석 완료")
         
-        return JSONResponse({
-            "status": "success",
-            "communication_analysis": analysis_result,
-            "message": "통신 품질 분석이 완료되었습니다"
-        })
+        return CommunicationAnalysisResponse(
+            status="success",
+            message="통신 품질 분석이 완료되었습니다",
+            data={
+                "input_length": len(request.text_data),
+                "analysis_type": "communication_quality",
+                "processing_time": service.get_processing_time()
+            },
+            communication_analysis=analysis_result
+        )
         
     except Exception as e:
-        logger.error(f"통신 품질 분석 실패: {e}")
+        service.logger.error(f"통신 품질 분석 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/analyze_with_trend")
-async def analyze_communication_with_trend(data: Dict[str, Any]):
+@app.post("/analyze_with_trend", response_model=TrendAnalysisResponse)
+async def analyze_communication_with_trend(request: TrendAnalysisRequest) -> TrendAnalysisResponse:
     """통신 품질 분석 (추이 포함) 엔드포인트"""
     try:
-        text_data = data.get('text_data', '')
-        segments = data.get('segments', [])
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
         
-        if not text_data and not segments:
+        if not request.text_data and not request.segments:
             raise HTTPException(status_code=400, detail="text_data 또는 segments가 필요합니다")
         
-        logger.info(f"통신 품질 분석 (추이 포함) 시작")
+        service.logger.info("통신 품질 분석 (추이 포함) 시작")
         
         # 통신 품질 분석 (추이 포함) 실행
-        if segments:
-            analysis_result = await analyzer.analyze_communication_quality_with_trend_async(segments)
+        if request.segments:
+            analysis_result = await service.analyzer.analyze_communication_quality_with_trend_async(request.segments)
         else:
-            analysis_result = await analyzer.analyze_communication_quality_with_trend_text_async(text_data)
+            analysis_result = await service.analyzer.analyze_communication_quality_with_trend_text_async(request.text_data)
         
-        logger.info("통신 품질 분석 (추이 포함) 완료")
+        service.logger.info("통신 품질 분석 (추이 포함) 완료")
         
-        return JSONResponse({
-            "status": "success",
-            "communication_analysis_with_trend": analysis_result,
-            "message": "통신 품질 분석 (추이 포함)이 완료되었습니다"
-        })
+        return TrendAnalysisResponse(
+            status="success",
+            message="통신 품질 분석 (추이 포함)이 완료되었습니다",
+            data={
+                "input_type": "segments" if request.segments else "text_data",
+                "input_length": len(request.segments or []) if request.segments else len(request.text_data or ""),
+                "analysis_type": "trend_analysis",
+                "processing_time": service.get_processing_time()
+            },
+            communication_analysis_with_trend=analysis_result
+        )
         
     except Exception as e:
-        logger.error(f"통신 품질 분석 (추이 포함) 실패: {e}")
+        service.logger.error(f"통신 품질 분석 (추이 포함) 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate_insights")
-async def generate_insights(data: Dict[str, Any]):
+@app.post("/generate_insights", response_model=InsightGenerationResponse)
+async def generate_insights(request: InsightGenerationRequest) -> InsightGenerationResponse:
     """통찰 생성 엔드포인트"""
     try:
-        text_data = data.get('text_data', '')
-        analysis_data = data.get('analysis_data', {})
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
         
-        if not text_data:
+        if not request.text_data:
             raise HTTPException(status_code=400, detail="text_data가 필요합니다")
         
-        logger.info(f"통찰 생성 시작: {len(text_data)}자")
+        service.logger.info(f"통찰 생성 시작: {len(request.text_data)}자")
         
         # 통찰 생성 실행
-        insights = await analyzer.generate_insights_async(text_data, analysis_data)
+        insights = await service.analyzer.generate_insights_async(request.text_data, request.analysis_data)
         
-        logger.info("통찰 생성 완료")
+        service.logger.info("통찰 생성 완료")
         
-        return JSONResponse({
-            "status": "success",
-            "insights": insights,
-            "message": "통찰 생성이 완료되었습니다"
-        })
+        return InsightGenerationResponse(
+            status="success",
+            message="통찰 생성이 완료되었습니다",
+            data={
+                "input_length": len(request.text_data),
+                "has_analysis_data": bool(request.analysis_data),
+                "analysis_type": "insight_generation",
+                "processing_time": service.get_processing_time()
+            },
+            insights=insights
+        )
         
     except Exception as e:
-        logger.error(f"통찰 생성 실패: {e}")
+        service.logger.error(f"통찰 생성 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/analyze_complaints")
-async def analyze_complaints(data: Dict[str, Any]):
+@app.post("/analyze_complaints", response_model=ComplaintAnalysisResponse)
+async def analyze_complaints(request: ComplaintAnalysisRequest) -> ComplaintAnalysisResponse:
     """불만 분석 엔드포인트"""
     try:
-        text_data = data.get('text_data', '')
-        if not text_data:
+        if not service.model_ready:
+            raise HTTPException(status_code=503, detail="모델이 준비되지 않았습니다")
+        
+        if not request.text_data:
             raise HTTPException(status_code=400, detail="text_data가 필요합니다")
         
-        logger.info(f"불만 분석 시작: {len(text_data)}자")
+        service.logger.info(f"불만 분석 시작: {len(request.text_data)}자")
         
         # 불만 분석 실행
-        complaint_analysis = await analyzer.analyze_complaints_async(text_data)
+        complaint_analysis = await service.analyzer.analyze_complaints_async(request.text_data)
         
-        logger.info("불만 분석 완료")
+        service.logger.info("불만 분석 완료")
         
-        return JSONResponse({
-            "status": "success",
-            "complaint_analysis": complaint_analysis,
-            "message": "불만 분석이 완료되었습니다"
-        })
+        return ComplaintAnalysisResponse(
+            status="success",
+            message="불만 분석이 완료되었습니다",
+            data={
+                "input_length": len(request.text_data),
+                "analysis_type": "complaint_analysis",
+                "processing_time": service.get_processing_time()
+            },
+            complaint_analysis=complaint_analysis
+        )
         
     except Exception as e:
-        logger.error(f"불만 분석 실패: {e}")
+        service.logger.error(f"불만 분석 실패: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/")
-async def root():
-    """루트 엔드포인트"""
-    return {
-        "message": "LLM Analyzer Service가 실행 중입니다",
-        "version": "1.0.0",
-        "endpoints": {
-            "health": "/health",
-            "metrics": "/metrics",
-            "analyze": "/analyze",
-            "analyze_with_trend": "/analyze_with_trend",
-            "generate_insights": "/generate_insights",
-            "analyze_complaints": "/analyze_complaints"
-        }
-    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8006) 

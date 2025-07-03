@@ -32,9 +32,9 @@ class WordSpeakerMapper:
 
     Methods
     -------
-    filter_missing_timestamps(word_timestamps, initial_timestamp=0, final_timestamp=None)
+    audio_filter_missing_timestamps(word_timestamps, initial_timestamp=0, final_timestamp=None)
         Fills in missing start and end timestamps in word timing data.
-    get_words_speaker_mapping(word_anchor_option='start')
+    audio_get_words_speaker_mapping(word_anchor_option='start')
         Maps words to speakers based on word and speaker timestamps.
     """
 
@@ -53,11 +53,11 @@ class WordSpeakerMapper:
         speaker_timestamps : List[List[int]]
             List of speaker segments.
         """
-        self.word_timestamps = self.filter_missing_timestamps(word_timestamps)
+        self.word_timestamps = self.audio_filter_missing_timestamps(word_timestamps)
         self.speaker_timestamps = speaker_timestamps
         self.word_speaker_mapping = None
 
-    def filter_missing_timestamps(
+    def audio_filter_missing_timestamps(
             self,
             word_timestamps: Annotated[List[Dict], "List of word timing information"],
             initial_timestamp: Annotated[int, "Start time of the first word"] = 0,
@@ -84,7 +84,7 @@ class WordSpeakerMapper:
         --------
         >>> word_timestamp = [{'text': 'Hello', 'end': 1.2}]
         >>> mapper = WordSpeakerMapper([], [])
-        >>> mapper.filter_missing_timestamps(word_timestamps)
+        >>> mapper.audio_filter_missing_timestamps(word_timestamps)
         [{'text': 'Hello', 'start': 0, 'end': 1.2}]
         """
         if not word_timestamps:
@@ -159,7 +159,7 @@ class WordSpeakerMapper:
                 return word_timestamps[next_word_index]["start"]
         return final_timestamp
 
-    def get_words_speaker_mapping(self, word_anchor_option='start') -> List[Dict]:
+    def audio_get_words_speaker_mapping(self, word_anchor_option='start') -> List[Dict]:
         """
         Maps words to speakers based on their timestamps.
 
@@ -178,11 +178,11 @@ class WordSpeakerMapper:
         >>> word_timestamps = [{'start': 0.5, 'end': 1.2, 'text': 'Hello'}]
         >>> speaker_timestamps = [[0, 1000, 1]]
         >>> mapper = WordSpeakerMapper(word_timestamps, speaker_timestamps)
-        >>> mapper.get_words_speaker_mapping()
+        >>> mapper.audio_get_words_speaker_mapping()
         [{'text': 'Hello', 'start_time': 500, 'end_time': 1200, 'speaker': 1}]
         """
 
-        def get_word_ts_anchor(start: int, end: int, option: str) -> int:
+        def audio_get_word_ts_anchor(start: int, end: int, option: str) -> int:
             """
             Determines the anchor timestamp for a word.
 
@@ -202,7 +202,7 @@ class WordSpeakerMapper:
 
             Examples
             --------
-            >>> get_word_ts_anchor(500, 1200, 'mid')
+            >>> audio_get_word_ts_anchor(500, 1200, 'mid')
             850
             """
             if option == "end":
@@ -221,7 +221,7 @@ class WordSpeakerMapper:
                 int(wrd_dict["end"] * 1000),
                 wrd_dict["text"],
             )
-            wrd_pos = get_word_ts_anchor(ws, we, word_anchor_option)
+            wrd_pos = audio_get_word_ts_anchor(ws, we, word_anchor_option)
 
             sp = -1
 
@@ -241,7 +241,7 @@ class WordSpeakerMapper:
         self.word_speaker_mapping = wrd_spk_mapping
         return self.word_speaker_mapping
 
-    def realign_with_punctuation(self, max_words_in_sentence: int = 50) -> None:
+    def audio_realign_with_punctuation(self, max_words_in_sentence: int = 50) -> None:
         """
         Realigns word-speaker mapping after punctuation restoration.
 
@@ -267,7 +267,7 @@ class WordSpeakerMapper:
         ... ]
         >>> mapper = WordSpeakerMapper([], [])
         >>> mapper.word_speaker_mapping = word_speaker_mapping
-        >>> mapper.realign_with_punctuation()
+        >>> mapper.audio_realign_with_punctuation()
         >>> print(mapper.word_speaker_mapping)
         [{'text': 'Hello', 'speaker': 'Speaker 1'},
          {'text': 'world', 'speaker': 'Speaker 1'},
@@ -279,7 +279,7 @@ class WordSpeakerMapper:
         """
         sentence_ending_punctuations = ".?!"
 
-        def is_word_sentence_end(word_index: Annotated[int, "Index of the word to check"]) -> Annotated[
+        def audio_is_word_sentence_end(word_index: Annotated[int, "Index of the word to check"]) -> Annotated[
             bool, "True if the word is a sentence end, False otherwise"]:
             """
             Checks if a word is the end of a sentence based on punctuation.
@@ -314,7 +314,7 @@ class WordSpeakerMapper:
             if (
                     k < wsp_len - 1
                     and speaker_list[k] != speaker_list[k + 1]
-                    and not is_word_sentence_end(k)
+                    and not audio_is_word_sentence_end(k)
             ):
                 left_idx = self._get_first_word_idx_of_sentence(
                     k, words_list, speaker_list, max_words_in_sentence
@@ -385,11 +385,11 @@ class WordSpeakerMapper:
                 left_idx > 0
                 and word_idx - left_idx < max_words
                 and speaker_list[left_idx - 1] == speaker_list[left_idx]
-                and not is_word_sentence_end(left_idx - 1)
+                and not audio_is_word_sentence_end(left_idx - 1)
         ):
             left_idx -= 1
 
-        return left_idx if left_idx == 0 or is_word_sentence_end(left_idx - 1) else -1
+        return left_idx if left_idx == 0 or audio_is_word_sentence_end(left_idx - 1) else -1
 
     @staticmethod
     def _get_last_word_idx_of_sentence(
@@ -426,13 +426,13 @@ class WordSpeakerMapper:
         while (
                 right_idx < len(word_list) - 1
                 and right_idx - word_idx < max_words
-                and not is_word_sentence_end(right_idx)
+                and not audio_is_word_sentence_end(right_idx)
         ):
             right_idx += 1
 
         return (
             right_idx
-            if right_idx == len(word_list) - 1 or is_word_sentence_end(right_idx)
+            if right_idx == len(word_list) - 1 or audio_is_word_sentence_end(right_idx)
             else -1
         )
 
@@ -453,7 +453,7 @@ class SentenceSpeakerMapper:
 
     Methods
     -------
-    get_sentences_speaker_mapping(word_speaker_mapping)
+    audio_get_sentences_speaker_mapping(word_speaker_mapping)
         Groups words into sentences and assigns each sentence to a speaker.
     """
 
@@ -474,7 +474,7 @@ class SentenceSpeakerMapper:
             r'[네예아니오맞습니다그렇습니다][\s]*$',  # 답변 표현
         ]
         
-    def korean_sentence_check(self, text: str) -> bool:
+    def audio_korean_sentence_check(self, text: str) -> bool:
         """
         한국어 특성을 고려한 문장 경계 검사
         
@@ -505,7 +505,7 @@ class SentenceSpeakerMapper:
             
         return False
 
-    def get_sentences_speaker_mapping(
+    def audio_get_sentences_speaker_mapping(
             self,
             word_speaker_mapping: Annotated[List[Dict], "List of words with speaker labels"]
     ) -> Annotated[List[Dict], "List of sentences with speaker labels and timing information"]:
@@ -532,7 +532,7 @@ class SentenceSpeakerMapper:
         ...     {'text': 'are', 'start_time': 1400, 'end_time': 1500, 'speaker': 2},
         ...     {'text': 'you?', 'start_time': 1600, 'end_time': 2000, 'speaker': 2},
         ... ]
-        >>> sentence_mapper.get_sentences_speaker_mapping(word_speaker_mapping)
+        >>> sentence_mapper.audio_get_sentences_speaker_mapping(word_speaker_mapping)
         [{'speaker': 'Speaker 1', 'start_time': 0, 'end_time': 1000, 'text': 'Hello world. '},
          {'speaker': 'Speaker 2', 'start_time': 1100, 'end_time': 2000, 'text': 'How are you?'}]
         """
@@ -548,7 +548,7 @@ class SentenceSpeakerMapper:
         for word_dict in word_speaker_mapping[1:]:
             word, spk = word_dict["text"], word_dict["speaker"]
             s, e = word_dict["start_time"], word_dict["end_time"]
-            if spk != prev_spk or self.korean_sentence_check(snt["text"] + word):
+            if spk != prev_spk or self.audio_korean_sentence_check(snt["text"] + word):
                 snts.append(snt)
                 snt = {
                     "speaker": f"Speaker {spk}",
@@ -683,14 +683,14 @@ class Audio:
         self.samples = len(self.data)
         self.duration = self.samples / self.rate
 
-    def properties(self) -> Tuple[
-        str, str, str, int, float, float, Union[int, None], int, float, float, Dict[str, float]]:
+    def audio_properties(self) -> Tuple[
+        str, str, str, int, float, float, int | None, int, float, float, Dict[str, float]]:
         """
         Extract various properties and features from the audio file.
 
         Returns
         -------
-        Tuple[str, str, str, int, float, float, Union[int, None], int, float, float, Dict[str, float]]
+        Tuple[str, str, str, int, float, float, int | None, int, float, float, Dict[str, float]]
             A tuple containing:
             - File name (str)
             - File extension (str)
@@ -698,11 +698,11 @@ class Audio:
             - Sample rate (int)
             - Minimum frequency (float)
             - Maximum frequency (float)
-            - Bit depth (Union[int, None])
+            - Bit depth (int | None)
             - Number of channels (int)
             - Duration (float)
             - Root mean square loudness (float)
-            - A dictionary of extracted properties (Dict[str, float])
+            - A dictionary of extracted audio_properties(Dict[str, float])
 
         Notes
         -----
@@ -715,7 +715,7 @@ class Audio:
         Examples
         --------
         >>> audio = Audio("sample.wav")
-        >>> audio.properties()
+        >>> audio.audio_properties()
         ('sample.wav', '.wav', '/path/to/sample.wav', 44100, 20.0, 20000.0, 16, 2, 5.2, 0.25, {...})
         """
         bands = [(20, 250), (250, 2000), (2000, 6000), (6000, 20000)]
@@ -729,7 +729,7 @@ class Audio:
 
         bit_depth = None
         if self.extension == ".wav":
-            with wave.open(self.audio_path, 'r') as wav_file:
+            with wave.open(file_path, "r", encoding="utf-8") as wav_file:
                 bit_depth = wav_file.getsampwidth() * 8
                 channels = wav_file.getnchannels()
         else:
@@ -787,7 +787,7 @@ class Audio:
             eq_properties_converted
         )
 
-    def extract_properties(self) -> Dict[str, Any]:
+    def audio_extract_properties(self) -> Dict[str, Any]:
         """
         Extract audio properties in a dictionary format for database storage.
 
@@ -807,7 +807,7 @@ class Audio:
             # Get bit depth and channels
             bit_depth = None
             if self.extension == ".wav":
-                with wave.open(self.audio_path, 'r') as wav_file:
+                with wave.open(file_path, "r", encoding="utf-8") as wav_file:
                     bit_depth = wav_file.getsampwidth() * 8
                     channels = wav_file.getnchannels()
             else:
@@ -850,6 +850,6 @@ if __name__ == "__main__":
     ]
 
     word_sentence_mapper = WordSpeakerMapper(words_timestamp, speaker_timestamp)
-    word_speaker_maps = word_sentence_mapper.get_words_speaker_mapping()
+    word_speaker_maps = word_sentence_mapper.audio_get_words_speaker_mapping()
     print("Word-Speaker Mapping:")
     print(word_speaker_maps)

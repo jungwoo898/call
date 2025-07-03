@@ -27,18 +27,9 @@ if torch.cuda.is_available():
 # Related third-party imports
 from omegaconf import OmegaConf
 
-# NeMo 안전 import (1.20.1 호환)
-NeuralDiarizer = None
-try:
-    # NeMo 1.20.1에서는 import 경로가 변경됨
-    from nemo.collections.asr.models.msdd_models import NeuralDiarizer
-    print("✅ NeMo NeuralDiarizer imported successfully")
-except ImportError as e:
-    print(f"⚠️ NeMo import failed: {e}")
-    print("🔄 Diarization will run in fallback mode")
-except Exception as e:
-    print(f"⚠️ NeMo error: {e}")
-    print("🔄 Diarization will run in fallback mode")
+# NeMo import (완전 지원 - Fallback 절대 불가)
+from nemo.collections.asr.models.msdd_models import NeuralDiarizer
+print("✅ NeMo NeuralDiarizer imported successfully")
 
 # Local imports
 from src.audio.utils import Formatter
@@ -73,53 +64,53 @@ processing_status = {
     "errors": []
 }
 
+# PostgreSQL 우선 데이터베이스 매니저 전역 인스턴스
+db_manager = MultiDatabaseManager()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """애플리케이션 생명주기 관리"""
     # 시작 시 초기화
     print("🚀 Callytics API 서버 시작")
+    print("🗄️ PostgreSQL 우선 데이터베이스 연결 시도...")
+    
+    # PostgreSQL 연결 상태 확인
+    if db_manager.is_postgresql_available():
+        print("✅ PostgreSQL 연결 성공")
+    else:
+        print("❌ PostgreSQL 연결 실패 - 애플리케이션을 종료합니다")
+        raise RuntimeError("PostgreSQL 연결이 필수입니다")
+    
     yield
     # 종료 시 정리
     print("🛑 Callytics API 서버 종료")
+    await db_manager.close_async()
 
 app = FastAPI(title="Callytics API", version="1.0.0", lifespan=lifespan)
+
+# 공통 엔드포인트 사용
+from src.utils.common_endpoints import get_common_endpoints
+
+common_endpoints = get_common_endpoints("callytics-api", "1.0.0")
 
 @app.get("/health")
 async def health_check():
     """헬스체크 엔드포인트"""
     try:
-        # 기본 시스템 상태 확인
-        import torch
-        cuda_available = torch.cuda.is_available()
-        
-        # API 키 확인
-        api_keys = {
-            "openai": bool(os.getenv("OPENAI_API_KEY")),
-            "azure": bool(os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_ENDPOINT")),
-            "huggingface": bool(os.getenv("HUGGINGFACE_TOKEN"))
+        # 추가 체크 항목 구성
+        additional_checks = {
+            "api_keys_configured": {
+                "openai": bool(os.getenv("OPENAI_API_KEY")),
+                "azure": bool(os.getenv("AZURE_OPENAI_API_KEY") and os.getenv("AZURE_OPENAI_ENDPOINT")),
+                "huggingface": bool(os.getenv("HUGGINGFACE_TOKEN"))
+            },
+            "database_accessible": db_manager.is_postgresql_available(),
+            "database_type": "postgresql",
+            "audio_directory_accessible": os.path.exists("/app/audio"),
+            "processing_status": processing_status
         }
         
-        # 데이터베이스 연결 확인
-        db_path = os.getenv('DATABASE_URL', '/app/Callytics_new.sqlite')
-        if db_path.startswith('sqlite:///'):
-            db_path = db_path.replace('sqlite:///', '')
-        db_accessible = os.path.exists(db_path)
-        
-        # 오디오 디렉토리 확인
-        audio_dir = "/app/audio"
-        audio_accessible = os.path.exists(audio_dir)
-        
-        status = "healthy" if any(api_keys.values()) and db_accessible else "degraded"
-        
-        return JSONResponse({
-            "status": status,
-            "timestamp": asyncio.get_event_loop().time(),
-            "cuda_available": cuda_available,
-            "api_keys_configured": api_keys,
-            "database_accessible": db_accessible,
-            "audio_directory_accessible": audio_accessible,
-            "processing_status": processing_status
-        })
+        return await common_endpoints.health_check(additional_checks)
     except Exception as e:
         return JSONResponse({
             "status": "unhealthy",
@@ -130,32 +121,12 @@ async def health_check():
 async def get_metrics():
     """메트릭 엔드포인트 (Prometheus용)"""
     try:
-        import psutil
-        
-        # 시스템 메트릭 수집
-        cpu_percent = psutil.cpu_percent(interval=1)
-        memory = psutil.virtual_memory()
-        
-        # GPU 메트릭 (가능한 경우)
-        gpu_metrics = {}
-        try:
-            import torch
-            if torch.cuda.is_available():
-                gpu_metrics = {
-                    "gpu_count": torch.cuda.device_count(),
-                    "gpu_memory_allocated": torch.cuda.memory_allocated() / 1024**3,  # GB
-                    "gpu_memory_reserved": torch.cuda.memory_reserved() / 1024**3,    # GB
-                }
-        except:
-            pass
-        
-        return JSONResponse({
-            "cpu_percent": cpu_percent,
-            "memory_percent": memory.percent,
-            "memory_available_gb": memory.available / 1024**3,
-            "gpu_metrics": gpu_metrics,
+        # 추가 메트릭 구성
+        additional_metrics = {
             "processing_status": processing_status
-        })
+        }
+        
+        return await common_endpoints.get_metrics(additional_metrics)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -238,7 +209,7 @@ async def main(audio_file_path: str):
     import uuid
     import time
     unique_id = f"{int(time.time())}_{str(uuid.uuid4())[:8]}"
-    temp_dir = f"/app/.temp/session_{unique_id}"
+    temp_dir = f"/app/temp/session_{unique_id}"
     os.makedirs(temp_dir, exist_ok=True)
     
     config_nemo = "config/nemo/diar_infer_telephonic.yaml"
@@ -248,9 +219,7 @@ async def main(audio_file_path: str):
     srt_output_path = os.path.join(temp_dir, "output.srt")
     config_path = "config/config.yaml"
     prompt_path = "config/prompt.yaml"
-    db_path = os.getenv('DATABASE_URL', '/app/Callytics_new.sqlite')
-    if db_path.startswith('sqlite:///'):
-        db_path = db_path.replace('sqlite:///', '')
+    # PostgreSQL 전용 설정 - SQLite 관련 변수 제거
     db_topic_fetch_path = "src/db/sql/TopicFetch.sql"
     db_topic_insert_path = "src/db/sql/TopicInsert.sql"
     db_audio_properties_insert_path = "src/db/sql/AudioPropertiesInsert.sql"
@@ -349,27 +318,12 @@ async def main(audio_file_path: str):
     # NeuralDiarizer를 사용한 화자 분리 (fallback 모드 지원)
     if NeuralDiarizer is None:
         print("Warning: NeuralDiarizer is not available. Using fallback diarization.")
-        # 더미 RTTM 파일 생성 (단일 화자로 가정)
-        os.makedirs(os.path.join(temp_dir, "pred_rttms"), exist_ok=True)
-        with open(rttm_file_path, 'w') as f:
-            duration = processor.get_duration()
-            f.write(f"SPEAKER mono_file 1 0.0 {duration} <NA> <NA> SPEAKER_00 <NA> <NA>\n")
-        print(f"Created fallback RTTM file: {rttm_file_path}")
-    else:
-        try:
-            cfg = OmegaConf.load(config_nemo)
-            cfg.diarizer.manifest_filepath = manifest_path
-            cfg.diarizer.out_dir = temp_dir
-            msdd_model = NeuralDiarizer(cfg=cfg)
-            msdd_model.diarize()
-        except Exception as e:
-            print(f"Warning: NeuralDiarizer failed: {e}")
-            # 더미 RTTM 파일 생성
-            os.makedirs(os.path.join(temp_dir, "pred_rttms"), exist_ok=True)
-            with open(rttm_file_path, 'w') as f:
-                duration = processor.get_duration()
-                f.write(f"SPEAKER mono_file 1 0.0 {duration} <NA> <NA> SPEAKER_00 <NA> <NA>\n")
-            print(f"Created fallback RTTM file: {rttm_file_path}")
+        # NeuralDiarizer를 사용한 화자 분리 (완전 지원)
+        cfg = OmegaConf.load(config_nemo)
+        cfg.diarizer.manifest_filepath = manifest_path
+        cfg.diarizer.out_dir = temp_dir
+        msdd_model = NeuralDiarizer(cfg=cfg)
+        msdd_model.diarize()
 
     # Step 7: Processing Transcript
     # Step 7.1: Speaker Timestamps
@@ -419,7 +373,7 @@ async def main(audio_file_path: str):
     # Step 9: Classify Speaker Roles
     speaker_roles = await llm_handler.generate("Classification", ssm)
 
-    # Step 9.1: LLM results validate and fallback
+    # Step 9.1: LLM results validation
     ssm = llm_result_handler.validate_and_fallback(speaker_roles, ssm)
     llm_result_handler.log_result(ssm, speaker_roles)
 
@@ -733,45 +687,31 @@ async def main(audio_file_path: str):
         try:
             print("💾 커뮤니케이션 품질 분석 결과 DB 저장 시작...")
             
-            # 직접 SQL 실행으로 communication_quality 테이블에 저장
-            import sqlite3
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO communication_quality (
-                        audio_properties_id, consultation_id,
-                        honorific_ratio, positive_word_ratio, negative_word_ratio,
-                        euphonious_word_ratio, empathy_ratio, apology_ratio,
-                        total_sentences, 
-                        customer_sentiment_early, customer_sentiment_late, customer_sentiment_trend,
-                        avg_response_latency, task_ratio,
-                        suggestions, interruption_count, silence_ratio, talk_ratio,
-                        analysis_details
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    last_id,  # audio_properties_id
-                    f"CONSULT_{last_id}",  # consultation_id
-                    quality_analysis_result.honorific_ratio or 0.0,
-                    quality_analysis_result.positive_word_ratio or 0.0,
-                    quality_analysis_result.negative_word_ratio or 0.0,
-                    quality_analysis_result.euphonious_word_ratio or 0.0,
-                    quality_analysis_result.empathy_ratio or 0.0,
-                    quality_analysis_result.apology_ratio or 0.0,
-                    quality_analysis_result.total_sentences or 0,
-                    quality_analysis_result.customer_sentiment_early or 0.0,
-                    quality_analysis_result.customer_sentiment_late or 0.0,
-                    quality_analysis_result.customer_sentiment_trend or 0.0,
-                    quality_analysis_result.avg_response_latency or 0.0,
-                    quality_analysis_result.task_ratio or 0.0,
-                    quality_analysis_result.suggestions or 0.0,  # 새로운 LLM 지표
-                    quality_analysis_result.interruption_count or 0,  # 새로운 LLM 지표
-                    quality_analysis_result.silence_ratio or 0.0,  # 침묵 비율
-                    quality_analysis_result.talk_ratio or 0.0,  # 발화 시간 비율
-                    str(quality_analysis_result.analysis_details or {})
-                ))
-                conn.commit()
-            
-            print(f"✅ 커뮤니케이션 품질 분석 결과 DB 저장 완료")
+            # PostgreSQL 전용 저장
+            await db_manager.save_communication_quality_async(
+                audio_file_id=last_id,
+                consultation_id=f"CONSULT_{last_id}",
+                quality_metrics={
+                    'honorific_ratio': quality_analysis_result.honorific_ratio or 0.0,
+                    'positive_word_ratio': quality_analysis_result.positive_word_ratio or 0.0,
+                    'negative_word_ratio': quality_analysis_result.negative_word_ratio or 0.0,
+                    'euphonious_word_ratio': quality_analysis_result.euphonious_word_ratio or 0.0,
+                    'empathy_ratio': quality_analysis_result.empathy_ratio or 0.0,
+                    'apology_ratio': quality_analysis_result.apology_ratio or 0.0,
+                    'total_sentences': quality_analysis_result.total_sentences or 0,
+                    'customer_sentiment_early': quality_analysis_result.customer_sentiment_early or 0.0,
+                    'customer_sentiment_late': quality_analysis_result.customer_sentiment_late or 0.0,
+                    'customer_sentiment_trend': quality_analysis_result.customer_sentiment_trend or 0.0,
+                    'avg_response_latency': quality_analysis_result.avg_response_latency or 0.0,
+                    'task_ratio': quality_analysis_result.task_ratio or 0.0,
+                    'suggestions': quality_analysis_result.suggestions or 0.0,
+                    'interruption_count': quality_analysis_result.interruption_count or 0,
+                    'silence_ratio': quality_analysis_result.silence_ratio or 0.0,
+                    'talk_ratio': quality_analysis_result.talk_ratio or 0.0,
+                    'analysis_details': quality_analysis_result.analysis_details or {}
+                }
+            )
+            print("✅ PostgreSQL에 커뮤니케이션 품질 분석 결과 저장 완료")
             print(f"   - 새로운 LLM 지표: suggestions={quality_analysis_result.suggestions}, interruption_count={quality_analysis_result.interruption_count}")
             
         except Exception as e:

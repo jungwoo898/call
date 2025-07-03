@@ -1,0 +1,444 @@
+# Standard library imports
+import os
+import json
+import threading
+import hashlib
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Optional, Tuple, List, Dict, Any
+from pathlib import Path
+
+# Related third party imports
+import torch
+import faster_whisper
+from pydub import AudioSegment
+
+
+class AdvancedTranscriber:
+    """
+    고성능 STT 처리 클래스
+    캐싱, 실패 구간 재시도, 긴 오디오 분할 최적화 지원
+    """
+
+    def __init__(self,
+                 model_name: str = 'medium',
+                 device: str = 'auto',
+                 compute_type: str = 'int8',
+                 cache_dir: str = "/app/.cache/stt",
+                 max_chunk_duration: int = 300,  # 5분
+                 max_workers: int = 4,
+                 enable_cache: bool = True,
+                 retry_attempts: int = 3):
+        """
+        AdvancedTranscriber 초기화
+
+        Parameters
+        ----------
+        model_name : str
+            Whisper 모델명
+        device : str
+            처리 디바이스
+        compute_type : str
+            계산 타입
+        cache_dir : str
+            캐시 디렉토리
+        max_chunk_duration : int
+            최대 chunk 길이 (초)
+        max_workers : int
+            병렬 처리 워커 수
+        enable_cache : bool
+            캐시 활성화 여부
+        retry_attempts : int
+            재시도 횟수
+        """
+        self.model_name = model_name
+        self.device = self._determine_device(device)
+        self.compute_type = compute_type
+        self.cache_dir = Path(cache_dir)
+        self.max_chunk_duration = max_chunk_duration
+        self.max_workers = max_workers
+        self.enable_cache = enable_cache
+        self.retry_attempts = retry_attempts
+
+        # 캐시 디렉토리 생성
+        if self.enable_cache:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # 캐시 메타데이터 관리
+        self.cache_metadata_file = self.cache_dir / "metadata.json"
+        self.cache_metadata = self._load_cache_metadata()
+        self.cache_lock = threading.Lock()
+
+        # Whisper 모델 로드
+        self.model = faster_whisper.WhisperModel(
+            model_name, device=self.device, compute_type=compute_type
+        )
+
+        # 병렬 처리 executor
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+
+        print(f"✅ AdvancedTranscriber 초기화 완료: {model_name}, {self.device}")
+
+    def _determine_device(self, device: str) -> str:
+        """디바이스 결정"""
+        if device == "auto":
+            return "cuda" if torch.cuda.is_available() else "cpu"
+        return device
+
+    def _load_cache_metadata(self) -> Dict[str, Any]:
+        """캐시 메타데이터 로드"""
+        try:
+            if self.cache_metadata_file.exists():
+                with open(self.cache_metadata_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"⚠️ 캐시 메타데이터 로드 실패: {e}")
+        return {}
+
+    def _save_cache_metadata(self):
+        """캐시 메타데이터 저장"""
+        try:
+            with open(self.cache_metadata_file, 'w') as f:
+                json.dump(self.cache_metadata, f, indent=2)
+        except Exception as e:
+            print(f"⚠️ 캐시 메타데이터 저장 실패: {e}")
+
+    def _get_cache_key(self, audio_file: str, start_time: float = 0,
+                      end_time: float = 0) -> str:
+        """캐시 키 생성"""
+        file_hash = hashlib.md5()
+        with open(audio_file, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                file_hash.update(chunk)
+
+        # 시간 정보 포함
+        time_info = f"{start_time:.1f}_{end_time:.1f}" if end_time > 0 else "full"
+        cache_key = f"{file_hash.hexdigest()}_{self.model_name}_{time_info}"
+        return cache_key
+
+    def _is_cached(self, audio_file: str, start_time: float = 0,
+                  end_time: float = 0) -> Optional[Dict[str, Any]]:
+        """캐시된 결과 확인"""
+        if not self.enable_cache:
+            return None
+
+        cache_key = self._get_cache_key(audio_file, start_time, end_time)
+
+        with self.cache_lock:
+            if cache_key in self.cache_metadata:
+                cache_info = self.cache_metadata[cache_key]
+                cache_path = self.cache_dir / cache_info["filename"]
+
+                if cache_path.exists() and os.path.getsize(cache_path) > 0:
+                    return cache_info
+
+        return None
+
+    def _save_to_cache(self, audio_file: str, result: Dict[str, Any],
+                      start_time: float = 0, end_time: float = 0):
+        """결과를 캐시에 저장"""
+        if not self.enable_cache:
+            return
+
+        try:
+            cache_key = self._get_cache_key(audio_file, start_time, end_time)
+            cache_filename = f"{cache_key}.json"
+            cache_path = self.cache_dir / cache_filename
+
+            # 결과 저장
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+
+            # 메타데이터 업데이트
+            with self.cache_lock:
+                self.cache_metadata[cache_key] = {
+                    "filename": cache_filename,
+                    "original_file": audio_file,
+                    "model_name": self.model_name,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "created_at": time.time(),
+                    "file_size": os.path.getsize(cache_path)
+                }
+                self._save_cache_metadata()
+
+            print(f"💾 STT 캐시 저장: {cache_filename}")
+
+        except Exception as e:
+            print(f"⚠️ STT 캐시 저장 실패: {e}")
+
+    def _load_from_cache(self, cache_info: Dict[str, Any]) -> Dict[str, Any]:
+        """캐시에서 결과 로드"""
+        try:
+            cache_path = self.cache_dir / cache_info["filename"]
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ 캐시 로드 실패: {e}")
+            return {}
+
+    def _split_audio_optimized(self, audio_file: str) -> List[Tuple[float, float]]:
+        """오디오 최적화 분할"""
+        try:
+            # 오디오 길이 확인
+            audio = AudioSegment.from_file(audio_file)
+            duration = len(audio) / 1000.0  # 초 단위
+
+            if duration <= self.max_chunk_duration:
+                return [(0, duration)]
+
+            # 최적화된 분할 (침묵 구간 고려)
+            chunks = []
+            current_time = 0
+
+            while current_time < duration:
+                end_time = min(current_time + self.max_chunk_duration, duration)
+
+                # 침묵 구간 찾기 (분할점 최적화)
+                if end_time < duration:
+                    # 끝 부분에서 침묵 구간 찾기
+                    chunk_audio = audio[current_time*1000:end_time*1000]
+                    silence_threshold = -40  # dB
+
+                    # 침묵 구간 찾기
+                    silence_ranges = []
+                    for i in range(0, len(chunk_audio), 100):  # 100ms 단위
+                        segment = chunk_audio[i:i+100]
+                        if segment.dBFS < silence_threshold:
+                            silence_ranges.append(i/1000.0)
+
+                    # 침묵 구간이 있으면 분할점 조정
+                    if silence_ranges:
+                        # 마지막 침묵 구간을 분할점으로 사용
+                        optimal_split = current_time + max(silence_ranges)
+                        if (optimal_split > current_time + 
+                            self.max_chunk_duration * 0.8):  # 80% 이상이면
+                            end_time = optimal_split
+
+                chunks.append((current_time, end_time))
+                current_time = end_time
+
+            print(f"📦 오디오 분할 완료: {len(chunks)}개 chunk")
+            return chunks
+
+        except Exception as e:
+            print(f"⚠️ 오디오 분할 실패: {e}")
+            # 기본 분할
+            return [(0, self.max_chunk_duration)]
+
+    def _transcribe_chunk_with_retry(self, audio_file: str, start_time: float,
+                                   end_time: float) -> Dict[str, Any]:
+        """재시도 로직이 포함된 chunk STT"""
+        for attempt in range(self.retry_attempts):
+            try:
+                # 캐시 확인
+                cached_info = self._is_cached(audio_file, start_time, end_time)
+                if cached_info:
+                    print(f"💾 캐시에서 로드: {start_time:.1f}-{end_time:.1f}")
+                    return self._load_from_cache(cached_info)
+
+                # 임시 chunk 파일 생성
+                chunk_file = f"/tmp/chunk_{start_time:.1f}_{end_time:.1f}.wav"
+
+                # ffmpeg로 chunk 추출
+                duration = end_time - start_time
+                cmd = [
+                    "ffmpeg", "-y",
+                    "-ss", str(start_time),
+                    "-t", str(duration),
+                    "-i", audio_file,
+                    "-ar", "16000",
+                    "-ac", "1",
+                    "-f", "wav",
+                    chunk_file
+                ]
+
+                import subprocess
+                result = subprocess.run(cmd, capture_output=True, text=True,
+                                      timeout=60)
+
+                if result.returncode != 0:
+                    raise Exception(f"Chunk 추출 실패: {result.stderr}")
+
+                # STT 처리
+                segments, info = self.model.transcribe(
+                    chunk_file,
+                    language="ko",
+                    word_timestamps=True,
+                    vad_filter=True
+                )
+
+                # 결과 정리
+                transcript_result = {
+                    "segments": [],
+                    "language": info.language,
+                    "language_probability": info.language_probability,
+                    "start_time": start_time,
+                    "end_time": end_time
+                }
+
+                for segment in segments:
+                    segment_data = {
+                        "start": segment.start + start_time,  # 전체 시간 기준으로 조정
+                        "end": segment.end + start_time,
+                        "text": segment.text.strip(),
+                        "words": []
+                    }
+
+                    if segment.words:
+                        for word in segment.words:
+                            word_data = {
+                                "start": word.start + start_time,
+                                "end": word.end + start_time,
+                                "word": word.word,
+                                "probability": word.probability
+                            }
+                            segment_data["words"].append(word_data)
+
+                    transcript_result["segments"].append(segment_data)
+
+                # 캐시에 저장
+                self._save_to_cache(audio_file, transcript_result, start_time,
+                                  end_time)
+
+                # 임시 파일 정리
+                if os.path.exists(chunk_file):
+                    os.remove(chunk_file)
+
+                print(f"✅ Chunk STT 완료: {start_time:.1f}-{end_time:.1f}")
+                return transcript_result
+
+            except Exception as e:
+                print(f"⚠️ Chunk STT 실패 (시도 {attempt+1}/{self.retry_attempts}): {e}")
+                if attempt == self.retry_attempts - 1:
+                    # 마지막 시도 실패 시 빈 결과 반환
+                    return {
+                        "segments": [],
+                        "language": "ko",
+                        "language_probability": 0.0,
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "error": str(e)
+                    }
+
+                # 재시도 전 잠시 대기
+                time.sleep(1)
+
+    def audio_transcribe_advanced(self, audio_file: str) -> Dict[str, Any]:
+        """
+        고성능 STT 처리
+
+        Parameters
+        ----------
+        audio_file : str
+            입력 오디오 파일 경로
+
+        Returns
+        -------
+        Dict[str, Any]
+            STT 결과
+        """
+        try:
+            print(f"🎤 고성능 STT 시작: {audio_file}")
+            start_time = time.time()
+
+            # 오디오 분할
+            chunks = self._split_audio_optimized(audio_file)
+
+            if len(chunks) == 1:
+                # 단일 chunk 처리
+                result = self._transcribe_chunk_with_retry(audio_file,
+                                                         chunks[0][0],
+                                                         chunks[0][1])
+            else:
+                # 병렬 chunk 처리
+                print(f"🚀 병렬 STT 처리 시작: {len(chunks)}개 chunk")
+
+                futures = []
+                for start, end in chunks:
+                    future = self.executor.submit(self._transcribe_chunk_with_retry,
+                                                audio_file, start, end)
+                    futures.append(future)
+
+                # 결과 수집 및 병합
+                all_segments = []
+                language_info = {"ko": 0}
+
+                for future in as_completed(futures):
+                    try:
+                        chunk_result = future.result()
+                        all_segments.extend(chunk_result["segments"])
+
+                        # 언어 정보 통계
+                        lang = chunk_result.get("language", "ko")
+                        if lang in language_info:
+                            language_info[lang] += 1
+                        else:
+                            language_info[lang] = 1
+
+                    except Exception as e:
+                        print(f"❌ Chunk 결과 수집 실패: {e}")
+
+                # 결과 정리
+                result = {
+                    "segments": sorted(all_segments, key=lambda x: x["start"]),
+                    "language": max(language_info, key=language_info.get),
+                    "language_probability": language_info.get("ko", 0) / len(chunks),
+                    "start_time": 0,
+                    "end_time": chunks[-1][1] if chunks else 0
+                }
+
+            processing_time = time.time() - start_time
+            print(f"🎯 STT 완료: {len(result['segments'])}개 세그먼트, {processing_time:.1f}초")
+
+            return result
+
+        except Exception as e:
+            print(f"⚠️ 고성능 STT 실패: {e}")
+            return {
+                "segments": [],
+                "language": "ko",
+                "language_probability": 0.0,
+                "start_time": 0,
+                "end_time": 0,
+                "error": str(e)
+            }
+
+    def audio_cleanup_cache(self, max_age_hours: int = 24):
+        """오래된 캐시 정리"""
+        try:
+            current_time = time.time()
+            max_age_seconds = max_age_hours * 3600
+
+            with self.cache_lock:
+                keys_to_remove = []
+
+                for cache_key, cache_info in self.cache_metadata.items():
+                    if (current_time - cache_info["created_at"] > 
+                        max_age_seconds):
+                        keys_to_remove.append(cache_key)
+
+                for cache_key in keys_to_remove:
+                    cache_info = self.cache_metadata[cache_key]
+                    cache_path = self.cache_dir / cache_info["filename"]
+
+                    try:
+                        if cache_path.exists():
+                            os.remove(cache_path)
+                            print(f"🧹 STT 캐시 정리: {cache_info['filename']}")
+                    except Exception as e:
+                        print(f"⚠️ STT 캐시 파일 삭제 실패: {cache_path}, {e}")
+
+                    del self.cache_metadata[cache_key]
+
+                if keys_to_remove:
+                    self._save_cache_metadata()
+                    print(f"🧹 {len(keys_to_remove)}개 STT 캐시 파일 정리 완료")
+
+        except Exception as e:
+            print(f"⚠️ STT 캐시 정리 실패: {e}")
+
+    def audio_cleanup(self):
+        """리소스 정리"""
+        if self.executor:
+            self.executor.shutdown(wait=True) 

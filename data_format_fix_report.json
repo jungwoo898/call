@@ -1,0 +1,154 @@
+{
+  "summary": {
+    "total_fixes": 28,
+    "fix_types": {
+      "encoding_standardization": 10,
+      "locale_standardization": 13,
+      "response_standardization": 4,
+      "schema_validation": 1
+    }
+  },
+  "fixes": [
+    {
+      "file": "src\\audio\\advanced_processing.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\audio\\analysis.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\audio\\effect.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\upload\\agent_audio_upload.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\utils\\circuit_breaker.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\utils\\utils.py",
+      "type": "encoding_standardization",
+      "description": "UTF-8 인코딩 통일"
+    },
+    {
+      "file": "src\\utils\\locale_config.py",
+      "type": "locale_standardization",
+      "description": "표준 로케일 설정 모듈 생성"
+    },
+    {
+      "file": "src\\auth\\agent_auth.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\text\\integrated_analyzer.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\text\\utils.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\upload\\agent_audio_upload.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\utils\\api_schemas.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\utils\\common_endpoints.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\utils\\common_functions.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "type": "locale_standardization",
+      "description": "로케일 설정 통일"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "type": "response_standardization",
+      "description": "응답 구조 표준화"
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "type": "response_standardization",
+      "description": "응답 구조 표준화"
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "type": "response_standardization",
+      "description": "응답 구조 표준화"
+    },
+    {
+      "file": "src\\utils\\api_adapter.py",
+      "type": "response_standardization",
+      "description": "응답 구조 표준화"
+    },
+    {
+      "file": "src\\utils\\schema_validation.py",
+      "type": "schema_validation",
+      "description": "JSON Schema 검증 모듈 생성"
+    }
+  ],
+  "backup_location": "backups\\data_format_fixes"
+}

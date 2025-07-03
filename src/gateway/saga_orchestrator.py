@@ -106,7 +106,7 @@ class SagaOrchestrator:
         
         logger.info(f"Saga {saga_id} 보상 완료")
     
-    def get_saga_status(self, saga_id: str) -> Dict[str, Any]:
+    def gateway_get_saga_status(self, saga_id: str) -> Dict[str, Any]:
         """Saga 상태 조회"""
         if saga_id not in self.sagas:
             return None
@@ -122,11 +122,11 @@ class SagaOrchestrator:
             "duration": asyncio.get_event_loop().time() - saga["start_time"]
         }
     
-    def get_all_sagas(self) -> List[Dict[str, Any]]:
+    def gateway_get_all_sagas(self) -> List[Dict[str, Any]]:
         """모든 Saga 상태 조회"""
-        return [self.get_saga_status(saga_id) for saga_id in self.sagas.keys()]
+        return [self.gateway_get_saga_status(saga_id) for saga_id in self.sagas.keys()]
     
-    def cleanup_completed_sagas(self, max_age_hours: int = 24):
+    def gateway_cleanup_completed_sagas(self, max_age_hours: int = 24):
         """완료된 Saga 정리"""
         current_time = asyncio.get_event_loop().time()
         max_age_seconds = max_age_hours * 3600

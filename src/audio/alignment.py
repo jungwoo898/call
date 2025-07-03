@@ -57,7 +57,7 @@ class ForcedAligner:
 
     Methods
     -------
-    align(audio_path, transcript, language, batch_size)
+    audio_align(audio_path, transcript, language, batch_size)
         Aligns audio with a transcript and returns word-level timing information.
     """
 
@@ -89,7 +89,7 @@ class ForcedAligner:
             self.alignment_model = None
             self.alignment_tokenizer = None
 
-    def align(
+    def audio_align(
             self,
             audio_path: Annotated[str, "Path to the audio file"],
             transcript: Annotated[str, "Transcript of the audio content"],
@@ -126,7 +126,7 @@ class ForcedAligner:
         Examples
         --------
         >>> aligner = ForcedAligner()
-        >>> aligner.align("path/to/audio.wav", "hello world")
+        >>> aligner.audio_align("path/to/audio.wav", "hello world")
         [{'word': 'hello', 'start': 0.0, 'end': 0.5}, {'word': 'world', 'start': 0.6, 'end': 1.0}]
         """
         if not os.path.exists(audio_path):
@@ -221,7 +221,7 @@ if __name__ == "__main__":
     try:
         path = "example_audio.wav"
         audio_transcript = "This is a test transcript."
-        word_timestamp = forced_aligner.align(path, audio_transcript)
+        word_timestamp = forced_aligner.audio_align(path, audio_transcript)
         print(word_timestamp)
     except FileNotFoundError as e:
         print(e)

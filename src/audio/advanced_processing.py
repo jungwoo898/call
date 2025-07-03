@@ -89,7 +89,7 @@ class AdvancedTranscriber:
         """캐시 메타데이터 로드"""
         try:
             if self.cache_metadata_file.exists():
-                with open(self.cache_metadata_file, 'r') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 로드 실패: {e}")
@@ -98,7 +98,7 @@ class AdvancedTranscriber:
     def _save_cache_metadata(self):
         """캐시 메타데이터 저장"""
         try:
-            with open(self.cache_metadata_file, 'w') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(self.cache_metadata, f, indent=2)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 저장 실패: {e}")
@@ -324,7 +324,7 @@ class AdvancedTranscriber:
                 # 재시도 전 잠시 대기
                 time.sleep(1)
 
-    def transcribe_advanced(self, audio_file: str) -> Dict[str, Any]:
+    def audio_transcribe_advanced(self, audio_file: str) -> Dict[str, Any]:
         """
         고성능 STT 처리
 
@@ -404,7 +404,7 @@ class AdvancedTranscriber:
                 "error": str(e)
             }
 
-    def cleanup_cache(self, max_age_hours: int = 24):
+    def audio_cleanup_cache(self, max_age_hours: int = 24):
         """오래된 캐시 정리"""
         try:
             current_time = time.time()
@@ -438,7 +438,7 @@ class AdvancedTranscriber:
         except Exception as e:
             print(f"⚠️ STT 캐시 정리 실패: {e}")
 
-    def cleanup(self):
+    def audio_cleanup(self):
         """리소스 정리"""
         if self.executor:
             self.executor.shutdown(wait=True) 

@@ -34,11 +34,11 @@ class Annotator:
             A list of dictionaries representing the structured sentiment model.
         """
         self.ssm = ssm
-        self.global_summary = ""
+        self.global_summary = None
         self.global_conflict = False
         self.global_topic = "Unknown"
 
-    def add_sentiment(
+    def text_add_sentiment(
             self,
             sentiment_results: Annotated[Dict[str, Any], "Sentiment analysis results"]
     ):
@@ -55,7 +55,7 @@ class Annotator:
         --------
         >>> annotator = Annotator([{"text": "example"}])
         >>> results = {"sentiments": [{"index": 0, "sentiment": "Positive"}]}
-        >>> annotator.add_sentiment(sentiment_results)
+        >>> annotator.text_add_sentiment(sentiment_results)
         """
         if len(sentiment_results["sentiments"]) != len(self.ssm):
             print(f"Mismatch: SSM Length = {len(self.ssm)}, "
@@ -76,7 +76,7 @@ class Annotator:
             else:
                 print(f"Skipping sentiment data at index {idx}, out of range.")
 
-    def add_profanity(
+    def text_add_profanity(
             self,
             profane_results: Annotated[Dict[str, Any], "Profanity detection results"]
     ) -> List[Dict[str, Any]]:
@@ -98,7 +98,7 @@ class Annotator:
         --------
         >>> annotator = Annotator([{"text": "example"}])
         >>> results = {"profanity": [{"index": 0, "profane": True}]}
-        >>> annotator.add_profanity(profane_results)
+        >>> annotator.text_add_profanity(profane_results)
         """
         if "profanity" not in profane_results:
             print("Warning: 'profanity' key is missing in profane_results.")
@@ -125,7 +125,7 @@ class Annotator:
 
         return self.ssm
 
-    def add_summary(
+    def text_add_summary(
             self,
             summary_result: Annotated[Dict[str, str], "Summary results"]
     ) -> Dict[str, Any]:
@@ -146,7 +146,7 @@ class Annotator:
         --------
         >>> annotator = Annotator([{"text": "example"}])
         >>> result = {"summary": "This is a summary."}
-        >>> annotator.add_summary(summary_result)
+        >>> annotator.text_add_summary(summary_result)
         """
         if not summary_result or "summary" not in summary_result:
             print("Warning: 'summary' key is missing in summary_result.")
@@ -155,7 +155,7 @@ class Annotator:
         self.global_summary = summary_result["summary"]
         return {"ssm": self.ssm, "summary": self.global_summary}
 
-    def add_conflict(
+    def text_add_conflict(
             self,
             conflict_result: Annotated[Dict[str, bool], "Conflict detection results"]
     ) -> Dict[str, Any]:
@@ -176,7 +176,7 @@ class Annotator:
         --------
         >>> annotator = Annotator([{"text": "example"}])
         >>> result = {"conflict": True}
-        >>> annotator.add_conflict(conflict_result)
+        >>> annotator.text_add_conflict(conflict_result)
         """
         if not conflict_result or "conflict" not in conflict_result:
             print("Warning: 'conflict' key is missing in conflict_result.")
@@ -185,7 +185,7 @@ class Annotator:
         self.global_conflict = conflict_result["conflict"]
         return {"ssm": self.ssm, "conflict": self.global_conflict}
 
-    def add_topic(
+    def text_add_topic(
             self,
             topic_result: Annotated[Dict[str, str], "Topic detection results"]
     ) -> Dict[str, Any]:
@@ -206,7 +206,7 @@ class Annotator:
         --------
         >>> annotator = Annotator([{"text": "example"}])
         >>> result = {"topic": "Technology"}
-        >>> annotator.add_topic(topic_result)
+        >>> annotator.text_add_topic(topic_result)
         """
         if not topic_result or "topic" not in topic_result:
             print("Warning: 'topic' key is missing in topic_result.")
@@ -215,7 +215,7 @@ class Annotator:
         self.global_topic = topic_result["topic"]
         return {"ssm": self.ssm, "topic": self.global_topic}
 
-    def finalize(self) -> Dict[str, Any]:
+    def text_finalize(self) -> Dict[str, Any]:
         """
         Finalizes the annotations by returning the updated SSM along with
         global annotations for summary, conflict, and topic.
@@ -228,7 +228,7 @@ class Annotator:
         Examples
         --------
         >>> annotator = Annotator([{"text": "example"}])
-        >>> annotator.finalize()
+        >>> annotator.text_finalize()
         {'ssm': [{'text': 'example'}], 'summary': '', 'conflict': False, 'topic': 'Unknown'}
         """
         return {
@@ -238,7 +238,7 @@ class Annotator:
             "topic": self.global_topic
         }
 
-    def add_complaint(self, complaint_result: Dict[str, Any]) -> Dict[str, Any]:
+    def text_add_complaint(self, complaint_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Adds complaint analysis results to the annotations.
 
@@ -259,7 +259,7 @@ class Annotator:
         self.global_complaint = complaint_result
         return {"ssm": self.ssm, "complaint": self.global_complaint}
 
-    def add_action_items(self, action_result: Dict[str, Any]) -> Dict[str, Any]:
+    def text_add_action_items(self, action_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Adds action items to the annotations.
 
@@ -280,7 +280,7 @@ class Annotator:
         self.global_action_items = action_result
         return {"ssm": self.ssm, "action_items": self.global_action_items}
 
-    def add_quality_assessment(self, quality_result: Dict[str, Any]) -> Dict[str, Any]:
+    def text_add_quality_assessment(self, quality_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Adds quality assessment results to the annotations.
 
@@ -301,7 +301,7 @@ class Annotator:
         self.global_quality_assessment = quality_result
         return {"ssm": self.ssm, "quality_assessment": self.global_quality_assessment}
 
-    def export_to_json(self, file_path: str) -> None:
+    def text_export_to_json(self, file_path: str) -> None:
         """
         Exports the complete annotated SSM to a JSON file.
 
@@ -315,7 +315,7 @@ class Annotator:
 
         export_data = {
             "metadata": {
-                "exported_at": datetime.now().isoformat(),
+                "exported_at": get_current_time().isoformat(),
                 "total_utterances": len(self.ssm),
                 "analysis_version": "1.0"
             },
@@ -335,7 +335,7 @@ class Annotator:
         
         print(f"✅ 분석 결과 JSON 저장 완료: {file_path}")
 
-    def get_analysis_summary(self) -> Dict[str, Any]:
+    def text_get_analysis_summary(self) -> Dict[str, Any]:
         """
         Returns a summary of all analysis results.
 

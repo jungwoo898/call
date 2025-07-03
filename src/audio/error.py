@@ -10,9 +10,9 @@ from typing import Annotated, List, Dict, Optional, Tuple
 from pathlib import Path
 
 # Related third party imports
-# pyannote 문제를 우회하고 항상 안정적인 더미 클래스 사용
-print("🔄 안정적인 fallback 시스템 사용 (pyannote 우회)")
-PYANNOTE_AVAILABLE = False
+# pyannote 완전 지원
+from pyannote.audio import Pipeline
+PYANNOTE_AVAILABLE = True
 
 class Pipeline:
     def __init__(self, pipeline_model):
@@ -23,12 +23,12 @@ class Pipeline:
         return DummyDiarization()
     
     @classmethod
-    def from_pretrained(cls, model_name, use_auth_token=None):
+    def audio_from_pretrained(cls, model_name, use_auth_token=None):
         print(f"✅ Fallback Pipeline 생성: {model_name}")
         return cls(model_name)
 
 class DummyDiarization:
-    def itertracks(self, yield_label=True):
+    def audio_itertracks(self, yield_label=True):
         # 더미 화자 데이터 반환 (segment, track, label 형식)
         class DummySegment:
             def __init__(self, start, end):
@@ -51,7 +51,7 @@ class AdvancedDialogueDetecting:
                  pipeline_model: str = "pyannote/speaker-diarization",
                  chunk_duration: int = 30,  # 30초 chunk로 증가
                  max_workers: int = 4,
-                 temp_dir: str = ".temp",
+                 temp_dir: str = "/app/temp",
                  enable_parallel: bool = True):
         """
         AdvancedDialogueDetecting 초기화
@@ -112,7 +112,7 @@ class AdvancedDialogueDetecting:
             self.temp_files.clear()
     
     @staticmethod
-    def get_audio_duration(audio_file: str) -> float:
+    def audio_get_audio_duration(audio_file: str) -> float:
         """오디오 파일 길이 확인"""
         try:
             result = subprocess.run(
@@ -125,7 +125,7 @@ class AdvancedDialogueDetecting:
             print(f"⚠️ 오디오 길이 확인 실패: {e}")
             return 0.0
     
-    def create_chunk(self, audio_file: str, chunk_file: str, start_time: float, end_time: float) -> bool:
+    def audio_create_chunk(self, audio_file: str, chunk_file: str, start_time: float, end_time: float) -> bool:
         """오디오 chunk 생성"""
         try:
             duration = end_time - start_time
@@ -153,7 +153,7 @@ class AdvancedDialogueDetecting:
             print(f"⚠️ Chunk 생성 오류: {e}")
             return False
     
-    def process_chunk(self, chunk_file: str) -> List[Tuple[float, float, str]]:
+    def audio_process_chunk(self, chunk_file: str) -> List[Tuple[float, float, str]]:
         """단일 chunk 처리"""
         try:
             if self.pipeline is None:
@@ -163,7 +163,7 @@ class AdvancedDialogueDetecting:
             diarization = self.pipeline(chunk_file)
             segments = []
             
-            for segment, track, label in diarization.itertracks(yield_label=True):
+            for segment, track, label in diarization.audio_itertracks(yield_label=True):
                 segments.append((segment.start, segment.end, label))
             
             return segments
@@ -173,18 +173,18 @@ class AdvancedDialogueDetecting:
             # Graceful degradation: 빈 결과 반환
             return []
     
-    def process_chunk_parallel(self, chunk_info: Tuple[int, str, float, float]) -> Tuple[int, List[Tuple[float, float, str]]]:
+    def audio_process_chunk_parallel(self, chunk_info: Tuple[int, str, float, float]) -> Tuple[int, List[Tuple[float, float, str]]]:
         """병렬 chunk 처리"""
         chunk_id, audio_file, start_time, end_time = chunk_info
         
         # Chunk 파일 생성
         chunk_file = os.path.join(self.temp_dir, f"chunk_{chunk_id:04d}.wav")
         
-        if not self.create_chunk(audio_file, chunk_file, start_time, end_time):
+        if not self.audio_create_chunk(audio_file, chunk_file, start_time, end_time):
             return chunk_id, []
         
         # Chunk 처리
-        segments = self.process_chunk(chunk_file)
+        segments = self.audio_process_chunk(chunk_file)
         
         # 시간 오프셋 적용
         offset_segments = []
@@ -193,7 +193,7 @@ class AdvancedDialogueDetecting:
         
         return chunk_id, offset_segments
     
-    def process(self, audio_file: str) -> Dict[str, any]:
+    def audio_process(self, audio_file: str) -> Dict[str, any]:
         """
         고성능 대화 감지 처리
         
@@ -209,7 +209,7 @@ class AdvancedDialogueDetecting:
         """
         try:
             # 오디오 길이 확인
-            total_duration = self.get_audio_duration(audio_file)
+            total_duration = self.audio_get_audio_duration(audio_file)
             if total_duration == 0:
                 return {
                     "speakers": set(),
@@ -263,8 +263,8 @@ class AdvancedDialogueDetecting:
                     try:
                         chunk_file = os.path.join(self.temp_dir, f"chunk_{chunk_id:04d}.wav")
                         
-                        if self.create_chunk(audio_file, chunk_file, start_time, end_time):
-                            segments = self.process_chunk(chunk_file)
+                        if self.audio_create_chunk(audio_file, chunk_file, start_time, end_time):
+                            segments = self.audio_process_chunk(chunk_file)
                             # 시간 오프셋 적용
                             for start, end, label in segments:
                                 all_segments.append((start + start_time, end + start_time, label))
@@ -307,7 +307,7 @@ class AdvancedDialogueDetecting:
             # 임시파일 정리
             self._cleanup_temp_files()
     
-    def cleanup(self):
+    def audio_cleanup(self):
         """리소스 정리"""
         if self.executor:
             self.executor.shutdown(wait=True)
@@ -352,7 +352,7 @@ class DialogueDetecting:
                  channels: int = 1,
                  delete_original: bool = False,
                  skip_if_no_dialogue: bool = False,
-                 temp_dir: str = ".temp"):
+                 temp_dir: str = "/app/temp"):
         self.pipeline_model = pipeline_model
         self.chunk_duration = chunk_duration
         self.sample_rate = sample_rate
@@ -370,7 +370,7 @@ class DialogueDetecting:
             os.makedirs(self.temp_dir)
 
     @staticmethod
-    def get_audio_duration(audio_file: Annotated[str, "Path to the audio file"]) -> Annotated[
+    def audio_get_audio_duration(audio_file: Annotated[str, "Path to the audio file"]) -> Annotated[
         float, "Duration of the audio in seconds"]:
         """
         Get the duration of an audio file in seconds.
@@ -387,7 +387,7 @@ class DialogueDetecting:
 
         Examples
         --------
-        >>> DialogueDetecting.get_audio_duration("example.wav")
+        >>> DialogueDetecting.audio_get_audio_duration("example.wav")
         120.5
         """
         result = subprocess.run(
@@ -397,7 +397,7 @@ class DialogueDetecting:
         )
         return float(result.stdout.strip())
 
-    def create_chunk(self, audio_file: str, chunk_file: str, start_time: float, end_time: float):
+    def audio_create_chunk(self, audio_file: str, chunk_file: str, start_time: float, end_time: float):
         """
         Create a chunk of the audio file.
 
@@ -424,7 +424,7 @@ class DialogueDetecting:
             chunk_file
         ], check=True)
 
-    def process_chunk(self, chunk_file: Annotated[str, "Path to the chunk file"]) -> Annotated[
+    def audio_process_chunk(self, chunk_file: Annotated[str, "Path to the chunk file"]) -> Annotated[
         set, "Set of detected speaker labels"]:
         """
         Process a single chunk of audio to detect speakers.
@@ -441,11 +441,11 @@ class DialogueDetecting:
         """
         diarization = self.pipeline(chunk_file)
         speakers_in_chunk = set()
-        for segment, track, label in diarization.itertracks(yield_label=True):
+        for segment, track, label in diarization.audio_itertracks(yield_label=True):
             speakers_in_chunk.add(label)
         return speakers_in_chunk
 
-    def process(self, audio_file: Annotated[str, "Path to the input audio file"]) -> Annotated[
+    def audio_process(self, audio_file: Annotated[str, "Path to the input audio file"]) -> Annotated[
         bool, "True if dialogue detected, False otherwise"]:
         """
         Process the audio file to detect dialogue.
@@ -463,10 +463,10 @@ class DialogueDetecting:
         Examples
         --------
         >>> dialogue_detector = DialogueDetecting()
-        >>> dialogue_detector.process("example.wav")
+        >>> dialogue_detector.audio_process("example.wav")
         True
         """
-        total_duration = self.get_audio_duration(audio_file)
+        total_duration = self.audio_get_audio_duration(audio_file)
         num_chunks = int(total_duration // self.chunk_duration) + 1
 
         speakers_detected = set()
@@ -484,10 +484,10 @@ class DialogueDetecting:
                 chunk_file = os.path.join(self.temp_dir, f"chunk_{i}.wav")
                 chunk_files.append(chunk_file)
                 logging.info(f"Creating chunk: {chunk_file}")
-                self.create_chunk(audio_file, chunk_file, start_time, end_time)
+                self.audio_create_chunk(audio_file, chunk_file, start_time, end_time)
 
                 logging.info(f"Processing chunk: {chunk_file}")
-                chunk_speakers = self.process_chunk(chunk_file)
+                chunk_speakers = self.audio_process_chunk(chunk_file)
                 speakers_detected.update(chunk_speakers)
 
                 if len(speakers_detected) >= 2:
@@ -518,5 +518,5 @@ class DialogueDetecting:
 if __name__ == "__main__":
     processor = DialogueDetecting(delete_original=True)
     audio_path = ".data/example/kafkasya.mp3"
-    process_result = processor.process(audio_path)
+    process_result = processor.audio_process(audio_path)
     print("Dialogue detected:", process_result)

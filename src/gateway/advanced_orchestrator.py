@@ -42,12 +42,12 @@ class CircuitBreaker:
         self.last_failure_time = 0
         self.state = ServiceStatus.HEALTHY
     
-    def record_success(self):
+    def gateway_record_success(self):
         """성공 기록"""
         self.failure_count = 0
         self.state = ServiceStatus.HEALTHY
     
-    def record_failure(self):
+    def gateway_record_failure(self):
         """실패 기록"""
         self.failure_count += 1
         self.last_failure_time = time.time()
@@ -55,7 +55,7 @@ class CircuitBreaker:
         if self.failure_count >= self.threshold:
             self.state = ServiceStatus.CIRCUIT_OPEN
     
-    def can_execute(self) -> bool:
+    def gateway_can_execute(self) -> bool:
         """실행 가능 여부 확인"""
         if self.state == ServiceStatus.CIRCUIT_OPEN:
             # 타임아웃 후 다시 시도
@@ -65,7 +65,7 @@ class CircuitBreaker:
             return False
         return True
     
-    def get_status(self) -> ServiceStatus:
+    def gateway_get_status(self) -> ServiceStatus:
         """현재 상태 반환"""
         return self.state
 
@@ -90,14 +90,14 @@ class AdvancedServiceOrchestrator:
                                     service_name: str, 
                                     endpoint: str, 
                                     data: Dict[str, Any],
-                                    max_retries: Optional[int] = None) -> Dict[str, Any]:
+                                    max_retries: int | None = None) -> Dict[str, Any]:
         """재시도 로직이 포함된 서비스 호출"""
         
         config = self.service_configs[service_name]
         circuit_breaker = self.circuit_breakers[service_name]
         
         # 서킷 브레이커 확인
-        if not circuit_breaker.can_execute():
+        if not circuit_breaker.gateway_can_execute():
             raise HTTPException(
                 status_code=503, 
                 detail=f"서비스 {service_name}가 일시적으로 사용할 수 없습니다 (서킷 브레이커 열림)"
@@ -115,7 +115,7 @@ class AdvancedServiceOrchestrator:
                 response.raise_for_status()
                 
                 # 성공 시 서킷 브레이커 리셋
-                circuit_breaker.record_success()
+                circuit_breaker.gateway_record_success()
                 return response.json()
                 
             except httpx.TimeoutException as e:
@@ -135,7 +135,7 @@ class AdvancedServiceOrchestrator:
                 await asyncio.sleep(config.retry_delay * (2 ** attempt))  # 지수 백오프
         
         # 모든 시도 실패
-        circuit_breaker.record_failure()
+        circuit_breaker.gateway_record_failure()
         raise HTTPException(
             status_code=500, 
             detail=f"서비스 {service_name} 호출 실패 (최대 재시도 횟수 초과): {last_exception}"
@@ -274,7 +274,7 @@ class AdvancedServiceOrchestrator:
                 
                 health_status[service_name] = {
                     'status': 'healthy' if service_healthy else 'unhealthy',
-                    'circuit_breaker': circuit_breaker.get_status().value,
+                    'circuit_breaker': circuit_breaker.gateway_get_status().value,
                     'failure_count': circuit_breaker.failure_count,
                     'last_check': time.time()
                 }
@@ -282,7 +282,7 @@ class AdvancedServiceOrchestrator:
             except Exception as e:
                 health_status[service_name] = {
                     'status': 'unreachable',
-                    'circuit_breaker': circuit_breaker.get_status().value,
+                    'circuit_breaker': circuit_breaker.gateway_get_status().value,
                     'failure_count': circuit_breaker.failure_count,
                     'error': str(e),
                     'last_check': time.time()

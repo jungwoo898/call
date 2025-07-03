@@ -1,0 +1,192 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "🌐 Debug API Gateway",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/gateway/main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "TZ": "Asia/Seoul",
+                "LANG": "ko_KR.UTF-8",
+                "LC_ALL": "ko_KR.UTF-8",
+                "PYTHONIOENCODING": "utf-8",
+                "AUDIO_PROCESSOR_URL": "http://localhost:8001",
+                "SPEAKER_DIARIZER_URL": "http://localhost:8002",
+                "SPEECH_RECOGNIZER_URL": "http://localhost:8003",
+                "PUNCTUATION_RESTORER_URL": "http://localhost:8004",
+                "SENTIMENT_ANALYZER_URL": "http://localhost:8005",
+                "LLM_ANALYZER_URL": "http://localhost:8006",
+                "DATABASE_SERVICE_URL": "http://localhost:8007"
+            },
+            "args": [
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        },
+        {
+            "name": "🎵 Debug Audio Processor",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/audio/main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "DEVICE": "cpu",
+                "TZ": "Asia/Seoul",
+                "LANG": "ko_KR.UTF-8",
+                "LC_ALL": "ko_KR.UTF-8",
+                "PYTHONIOENCODING": "utf-8"
+            },
+            "args": [
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8001"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        },
+        {
+            "name": "🗣️ Debug Speech Recognizer",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/text/speech_recognizer.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "DEVICE": "cuda",
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TZ": "Asia/Seoul",
+                "LANG": "ko_KR.UTF-8",
+                "LC_ALL": "ko_KR.UTF-8",
+                "PYTHONIOENCODING": "utf-8"
+            },
+            "args": [
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8003"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        },
+        {
+            "name": "🤖 Debug LLM Analyzer",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/text/llm_analyzer.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "TZ": "Asia/Seoul",
+                "LANG": "ko_KR.UTF-8",
+                "LC_ALL": "ko_KR.UTF-8",
+                "PYTHONIOENCODING": "utf-8",
+                "OPENAI_API_KEY": "${env:OPENAI_API_KEY}"
+            },
+            "args": [
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8006"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        },
+        {
+            "name": "🗄️ Debug Database Service",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/db/main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "DATABASE_URL": "sqlite:///Callytics_new.sqlite",
+                "TZ": "Asia/Seoul",
+                "LANG": "ko_KR.UTF-8",
+                "LC_ALL": "ko_KR.UTF-8",
+                "PYTHONIOENCODING": "utf-8"
+            },
+            "args": [
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8007"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        },
+        {
+            "name": "🧪 Debug Main Pipeline",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "TZ": "Asia/Seoul",
+                "LANG": "ko_KR.UTF-8",
+                "LC_ALL": "ko_KR.UTF-8",
+                "PYTHONIOENCODING": "utf-8"
+            },
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        },
+        {
+            "name": "🔍 Debug Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "TZ": "Asia/Seoul",
+                "LANG": "ko_KR.UTF-8",
+                "LC_ALL": "ko_KR.UTF-8",
+                "PYTHONIOENCODING": "utf-8"
+            },
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        }
+    ],
+    "compounds": [
+        {
+            "name": "🚀 Launch All Core Services",
+            "configurations": [
+                "🗄️ Debug Database Service",
+                "🎵 Debug Audio Processor",
+                "🗣️ Debug Speech Recognizer",
+                "🤖 Debug LLM Analyzer"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "microservices",
+                "order": 1
+            }
+        },
+        {
+            "name": "🌐 Launch with Gateway",
+            "configurations": [
+                "🗄️ Debug Database Service",
+                "🎵 Debug Audio Processor",
+                "🗣️ Debug Speech Recognizer",
+                "🤖 Debug LLM Analyzer",
+                "🌐 Debug API Gateway"
+            ],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "microservices",
+                "order": 2
+            }
+        }
+    ]
+}

@@ -1,0 +1,84 @@
+# Docker Compose 시작 순서 설정
+# 이 파일은 Callytics 마이크로서비스의 올바른 시작 순서를 정의합니다
+
+startup_sequence:
+  # 1단계: 핵심 기반 서비스
+  tier_1:
+    - name: "database-service"
+      port: 8007
+      max_wait: 60
+      description: "SQLite 데이터베이스 서비스"
+      
+  # 2단계: CPU 기반 서비스들  
+  tier_2:
+    - name: "audio-processor"
+      port: 8001
+      max_wait: 90
+      description: "오디오 전처리 서비스"
+      
+    - name: "punctuation-restorer"
+      port: 8004
+      max_wait: 60
+      description: "문장 부호 복원 서비스"
+      
+    - name: "sentiment-analyzer" 
+      port: 8005
+      max_wait: 90
+      description: "감정 분석 서비스"
+      
+  # 3단계: GPU 집약적 서비스들 (가장 오래 걸림)
+  tier_3:
+    - name: "speaker-diarizer"
+      port: 8002
+      max_wait: 300
+      description: "화자 분리 서비스 (GPU)"
+      gpu_required: true
+      model_loading: true
+      
+    - name: "speech-recognizer"
+      port: 8003
+      max_wait: 300  
+      description: "음성 인식 서비스 (GPU)"
+      gpu_required: true
+      model_loading: true
+      
+  # 4단계: API 기반 서비스
+  tier_4:
+    - name: "llm-analyzer"
+      port: 8006
+      max_wait: 45
+      description: "LLM 분석 서비스"
+      api_dependent: true
+      
+  # 5단계: 오케스트레이터 (마지막)
+  tier_5:
+    - name: "api-gateway"
+      port: 8000
+      max_wait: 60
+      description: "API 게이트웨이"
+      depends_on_all: true
+
+# 헬스체크 설정
+healthcheck:
+  endpoint: "/health"
+  timeout: 10
+  retries: 5
+  interval: 30
+  
+# GPU 서비스 특별 설정
+gpu_services:
+  startup_delay: 60  # GPU 초기화 대기
+  model_loading_timeout: 180  # 모델 로딩 최대 시간
+  memory_warmup: true
+  
+# 재시도 설정
+retry_policy:
+  max_attempts: 3
+  backoff_factor: 2
+  initial_delay: 5
+
+# 로깅 설정
+logging:
+  level: "INFO"
+  format: "[%(levelname)s] %(message)s"
+  timestamp: true 

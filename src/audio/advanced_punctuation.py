@@ -85,7 +85,7 @@ class AdvancedPunctuationRestorer:
         """캐시 메타데이터 로드"""
         try:
             if self.cache_metadata_file.exists():
-                with open(self.cache_metadata_file, 'r') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 로드 실패: {e}")
@@ -94,7 +94,7 @@ class AdvancedPunctuationRestorer:
     def _save_cache_metadata(self):
         """캐시 메타데이터 저장"""
         try:
-            with open(self.cache_metadata_file, 'w') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(self.cache_metadata, f, indent=2)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 저장 실패: {e}")
@@ -105,7 +105,7 @@ class AdvancedPunctuationRestorer:
         text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
         return f"{text_hash}_{self.language}"
     
-    def _is_cached(self, text: str) -> Optional[str]:
+    def _is_cached(self, text: str) -> str | None:
         """캐시된 결과 확인"""
         if not self.enable_cache:
             return None
@@ -156,7 +156,7 @@ class AdvancedPunctuationRestorer:
                 return f.read()
         except Exception as e:
             print(f"⚠️ 캐시 로드 실패: {e}")
-            return ""
+            return None
     
     def _calculate_optimal_batch_size(self, texts: List[str]) -> int:
         """최적 batch 크기 계산"""
@@ -186,7 +186,7 @@ class AdvancedPunctuationRestorer:
         
         try:
             # 모델 처리
-            result = self.model.restore_punctuation(text)
+            result = self.model.audio_restore_punctuation(text)
             return result
         except Exception as e:
             print(f"⚠️ 모델 처리 실패, fallback 사용: {e}")
@@ -250,7 +250,7 @@ class AdvancedPunctuationRestorer:
         
         return text
     
-    def restore_punctuation_advanced(self, texts: List[str]) -> List[str]:
+    def audio_restore_punctuation_advanced(self, texts: List[str]) -> List[str]:
         """
         고성능 문장 부호 복원
         
@@ -323,7 +323,7 @@ class AdvancedPunctuationRestorer:
             # Fallback: 원본 텍스트 반환
             return texts
     
-    def restore_punctuation_single(self, text: str) -> str:
+    def audio_restore_punctuation_single(self, text: str) -> str:
         """
         단일 텍스트 문장 부호 복원
         
@@ -337,14 +337,14 @@ class AdvancedPunctuationRestorer:
         str
             문장 부호가 복원된 텍스트
         """
-        results = self.restore_punctuation_advanced([text])
+        results = self.audio_restore_punctuation_advanced([text])
         return results[0] if results else text
     
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def audio_get_performance_stats(self) -> Dict[str, Any]:
         """성능 통계 반환"""
         return self.performance_stats.copy()
     
-    def cleanup_cache(self, max_age_hours: int = 24):
+    def audio_cleanup_cache(self, max_age_hours: int = 24):
         """오래된 캐시 정리"""
         try:
             current_time = time.time()
@@ -386,7 +386,7 @@ class PunctuationRestorer:
     def __init__(self, language: str = 'en'):
         self.advanced_restorer = AdvancedPunctuationRestorer(language=language)
     
-    def restore_punctuation(self, word_speaker_mapping: List[Dict]) -> List[Dict]:
+    def audio_restore_punctuation(self, word_speaker_mapping: List[Dict]) -> List[Dict]:
         """기존 인터페이스 호환"""
         # 텍스트 추출
         texts = []
@@ -397,7 +397,7 @@ class PunctuationRestorer:
                 texts.append(item)
         
         # 문장 부호 복원
-        restored_texts = self.advanced_restorer.restore_punctuation_advanced(texts)
+        restored_texts = self.advanced_restorer.audio_restore_punctuation_advanced(texts)
         
         # 결과 매핑
         result = []

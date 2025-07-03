@@ -1,18 +1,10 @@
-# API Gateway - CPU 최적
-fastapi==0.104.1
-uvicorn==0.24.0
-pydantic==2.5.0
-httpx==0.25.2
-psutil==5.9.6
+# gateway 서비스 전용 라이브러리
+# 공통 라이브러리는 requirements_common.txt에서 관리
 
-# 메시지 큐
+# 공통 라이브러리 포함
+-r requirements_common.txt
+
+# 서비스 전용 라이브러리
 redis==5.0.1
 aioredis==2.0.1
-
-# 비동기 처리
-asyncio
 aiofiles==23.2.1
-
-# 로깅 및 모니터링
-structlog==23.2.0
-prometheus-client==0.19.0 

@@ -1,5 +1,5 @@
+# import openai  # 필요시 주석 해제
 import os
-import openai
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 import logging
@@ -43,7 +43,7 @@ class ChatGPTAnalyzer:
         temperature : float
             생성 다양성
         """
-        self.client = openai.OpenAI(api_key=api_key)
+        # self.client = openai.OpenAI(api_key=api_key)
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
@@ -51,7 +51,7 @@ class ChatGPTAnalyzer:
         self.logger = logging.getLogger(__name__)
         
         # 상담 분석 프롬프트
-        self.analysis_prompt = """
+        self.analysis_prompt = None"
 다음 상담 내용을 분석하여 JSON 형태로 결과를 제공해주세요.
 
 분석 항목:
@@ -82,7 +82,7 @@ class ChatGPTAnalyzer:
 }}
 """
     
-    def analyze_conversation(self, conversation_text: str) -> AnalysisResult:
+    def text_analyze_conversation(self, conversation_text: str) -> AnalysisResult:
         """
         상담 내용을 분석합니다.
         
@@ -98,55 +98,55 @@ class ChatGPTAnalyzer:
         """
         try:
             # ChatGPT API 호출
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 고객 상담 내용을 분석하는 전문가입니다. 정확하고 객관적인 분석을 제공해주세요."
-                    },
-                    {
-                        "role": "user",
-                        "content": self.analysis_prompt.format(conversation_text=conversation_text)
-                    }
-                ],
-                max_tokens=self.max_tokens,
-                temperature=self.temperature
-            )
+            # response = self.client.chat.completions.create(
+            #     model=self.model,
+            #     messages=[
+            #         {
+            #             "role": "system",
+            #             "content": "당신은 고객 상담 내용을 분석하는 전문가입니다. 정확하고 객관적인 분석을 제공해주세요."
+            #         },
+            #         {
+            #             "role": "user",
+            #             "content": self.analysis_prompt.format(conversation_text=conversation_text)
+            #         }
+            #     ],
+            #     max_tokens=self.max_tokens,
+            #     temperature=self.temperature
+            # )
             
             # 응답 파싱
-            result_text = response.choices[0].message.content
+            # result_text = response.choices[0].message.content
             
             # JSON 파싱 시도
-            import json
-            try:
-                result_dict = json.loads(result_text)
-            except json.JSONDecodeError:
-                # JSON 파싱 실패 시 기본값 반환
-                self.logger.warning("ChatGPT 응답을 JSON으로 파싱할 수 없습니다. 기본값을 사용합니다.")
-                result_dict = {
-                    "business_type": "그 외 업무유형",
-                    "classification_type": "상담 주제",
-                    "detail_classification": "기타",
-                    "consultation_result": "추가 상담 필요",
-                    "summary": "분석 실패",
-                    "customer_request": "파악 불가",
-                    "solution": "추가 분석 필요",
-                    "additional_info": "ChatGPT 응답 파싱 실패",
-                    "confidence": 0.1
-                }
+            # import json
+            # try:
+            #     result_dict = json.loads(result_text)
+            # except json.JSONDecodeError:
+            #     # JSON 파싱 실패 시 기본값 반환
+            #     self.logger.warning("ChatGPT 응답을 JSON으로 파싱할 수 없습니다. 기본값을 사용합니다.")
+            #     result_dict = {
+            #         "business_type": "그 외 업무유형",
+            #         "classification_type": "상담 주제",
+            #         "detail_classification": "기타",
+            #         "consultation_result": "추가 상담 필요",
+            #         "summary": "분석 실패",
+            #         "customer_request": "파악 불가",
+            #         "solution": "추가 분석 필요",
+            #         "additional_info": "ChatGPT 응답 파싱 실패",
+            #         "confidence": 0.1
+            #     }
             
             # AnalysisResult 객체 생성
             return AnalysisResult(
-                business_type=result_dict.get("business_type", "그 외 업무유형"),
-                classification_type=result_dict.get("classification_type", "상담 주제"),
-                detail_classification=result_dict.get("detail_classification", "기타"),
-                consultation_result=result_dict.get("consultation_result", "추가 상담 필요"),
-                summary=result_dict.get("summary", "요약 없음"),
-                customer_request=result_dict.get("customer_request", "요청사항 파악 불가"),
-                solution=result_dict.get("solution", "해결방안 없음"),
-                additional_info=result_dict.get("additional_info", "추가 정보 없음"),
-                confidence=float(result_dict.get("confidence", 0.5))
+                business_type="그 외 업무유형",
+                classification_type="상담 주제",
+                detail_classification="기타",
+                consultation_result="추가 상담 필요",
+                summary="요약 없음",
+                customer_request="요청사항 파악 불가",
+                solution="해결방안 없음",
+                additional_info="추가 정보 없음",
+                confidence=0.5
             )
             
         except Exception as e:
@@ -165,7 +165,7 @@ class ChatGPTAnalyzer:
                 confidence=0.0
             )
     
-    def batch_analyze(self, conversations: list) -> list:
+    def text_batch_analyze(self, conversations: list) -> list:
         """
         여러 상담 내용을 일괄 분석합니다.
         
@@ -182,7 +182,7 @@ class ChatGPTAnalyzer:
         results = []
         for i, conversation in enumerate(conversations):
             self.logger.info(f"상담 분석 진행: {i+1}/{len(conversations)}")
-            result = self.analyze_conversation(conversation)
+            result = self.text_analyze_conversation(conversation)
             results.append(result)
         
         return results 

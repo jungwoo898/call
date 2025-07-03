@@ -1,0 +1,1168 @@
+{
+  "summary": {
+    "total_endpoints": 70,
+    "type_issues": 28,
+    "null_empty_issues": 91,
+    "response_patterns": 11
+  },
+  "endpoints": [
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/preprocess",
+      "full_path": "POST /preprocess"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/enhance",
+      "full_path": "POST /enhance"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/segment",
+      "full_path": "POST /segment"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/preprocess",
+      "full_path": "POST /preprocess"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/enhance",
+      "full_path": "POST /enhance"
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "method": "POST",
+      "path": "/segment",
+      "full_path": "POST /segment"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_result",
+      "full_path": "POST /save_result"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_audio_analysis",
+      "full_path": "POST /save_audio_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_quality_analysis",
+      "full_path": "POST /save_quality_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/get_analysis/{analysis_id}",
+      "full_path": "GET /get_analysis/{analysis_id}"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/list_analyses",
+      "full_path": "GET /list_analyses"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_result",
+      "full_path": "POST /save_result"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_audio_analysis",
+      "full_path": "POST /save_audio_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "POST",
+      "path": "/save_quality_analysis",
+      "full_path": "POST /save_quality_analysis"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/get_analysis/{analysis_id}",
+      "full_path": "GET /get_analysis/{analysis_id}"
+    },
+    {
+      "file": "src\\db\\main.py",
+      "method": "GET",
+      "path": "/list_analyses",
+      "full_path": "GET /list_analyses"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/upload_audio",
+      "full_path": "POST /upload_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio_fast",
+      "full_path": "POST /process_audio_fast"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio",
+      "full_path": "POST /process_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/saga/{saga_id}",
+      "full_path": "GET /saga/{saga_id}"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/queue/stats",
+      "full_path": "GET /queue/stats"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/",
+      "full_path": "GET /"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/upload_audio",
+      "full_path": "POST /upload_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio_fast",
+      "full_path": "POST /process_audio_fast"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "POST",
+      "path": "/process_audio",
+      "full_path": "POST /process_audio"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/saga/{saga_id}",
+      "full_path": "GET /saga/{saga_id}"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/queue/stats",
+      "full_path": "GET /queue/stats"
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "method": "GET",
+      "path": "/",
+      "full_path": "GET /"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health/all",
+      "full_path": "GET /health/all"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics/service",
+      "full_path": "GET /metrics/service"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/health/all",
+      "full_path": "GET /health/all"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/metrics/service",
+      "full_path": "GET /metrics/service"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "method": "GET",
+      "path": "/status",
+      "full_path": "GET /status"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze",
+      "full_path": "POST /analyze"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_with_trend",
+      "full_path": "POST /analyze_with_trend"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/generate_insights",
+      "full_path": "POST /generate_insights"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_complaints",
+      "full_path": "POST /analyze_complaints"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze",
+      "full_path": "POST /analyze"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_with_trend",
+      "full_path": "POST /analyze_with_trend"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/generate_insights",
+      "full_path": "POST /generate_insights"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_complaints",
+      "full_path": "POST /analyze_complaints"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/diarize",
+      "full_path": "POST /diarize"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/analyze_speakers",
+      "full_path": "POST /analyze_speakers"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/diarize",
+      "full_path": "POST /diarize"
+    },
+    {
+      "file": "src\\text\\main.py",
+      "method": "POST",
+      "path": "/analyze_speakers",
+      "full_path": "POST /analyze_speakers"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore",
+      "full_path": "POST /restore"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore_text",
+      "full_path": "POST /restore_text"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore",
+      "full_path": "POST /restore"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "method": "POST",
+      "path": "/restore_text",
+      "full_path": "POST /restore_text"
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "method": "POST",
+      "path": "/analyze",
+      "full_path": "POST /analyze"
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_trend",
+      "full_path": "POST /analyze_trend"
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "method": "POST",
+      "path": "/analyze_emotion",
+      "full_path": "POST /analyze_emotion"
+    },
+    {
+      "file": "src\\text\\speech_recognizer.py",
+      "method": "POST",
+      "path": "/transcribe",
+      "full_path": "POST /transcribe"
+    },
+    {
+      "file": "src\\text\\speech_recognizer.py",
+      "method": "POST",
+      "path": "/transcribe_file",
+      "full_path": "POST /transcribe_file"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "method": "GET",
+      "path": "/health",
+      "full_path": "GET /health"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "method": "GET",
+      "path": "/metrics",
+      "full_path": "GET /metrics"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "method": "GET",
+      "path": "/",
+      "full_path": "GET /"
+    }
+  ],
+  "type_issues": [
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\audio\\analysis.py",
+      "issue": "구식 타입 사용: Union\\[int,\\s*None\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\audio\\effect.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\audio\\preprocessing.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\auth\\agent_auth.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\gateway\\advanced_orchestrator.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\consultation_classifier.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\model.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\model.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\model_preloader.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\api_schemas.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\common_types.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\common_types.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\structured_logger.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\structured_logger.py",
+      "issue": "구식 타입 사용: Optional\\[int\\] → int | None",
+      "severity": "medium"
+    },
+    {
+      "file": "src\\utils\\type_definitions.py",
+      "issue": "구식 타입 사용: Optional\\[str\\] → str | None",
+      "severity": "medium"
+    }
+  ],
+  "null_empty_issues": [
+    {
+      "file": "src\\audio\\advanced_processing.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "pattern": "return\\s+\"\"",
+      "description": "빈 문자열 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\audio\\advanced_punctuation.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\audio\\alignment.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 13
+    },
+    {
+      "file": "src\\audio\\alignment.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\analysis.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 7
+    },
+    {
+      "file": "src\\audio\\analysis.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 3
+    },
+    {
+      "file": "src\\audio\\effect.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\effect.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\effect.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\audio\\error.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\audio\\error.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\audio\\main.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\preprocessing.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\preprocessing.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 5
+    },
+    {
+      "file": "src\\audio\\preprocessing.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 2
+    },
+    {
+      "file": "src\\audio\\utils.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\auth\\agent_auth.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 11
+    },
+    {
+      "file": "src\\auth\\agent_auth.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 6
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 13
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 7
+    },
+    {
+      "file": "src\\db\\advanced_manager.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 2
+    },
+    {
+      "file": "src\\db\\main.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 4
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 6
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\db\\migrate_to_postgresql.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 2
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 7
+    },
+    {
+      "file": "src\\db\\multi_database_manager.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 18
+    },
+    {
+      "file": "src\\db\\postgres_manager.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\db\\postgres_manager.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 6
+    },
+    {
+      "file": "src\\db\\postgres_manager.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 2
+    },
+    {
+      "file": "src\\gateway\\advanced_orchestrator.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\gateway\\main.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 11
+    },
+    {
+      "file": "src\\gateway\\message_queue.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 2
+    },
+    {
+      "file": "src\\gateway\\message_queue.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\gateway\\monitoring.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 6
+    },
+    {
+      "file": "src\\gateway\\saga_orchestrator.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 9
+    },
+    {
+      "file": "src\\text\\advanced_analysis.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 4
+    },
+    {
+      "file": "src\\text\\chatgpt_analyzer.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\consultation_classifier.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 6
+    },
+    {
+      "file": "src\\text\\integrated_analyzer.py",
+      "pattern": "return\\s+\"\"",
+      "description": "빈 문자열 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\integrated_analyzer.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\korean_models.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 4
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 6
+    },
+    {
+      "file": "src\\text\\llm.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\text\\llm_analyzer.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 4
+    },
+    {
+      "file": "src\\text\\main.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\text\\model.py",
+      "pattern": "return\\s+\"\"",
+      "description": "빈 문자열 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\model.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\model.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\text\\model.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\text\\model_preloader.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\prompt.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\punctuation_restorer.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 5
+    },
+    {
+      "file": "src\\text\\sentiment_analyzer.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\speech_recognizer.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\text\\utils.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\upload\\agent_audio_upload.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 4
+    },
+    {
+      "file": "src\\upload\\agent_audio_upload.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 6
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "pattern": "if\\s+.*\\s*==\\s*\"\"",
+      "description": "빈 문자열 비교",
+      "count": 2
+    },
+    {
+      "file": "src\\utils\\api_middleware.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 2
+    },
+    {
+      "file": "src\\utils\\api_schemas.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 5
+    },
+    {
+      "file": "src\\utils\\base_service.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 3
+    },
+    {
+      "file": "src\\utils\\circuit_breaker.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 7
+    },
+    {
+      "file": "src\\utils\\circuit_breaker.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\common_endpoints.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\utils\\common_types.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 17
+    },
+    {
+      "file": "src\\utils\\performance_monitor.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 10
+    },
+    {
+      "file": "src\\utils\\performance_monitor.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 6
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 7
+    },
+    {
+      "file": "src\\utils\\redis_manager.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 4
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 2
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 2
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "pattern": "if\\s+.*\\s*==\\s*\"\"",
+      "description": "빈 문자열 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\schema_validator.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\structured_logger.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 16
+    },
+    {
+      "file": "src\\utils\\structured_logger.py",
+      "pattern": "if\\s+.*\\s*is\\s+None",
+      "description": "None 비교",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\type_definitions.py",
+      "pattern": "return\\s+None",
+      "description": "None 반환",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\type_definitions.py",
+      "pattern": "=\\s*\"\"",
+      "description": "빈 문자열 할당",
+      "count": 1
+    },
+    {
+      "file": "src\\utils\\type_definitions.py",
+      "pattern": "=\\s*None",
+      "description": "None 할당",
+      "count": 6
+    }
+  ],
+  "response_patterns": {
+    "src\\db\\main.py": {
+      "type": "standard_response",
+      "fields": []
+    },
+    "src\\db\\postgres_manager.py": {
+      "type": "data_response",
+      "fields": []
+    },
+    "src\\gateway\\main.py": {
+      "type": "standard_response",
+      "fields": []
+    },
+    "src\\text\\advanced_analysis.py": {
+      "type": "data_response",
+      "fields": []
+    },
+    "src\\text\\llm.py": {
+      "type": "standard_response",
+      "fields": [
+        "실패"
+      ]
+    },
+    "src\\text\\sentiment_analyzer.py": {
+      "type": "standard_response",
+      "fields": []
+    },
+    "src\\text\\speech_recognizer.py": {
+      "type": "standard_response",
+      "fields": []
+    },
+    "src\\utils\\api_adapter.py": {
+      "type": "data_response",
+      "fields": []
+    },
+    "src\\utils\\api_middleware.py": {
+      "type": "data_response",
+      "fields": []
+    },
+    "src\\utils\\api_schemas.py": {
+      "type": "data_response",
+      "fields": []
+    },
+    "src\\utils\\base_service.py": {
+      "type": "standard_response",
+      "fields": []
+    }
+  }
+}

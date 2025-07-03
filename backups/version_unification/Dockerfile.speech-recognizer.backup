@@ -1,0 +1,55 @@
+# 🗣️ 음성 인식 서비스 - Python 3.11 + CUDA 11.8 + PyTorch 2.1.2 (고정 버전)
+FROM nvidia/cuda:11.8.2-cudnn8-devel-ubuntu22.04
+
+# 🐍 Python 3.11 설치
+ENV PYTHON_VERSION=3.11
+RUN apt-get update && apt-get install -y \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-dev \
+    python${PYTHON_VERSION}-distutils \
+    python3-pip \
+    wget \
+    curl \
+    git \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 심볼릭 링크 설정
+RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
+    ln -sf /usr/bin/python3 /usr/bin/python
+
+# pip 업그레이드 및 캐시 정리
+RUN pip3 install --upgrade pip && pip3 cache purge
+
+# 🔥 PyTorch 2.1.2 + CUDA 11.8 설치 (고정 버전)
+RUN pip3 install --no-cache-dir --timeout 1000 --retries 3 \
+    torch==2.1.2 \
+    torchaudio==2.1.2 \
+    torchvision==0.16.2 \
+    --index-url https://download.pytorch.org/whl/cu118
+
+WORKDIR /app
+
+# 🔧 시스템 의존성 설치
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    libsox-fmt-all \
+    sox \
+    build-essential \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# 📦 Python 의존성 설치 (webrtcvad 문제 해결)
+COPY requirements.speech-recognizer.txt .
+RUN pip install --no-cache-dir --timeout 1000 --retries 3 --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.speech-recognizer.txt --no-deps || pip install --no-cache-dir --timeout 1000 --retries 3 --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org -r requirements.speech-recognizer.txt
+
+# 🎯 애플리케이션 복사
+COPY src/text/speech_recognizer.py /app/
+COPY src/text/model_preloader.py /app/
+COPY src/utils/ /app/utils/
+
+# 🚀 실행
+EXPOSE 8003
+CMD ["python", "-m", "uvicorn", "speech_recognizer:app", "--host", "0.0.0.0", "--port", "8003"] 

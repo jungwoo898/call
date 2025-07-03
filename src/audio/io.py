@@ -14,7 +14,7 @@ class SpeakerTimestampReader:
 
     Methods
     -------
-    read_speaker_timestamps()
+    audio_read_speaker_timestamps()
         Reads the RTTM file and extracts speaker timestamps.
 
     Parameters
@@ -47,7 +47,7 @@ class SpeakerTimestampReader:
             raise FileNotFoundError(f"RTTM file not found at: {rttm_path}")
         self.rttm_path = rttm_path
 
-    def read_speaker_timestamps(self) -> List[List[float]]:
+    def audio_read_speaker_timestamps(self) -> List[List[float]]:
         """
         Reads the RTTM file and extracts speaker timestamps.
 
@@ -64,7 +64,7 @@ class SpeakerTimestampReader:
         Examples
         --------
         >>> reader = SpeakerTimestampReader("path/to/rttm_file.rttm")
-        >>> timestamps = reader.read_speaker_timestamps()
+        >>> timestamps = reader.audio_read_speaker_timestamps()
         Speaker_Timestamps: [[0.0, 2000.0, 1], [2100.0, 4000.0, 2]]
         """
         speaker_ts = []
@@ -99,9 +99,9 @@ class TranscriptWriter:
 
     Methods
     -------
-    write_transcript(sentences_speaker_mapping, file_path)
+    audio_write_transcript(sentences_speaker_mapping, file_path)
         Writes the speaker-aware transcript to a text file.
-    write_srt(sentences_speaker_mapping, file_path)
+    audio_write_srt(sentences_speaker_mapping, file_path)
         Writes the speaker-aware transcript to an SRT file format.
     write_json(sentences_speaker_mapping, file_path, include_analysis)
         Writes the speaker-aware transcript to a JSON file format with comprehensive analysis.
@@ -116,7 +116,7 @@ class TranscriptWriter:
         pass
 
     @staticmethod
-    def write_transcript(sentences_speaker_mapping: List[Dict], file_path: str):
+    def audio_write_transcript(sentences_speaker_mapping: List[Dict], file_path: str):
         """
         Writes the speaker-aware transcript to a text file.
 
@@ -133,7 +133,7 @@ class TranscriptWriter:
         --------
         >>> sentences_speaker_map = [{"speaker": "Speaker 1", "text": "Hello."},
                                          {"speaker": "Speaker 2", "text": "Hi there."}]
-        >>> TranscriptWriter.write_transcript(sentences_speaker_mapping, "output.txt")
+        >>> TranscriptWriter.audio_write_transcript(sentences_speaker_mapping, "output.txt")
         """
         with open(file_path, "w", encoding="utf-8") as f:
             previous_speaker = sentences_speaker_mapping[0]["speaker"]
@@ -150,7 +150,7 @@ class TranscriptWriter:
                 f.write(sentence + " ")
 
     @staticmethod
-    def write_srt(sentences_speaker_mapping: List[Dict], file_path: str):
+    def audio_write_srt(sentences_speaker_mapping: List[Dict], file_path: str):
         """
         Writes the speaker-aware transcript to an SRT file format.
 
@@ -173,10 +173,10 @@ class TranscriptWriter:
         --------
         >>> sentences_speaker_map = [{"start_time": 0, "end_time": 2000,
                                           "speaker": "Speaker 1", "text": "Hello."}]
-        >>> TranscriptWriter.write_srt(sentences_speaker_mapping, "output.srt")
+        >>> TranscriptWriter.audio_write_srt(sentences_speaker_mapping, "output.srt")
         """
 
-        def format_timestamp(milliseconds: Annotated[float, "Time in milliseconds"]) -> Annotated[
+        def audio_format_timestamp(milliseconds: Annotated[float, "Time in milliseconds"]) -> Annotated[
             str, "Formatted timestamp in HH:MM:SS,mmm"]:
             """
             Converts a time value in milliseconds to an SRT timestamp format.
@@ -201,11 +201,11 @@ class TranscriptWriter:
 
             Examples
             --------
-            >>> format_timestamp(3723001)
+            >>> audio_format_timestamp(3723001)
             '01:02:03,001'
-            >>> format_timestamp(0)
+            >>> audio_format_timestamp(0)
             '00:00:00,000'
-            >>> format_timestamp(59_999.9)
+            >>> audio_format_timestamp(59_999.9)
             '00:00:59,999'
 
             Notes
@@ -225,8 +225,8 @@ class TranscriptWriter:
 
         with open(file_path, "w", encoding="utf-8") as f:
             for i, segment in enumerate(sentences_speaker_mapping, start=1):
-                start_time = format_timestamp(segment['start_time'])
-                end_time = format_timestamp(segment['end_time'])
+                start_time = audio_format_timestamp(segment['start_time'])
+                end_time = audio_format_timestamp(segment['end_time'])
                 speaker = segment['speaker']
                 text = segment['text'].strip().replace('-->', '->')
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     example_rttm_path = "example.rttm"
     try:
         timestamp_reader = SpeakerTimestampReader(example_rttm_path)
-        extracted_speaker_timestamps = timestamp_reader.read_speaker_timestamps()
+        extracted_speaker_timestamps = timestamp_reader.audio_read_speaker_timestamps()
     except FileNotFoundError as file_error:
         print(file_error)
 
@@ -248,5 +248,5 @@ if __name__ == "__main__":
         {"speaker": "Speaker 2", "text": "How are you?", "start_time": 2100, "end_time": 4000},
     ]
     transcript_writer = TranscriptWriter()
-    transcript_writer.write_transcript(example_sentences_mapping, "output.txt")
-    transcript_writer.write_srt(example_sentences_mapping, "output.srt")
+    transcript_writer.audio_write_transcript(example_sentences_mapping, "output.txt")
+    transcript_writer.audio_write_srt(example_sentences_mapping, "output.srt")

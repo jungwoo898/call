@@ -15,8 +15,8 @@ from dotenv import load_dotenv
 
 # Related third-party imports
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
-import openai
-from openai import OpenAI
+# import openai  # 필요시 주석 해제
+# from openai import OpenAI  # 필요시 주석 해제
 
 # Local imports
 from src.text.model import LanguageModel
@@ -35,15 +35,15 @@ class APIModelHandler:
         """API 핸들러 초기화"""
         # .env 파일에서 API 키 로드
         self.hf_token = os.getenv("HUGGINGFACE_TOKEN")
-        self.openai_key = os.getenv("OPENAI_API_KEY")
+        # self.openai_key = os.getenv("OPENAI_API_KEY")  # 필요시 주석 해제
         self.azure_key = os.getenv("AZURE_OPENAI_API_KEY")
         self.azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         
         # API 클라이언트 초기화
-        if self.openai_key:
-            self.openai_client = OpenAI(api_key=self.openai_key)
-        else:
-            self.openai_client = None
+        # if self.openai_key:
+        #     self.openai_client = OpenAI(api_key=self.openai_key)
+        # else:
+        #     self.openai_client = None
             
         if self.azure_key and self.azure_endpoint:
             self.azure_client = OpenAI(
@@ -126,7 +126,7 @@ class APIModelHandler:
     
     def _messages_to_text(self, messages: List[Dict[str, str]]) -> str:
         """메시지 리스트를 텍스트로 변환"""
-        text = ""
+        text = None
         for message in messages:
             role = message.get("role", "")
             content = message.get("content", "")
@@ -138,11 +138,11 @@ class APIModelHandler:
                 text += f"어시스턴트: {content}\n"
         return text
     
-    def get_available_apis(self) -> List[str]:
+    def text_get_available_apis(self) -> List[str]:
         """사용 가능한 API 목록 반환"""
         available = []
-        if self.openai_key:
-            available.append("openai")
+        # if self.openai_key:
+        #     available.append("openai")
         if self.azure_key and self.azure_endpoint:
             available.append("azure")
         if self.hf_token:
@@ -196,9 +196,9 @@ class ModelCache:
     def _get_model_hash(self, model_name: str, model_type: str) -> str:
         """모델의 해시값을 생성합니다."""
         content = f"{model_name}_{model_type}_{torch.__version__}"
-        return hashlib.md5(content.encode()).hexdigest()
+        return hashlib.md5(content.encode("utf-8")).hexdigest()
     
-    def get_cached_model(self, model_name: str, model_type: str):
+    def text_get_cached_model(self, model_name: str, model_type: str):
         """캐시된 모델을 가져옵니다."""
         model_hash = self._get_model_hash(model_name, model_type)
         cache_key = f"{model_name}_{model_type}"
@@ -223,7 +223,7 @@ class ModelCache:
         
         return None
     
-    def cache_model(self, model_name: str, model_type: str, model_data: Any):
+    def text_cache_model(self, model_name: str, model_type: str, model_data: Any):
         """모델을 캐시에 저장합니다."""
         model_hash = self._get_model_hash(model_name, model_type)
         cache_key = f"{model_name}_{model_type}"
@@ -249,7 +249,7 @@ class ModelCache:
         except Exception as e:
             print(f"모델 캐시 저장 실패: {e}")
     
-    def unload_model(self, model_name: str, model_type: str):
+    def text_unload_model(self, model_name: str, model_type: str):
         """모델을 메모리에서 해제합니다."""
         cache_key = f"{model_name}_{model_type}"
         if cache_key in self.loaded_models:
@@ -257,7 +257,7 @@ class ModelCache:
             gc.collect()  # 가비지 컬렉션 강제 실행
             print(f"모델 메모리 해제: {model_name}")
     
-    def cleanup_old_cache(self, max_age_days: int = 30):
+    def text_cleanup_old_cache(self, max_age_days: int = 30):
         """오래된 캐시를 정리합니다."""
         current_time = time.time()
         max_age_seconds = max_age_days * 24 * 3600
@@ -295,12 +295,12 @@ class KoreanLanguageModel(LanguageModel):
         self.api_handler = APIModelHandler()
         
         print(f"API 기반 한국어 모델 초기화: {config.api_type}")
-        print(f"사용 가능한 API: {self.api_handler.get_available_apis()}")
+        print(f"사용 가능한 API: {self.api_handler.text_get_available_apis()}")
         
     async def generate(
         self,
         messages: List[Dict[str, str]],
-        max_new_tokens: Optional[int] = None,
+        max_new_tokens: int | None = None,
         **kwargs
     ) -> str:
         """
@@ -310,7 +310,7 @@ class KoreanLanguageModel(LanguageModel):
         ----------
         messages : List[Dict[str, str]]
             메시지 리스트
-        max_new_tokens : Optional[int]
+        max_new_tokens : int | None
             최대 생성 토큰 수 (사용하지 않음, config에서 관리)
         **kwargs
             추가 키워드 인자
@@ -322,7 +322,7 @@ class KoreanLanguageModel(LanguageModel):
         """
         try:
             # API 타입 우선순위 결정
-            available_apis = self.api_handler.get_available_apis()
+            available_apis = self.api_handler.text_get_available_apis()
             
             if self.config.api_type in available_apis:
                 api_type = self.config.api_type
@@ -345,7 +345,7 @@ class KoreanLanguageModel(LanguageModel):
             print(f"API 기반 텍스트 생성 실패: {e}")
             return "텍스트 생성에 실패했습니다."
     
-    def unload(self):
+    def text_unload(self):
         """리소스 정리 (API 기반이므로 별도 정리 불필요)"""
         print("API 기반 모델 언로드 완료")
 
@@ -357,26 +357,26 @@ class KoreanModelManager:
         self.config_path = config_path
         self.models = {}
         
-    def load_model(self, model_id: str, config: KoreanModelConfig) -> KoreanLanguageModel:
+    def text_load_model(self, model_id: str, config: KoreanModelConfig) -> KoreanLanguageModel:
         """모델 로드"""
         if model_id not in self.models:
             self.models[model_id] = KoreanLanguageModel(config)
         return self.models[model_id]
     
-    def get_model(self, model_id: str) -> Optional[KoreanLanguageModel]:
+    def text_get_model(self, model_id: str) -> Optional[KoreanLanguageModel]:
         """모델 가져오기"""
         return self.models.get(model_id)
     
-    def unload_model(self, model_id: str):
+    def text_unload_model(self, model_id: str):
         """모델 언로드"""
         if model_id in self.models:
-            self.models[model_id].unload()
+            self.models[model_id].text_unload()
             del self.models[model_id]
     
-    def unload_all(self):
+    def text_unload_all(self):
         """모든 모델 언로드"""
         for model_id in list(self.models.keys()):
-            self.unload_model(model_id) 
+            self.text_unload_model(model_id) 
 
 
 class LanguageDetector:
@@ -403,7 +403,7 @@ class LanguageDetector:
             print("🔄 언어 감지 기능을 비활성화합니다.")
             self.language_detector = None
 
-    def detect_language(self, text: str) -> Dict[str, Any]:
+    def text_detect_language(self, text: str) -> Dict[str, Any]:
         """
         텍스트의 언어를 감지합니다.
         
@@ -465,7 +465,7 @@ class LanguageDetector:
         text = re.sub(r'\s+', ' ', text).strip()
         return text
 
-    def is_korean_audio(self, text: str, threshold: float = 0.7) -> bool:
+    def text_is_korean_audio(self, text: str, threshold: float = 0.7) -> bool:
         """
         오디오가 한국어인지 확인합니다.
         
@@ -481,7 +481,7 @@ class LanguageDetector:
         bool
             한국어 여부
         """
-        result = self.detect_language(text)
+        result = self.text_detect_language(text)
         return result["is_korean"] and result["confidence"] >= threshold
 
 
@@ -504,7 +504,7 @@ class KoreanModels:
         self.api_handler = APIModelHandler()
         
         # API 사용 가능 여부 확인
-        available_apis = self.api_handler.get_available_apis()
+        available_apis = self.api_handler.text_get_available_apis()
         print(f"🔧 API 기반 한국어 모델 초기화 완료")
         print(f"📡 사용 가능한 API: {available_apis}")
         
@@ -713,7 +713,7 @@ class KoreanModels:
             results.append(result)
         return results
 
-    def is_korean_content(self, text: str) -> bool:
+    def text_is_korean_content(self, text: str) -> bool:
         """
         콘텐츠가 한국어인지 확인합니다.
 
@@ -727,9 +727,9 @@ class KoreanModels:
         bool
             한국어 여부
         """
-        return self.language_detector.is_korean_audio(text)
+        return self.language_detector.text_is_korean_audio(text)
 
-    def get_model_status(self) -> Dict[str, Any]:
+    def text_get_model_status(self) -> Dict[str, Any]:
         """
         모델 상태를 반환합니다.
 
@@ -739,7 +739,7 @@ class KoreanModels:
             모델 상태 정보
         """
         return {
-            "api_available": bool(self.api_handler.get_available_apis()),
-            "available_apis": self.api_handler.get_available_apis(),
+            "api_available": bool(self.api_handler.text_get_available_apis()),
+            "available_apis": self.api_handler.text_get_available_apis(),
             "language_detector": self.language_detector.language_detector is not None
         } 

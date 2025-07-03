@@ -22,21 +22,21 @@ class SilenceStats:
 
     Methods
     -------
-    from_segments(segments)
+    audio_from_segments(segments)
         Class method to create a SilenceStats instance from speech segments.
-    median()
+    audio_median()
         Compute the median silence duration.
-    mean()
+    audio_mean()
         Compute the mean silence duration.
-    std()
+    audio_std()
         Compute the standard deviation of silence durations.
-    iqr()
+    audio_iqr()
         Compute the interquartile range (IQR) of silence durations.
-    threshold_std(factor=0.95)
+    audio_threshold_std(factor=0.95)
         Compute threshold based on standard deviation.
-    threshold_median_iqr(factor=1.5)
+    audio_threshold_median_iqr(factor=1.5)
         Compute threshold based on median + IQR.
-    total_silence_above_threshold(threshold)
+    audio_total_silence_above_threshold(threshold)
         Compute total silence above a given threshold.
     """
 
@@ -54,7 +54,7 @@ class SilenceStats:
         self.silence_durations = sorted(silence_durations)
 
     @classmethod
-    def from_segments(cls, segments: Annotated[List[Dict], "List of speech segments"]) -> "SilenceStats":
+    def audio_from_segments(cls, segments: Annotated[List[Dict], "List of speech segments"]) -> "SilenceStats":
         """
         Create a SilenceStats instance from a list of speech segments.
 
@@ -72,7 +72,7 @@ class SilenceStats:
         Examples
         --------
         >>> segment = [{"start_time": 0, "end_time": 5000}, {"start_time": 10000, "end_time": 15000}]
-        >>> stat = SilenceStats.from_segments(segments)
+        >>> stat = SilenceStats.audio_from_segments(segments)
         >>> stat.silence_durations
         [5.0]  # 5 seconds of silence
         """
@@ -84,7 +84,7 @@ class SilenceStats:
         ]
         return cls(durations)
 
-    def median(self) -> Annotated[float, "Median of silence durations"]:
+    def audio_median(self) -> Annotated[float, "Median of silence durations"]:
         """
         Compute the median silence duration.
 
@@ -101,7 +101,7 @@ class SilenceStats:
             return (self.silence_durations[mid - 1] + self.silence_durations[mid]) / 2
         return self.silence_durations[mid]
 
-    def mean(self) -> Annotated[float, "Mean of silence durations"]:
+    def audio_mean(self) -> Annotated[float, "Mean of silence durations"]:
         """
         Compute the mean silence duration.
 
@@ -112,7 +112,7 @@ class SilenceStats:
         """
         return sum(self.silence_durations) / len(self.silence_durations) if self.silence_durations else 0.0
 
-    def std(self) -> Annotated[float, "Standard deviation of silence durations"]:
+    def audio_std(self) -> Annotated[float, "Standard deviation of silence durations"]:
         """
         Compute the standard deviation of silence durations.
 
@@ -124,11 +124,11 @@ class SilenceStats:
         n = len(self.silence_durations)
         if n == 0:
             return 0.0
-        mu = self.mean()
+        mu = self.audio_mean()
         var = sum((x - mu) ** 2 for x in self.silence_durations) / n
         return math.sqrt(var)
 
-    def iqr(self) -> Annotated[float, "Interquartile range (IQR) of silence durations"]:
+    def audio_iqr(self) -> Annotated[float, "Interquartile range (IQR) of silence durations"]:
         """
         Compute the Interquartile Range (IQR).
 
@@ -143,7 +143,7 @@ class SilenceStats:
         q3 = np.percentile(self.silence_durations, 75)
         return q3 - q1
 
-    def threshold_std(self, factor: Annotated[float, "Scaling factor for std threshold"] = 0.95) -> float:
+    def audio_threshold_std(self, factor: Annotated[float, "Scaling factor for std threshold"] = 0.95) -> float:
         """
         Compute the threshold based on standard deviation.
 
@@ -157,9 +157,9 @@ class SilenceStats:
         float
             Threshold based on standard deviation.
         """
-        return self.std() * factor
+        return self.audio_std() * factor
 
-    def threshold_median_iqr(self, factor: Annotated[float, "Scaling factor for IQR"] = 1.5) -> float:
+    def audio_threshold_median_iqr(self, factor: Annotated[float, "Scaling factor for IQR"] = 1.5) -> float:
         """
         Compute the threshold based on median and IQR.
 
@@ -173,9 +173,9 @@ class SilenceStats:
         float
             Threshold based on median and IQR.
         """
-        return self.median() + (self.iqr() * factor)
+        return self.audio_median() + (self.audio_iqr() * factor)
 
-    def total_silence_above_threshold(
+    def audio_total_silence_above_threshold(
             self, threshold: Annotated[float, "Threshold value for silence"]
     ) -> Annotated[float, "Total silence above the threshold"]:
         """
@@ -224,19 +224,19 @@ if __name__ == "__main__":
         'topic': 'Invoice and Shipping Documents Request'
     }
 
-    stats = SilenceStats.from_segments(final_ssm['ssm'])
+    stats = SilenceStats.audio_from_segments(final_ssm['ssm'])
 
-    print("Mean:", stats.mean())
-    print("Median:", stats.median())
-    print("Std Dev:", stats.std())
-    print("IQR:", stats.iqr())
+    print("Mean:", stats.audio_mean())
+    print("Median:", stats.audio_median())
+    print("Std Dev:", stats.audio_std())
+    print("IQR:", stats.audio_iqr())
 
-    t_std = stats.threshold_std(factor=0.97)
-    t_median_iqr = stats.threshold_median_iqr(factor=1.49)
+    t_std = stats.audio_threshold_std(factor=0.97)
+    t_median_iqr = stats.audio_threshold_median_iqr(factor=1.49)
     print("Threshold (std-based):", t_std)
     print("Threshold (median+IQR):", t_median_iqr)
 
-    print("Total silence (std-based):", stats.total_silence_above_threshold(t_std))
-    print("Total silence (median+IQR-based):", stats.total_silence_above_threshold(t_median_iqr))
+    print("Total silence (std-based):", stats.audio_total_silence_above_threshold(t_std))
+    print("Total silence (median+IQR-based):", stats.audio_total_silence_above_threshold(t_median_iqr))
     final_ssm["silence"] = t_std
     print(final_ssm)

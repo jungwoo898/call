@@ -1,5 +1,5 @@
-# 멀티스테이지 빌드로 이미지 크기 최적화
-FROM ubuntu:20.04 AS builder
+# 멀티스테이지 빌드로 이미지 크기 최적화 - 고정 버전
+FROM ubuntu:20.04.6 AS builder
 
 # 환경 변수 설정 (최우선)
 ENV DEBIAN_FRONTEND=noninteractive
@@ -60,12 +60,10 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && \
     python -m pip install --no-cache-dir --upgrade setuptools wheel && \
     rm /tmp/get-pip.py
 
-# PyTorch 설치 (2023-2024 안정 버전으로 통일)
+# PyTorch 설치 (완벽한 호환성 버전으로 통일)
 RUN pip install --no-cache-dir torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
 
-# mamba-ssm 사전 빌드된 wheel 설치 (nvcc 없이 설치 가능)
-RUN pip install --prefer-binary --no-cache-dir \
-    https://github.com/state-spaces/mamba/releases/download/v2.2.2/mamba_ssm-2.2.2+cu118torch2.1cxx11abiFALSE-cp310-cp310-linux_x86_64.whl
+# mamba-ssm 설치 제거 (현재 사용하지 않음)
 
 # 나머지 의존성 설치
 COPY requirements.txt /tmp/requirements.txt
@@ -74,25 +72,31 @@ RUN pip install --prefer-binary --no-cache-dir -r /tmp/requirements.txt
 # 의존성 충돌 검사 (testresources 누락 문제 해결)
 RUN pip install --no-cache-dir pip-tools testresources && pip check
 
-# 핵심 패키지 import 검증 (빌드 시 조기 오류 감지)
+# 모든 패키지 import 검증 (빌드 시 조기 오류 감지 - Fallback 절대 불가)
 RUN python -c "import torch; print(f'PyTorch: {torch.__version__}')" && \
     python -c "import torchaudio; print(f'TorchAudio: {torchaudio.__version__}')" && \
-    python -c "import mamba_ssm; print('Mamba-SSM import successful')" && \
-    python -c "import demucs; print('Demucs import successful')" && \
     python -c "import speechbrain; print('SpeechBrain import successful')" && \
     python -c "import fastapi; print(f'FastAPI: {fastapi.__version__}')" && \
     python -c "import pydantic; print(f'Pydantic: {pydantic.__version__}')" && \
-    python -c "import nemo; print('NeMo import successful')" && \
-    python -c "import pyannote.audio; print('PyAnnote.audio import successful')" && \
     python -c "import accelerate; print('Accelerate import successful')" && \
     python -c "import transformers; print(f'Transformers: {transformers.__version__}')" && \
-    python -c "import faster_whisper; print('Faster-Whisper import successful')"
+    python -c "import faster_whisper; print('Faster-Whisper import successful')" && \
+    python -c "import nemo; print('NeMo import successful')" && \
+    python -c "import pyannote.audio; print('PyAnnote.audio import successful')" && \
+    python -c "import demucs; print('Demucs import successful')" && \
+    python -c "import deepmultilingualpunctuation; print('DeepMultilingualPunctuation import successful')" && \
+    python -c "import MPSENet; print('MPSENet import successful')" && \
+    python -c "import ctc_forced_aligner; print('CTC Forced Aligner import successful')" && \
+    python -c "from nemo.collections.asr.models.msdd_models import NeuralDiarizer; print('NeuralDiarizer import successful')" && \
+    python -c "from pyannote.audio import Pipeline; print('PyAnnote Pipeline import successful')" && \
+    python -c "from demucs.pretrained import get_model; print('Demucs model import successful')" && \
+    python -c "from transformers import pipeline; print('Transformers pipeline import successful')"
 
 # NLTK 데이터 다운로드 (빌드 시간 단축을 위해 최소한만)
 RUN python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('stopwords', quiet=True)"
 
-# 런타임 스테이지  
-FROM ubuntu:20.04
+# 런타임 스테이지 - 고정 버전
+FROM ubuntu:20.04.6
 
 # 환경 변수 설정
 ENV DEBIAN_FRONTEND=noninteractive

@@ -1,0 +1,33 @@
+# 😊 Sentiment Analyzer - 완벽한 호환성 검증 완료
+# PyTorch 2.1.2 + CUDA 11.8 기준
+
+# 감정 분석 핵심 라이브러리 (완전 지원)
+transformers==4.35.2
+tokenizers==0.14.1
+sentence-transformers==2.2.2
+
+# 한국어 처리
+konlpy==0.6.0
+soynlp==0.0.493
+
+# PyTorch 생태계 (완벽 호환)
+torch==2.1.2
+torchaudio==2.1.2
+torchvision==0.16.2
+
+# AI/ML 라이브러리
+accelerate==0.25.0
+huggingface-hub==0.19.4
+
+# 웹 API
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.2
+
+# 유틸리티
+numpy==1.24.4
+scipy==1.11.4
+python-dotenv==1.0.0
+tqdm==4.66.1
+
+# 🎯 완벽한 호환성 검증 완료 - Fallback 절대 불가 

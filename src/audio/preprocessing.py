@@ -131,7 +131,7 @@ class AudioPreprocessor:
         
         return results
     
-    def _normalize_single_audio(self, audio_file: str, output_dir: str) -> Optional[str]:
+    def _normalize_single_audio(self, audio_file: str, output_dir: str) -> str | None:
         """
         단일 오디오 파일 정규화
         
@@ -144,7 +144,7 @@ class AudioPreprocessor:
             
         Returns
         -------
-        Optional[str]
+        str | None
             정규화된 파일 경로 또는 None
         """
         try:
@@ -186,7 +186,7 @@ class AudioPreprocessor:
             print(f"⚠️ 오디오 정규화 오류: {audio_file}, {e}")
             return None
     
-    def cleanup(self):
+    def audio_cleanup(self):
         """리소스 정리"""
         self.executor.shutdown(wait=True)
         
@@ -226,7 +226,7 @@ class Denoiser:
     """
 
     def __init__(self, config_path: Annotated[str, "Path to the config file"],
-                 output_dir: Annotated[str, "Default directory to save cleaned audio files"] = ".temp") -> None:
+                 output_dir: Annotated[str, "Default directory to save cleaned audio files"] = "/app/temp") -> None:
         """
         Initialize the Denoiser class.
 
@@ -242,7 +242,7 @@ class Denoiser:
         os.makedirs(self.output_dir, exist_ok=True)
         self.logger = Logger(name="DenoiserLogger")
 
-    def denoise_audio(
+    def audio_denoise_audio(
             self,
             input_path: Annotated[str, "Path to the noisy audio file"],
             output_dir: Annotated[str, "Directory to save the cleaned audio file"],
@@ -274,7 +274,7 @@ class Denoiser:
         >>> input_file = "noisy_audio.wav"
         >>> output_directory = "cleaned_audio"
         >>> noise_thresh = 0.02
-        >>> result = denoiser.denoise_audio(input_file, output_directory, noise_thresh)
+        >>> result = denoiser.audio_denoise_audio(input_file, output_directory, noise_thresh)
         >>> print(result)
         cleaned_audio/denoised.wav
         """
@@ -335,7 +335,7 @@ class SpeechEnhancement:
     def __init__(
             self,
             config_path: Annotated[str, "Path to the config file"],
-            output_dir: Annotated[str, "Default directory to save enhanced audio files"] = ".temp"
+            output_dir: Annotated[str, "Default directory to save enhanced audio files"] = "/app/temp"
     ) -> None:
         """
         Initialize the SpeechEnhancement class.
@@ -370,7 +370,7 @@ class SpeechEnhancement:
                 print("🔄 SpeechEnhancement will run in fallback mode")
                 self.model = None
 
-    def enhance_audio(
+    def audio_enhance_audio(
             self,
             input_path: Annotated[str, "Path to the original audio file"],
             output_path: Annotated[str, "Path to save the enhanced audio file"],
@@ -402,7 +402,7 @@ class SpeechEnhancement:
         >>> input_file = "raw_audio.wav"
         >>> output_file = "enhanced_audio.wav"
         >>> noise_thresh = 0.03
-        >>> result = enhancer.enhance_audio(input_file, output_file, noise_thresh)
+        >>> result = enhancer.audio_enhance_audio(input_file, output_file, noise_thresh)
         >>> print(result)
         enhanced_audio.wav
         """
@@ -447,13 +447,12 @@ class SpeechEnhancement:
 
 
 if __name__ == "__main__":
-
     test_config_path = "config/config.yaml"
     noisy_audio_file = ".data/example/noisy/LookOncetoHearTargetSpeechHearingwithNoisyExamples.mp3"
-    temp_dir = ".temp"
+    temp_dir = "/app/temp"
 
     denoiser = Denoiser(config_path=test_config_path, output_dir=temp_dir)
-    denoised_path = denoiser.denoise_audio(
+    denoised_path = denoiser.audio_denoise_audio(
         input_path=noisy_audio_file,
         output_dir=temp_dir,
         noise_threshold=0.005,
@@ -467,7 +466,7 @@ if __name__ == "__main__":
     speech_enhancer = SpeechEnhancement(config_path=test_config_path, output_dir=temp_dir)
     enhanced_audio_path = os.path.join(temp_dir, "enhanced_audio.wav")
 
-    result_path = speech_enhancer.enhance_audio(
+    result_path = speech_enhancer.audio_enhance_audio(
         input_path=denoised_path,
         output_path=enhanced_audio_path,
         noise_threshold=0.005,

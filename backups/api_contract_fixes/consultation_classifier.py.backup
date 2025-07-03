@@ -1,0 +1,548 @@
+import re
+import json
+import logging
+from typing import Dict, List, Tuple, Optional, Any
+from dataclasses import dataclass
+from enum import Enum
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+from .llm import LLMAnalyzer
+from .utils import setup_logging
+
+logger = setup_logging(__name__)
+
+class ConsultationSubject(Enum):
+    """상담 주제 분류"""
+    # 요금 관련 주제
+    BILLING_INQUIRY = "요금문의"
+    BILLING_PLAN_CHANGE = "요금제변경"
+    BILLING_PAYMENT = "요금납부"
+    BILLING_DISCOUNT = "요금할인"
+    BILLING_SETTLEMENT = "요금정산"
+    DATA_BILLING = "데이터요금"
+    CALL_BILLING = "통화요금"
+    SMS_BILLING = "문자요금"
+    ADDON_BILLING = "부가서비스요금"
+    
+    # 기기 관련 주제
+    DEVICE_INQUIRY = "휴대폰문의"
+    DEVICE_CHANGE = "기기변경"
+    DEVICE_LOST = "기기분실"
+    DEVICE_DAMAGE = "기기파손"
+    DEVICE_SUSPENSION = "기기정지"
+    MICRO_PAYMENT = "소액결제"
+    DEVICE_INSTALLMENT = "기기할부"
+    DEVICE_SETTING = "기기설정"
+    DEVICE_REPLACEMENT = "기기교체"
+    
+    # 서비스 관련 주제
+    ADDON_SERVICE = "부가서비스"
+    BILLING_PLAN = "요금제"
+    DATA_SERVICE = "데이터서비스"
+    CALL_SERVICE = "통화서비스"
+    SMS_SERVICE = "문자서비스"
+    INTERNET_SERVICE = "인터넷서비스"
+    TV_SERVICE = "TV서비스"
+    MEMBERSHIP_SERVICE = "멤버십서비스"
+    
+    # 계정 관련 주제
+    NAME_CHANGE = "명의변경"
+    NUMBER_CHANGE = "번호변경"
+    USIM_MANAGEMENT = "USIM관리"
+    ACCOUNT_MANAGEMENT = "계정관리"
+    NUMBER_PORTABILITY = "번호이동"
+    PERSONAL_INFO = "개인정보"
+    SECURITY_SETTING = "보안설정"
+    LOGIN_ISSUE = "로그인문제"
+    
+    # 기술 관련 주제
+    NETWORK_ISSUE = "네트워크문제"
+    APP_ISSUE = "앱문제"
+    SETTING_ISSUE = "설정문제"
+    DATA_RECOVERY = "데이터복구"
+    TECHNICAL_SUPPORT = "기술지원"
+    INTERNET_CONNECTION = "인터넷연결"
+    WIFI_SETTING = "WiFi설정"
+    BLUETOOTH_SETTING = "블루투스설정"
+    
+    # 기타 주제
+    GENERAL_INQUIRY = "일반문의"
+    COMPLAINT = "불만사항"
+    SUGGESTION = "제안사항"
+    OTHER = "기타"
+
+class ConsultationRequirement(Enum):
+    """상담 요건 분류"""
+    # 요금 관련 요건
+    BILLING_INFO_REQUEST = "요금안내요청"
+    BILLING_PLAN_CHANGE_REQUEST = "요금제변경요청"
+    BILLING_PAYMENT_HELP = "요금납부도움"
+    BILLING_DISCOUNT_REQUEST = "요금할인신청"
+    BILLING_SETTLEMENT_REQUEST = "요금정산요청"
+    DATA_BILLING_CONFIRM = "데이터요금확인"
+    CALL_BILLING_CONFIRM = "통화요금확인"
+    SMS_BILLING_CONFIRM = "문자요금확인"
+    
+    # 기기 관련 요건
+    DEVICE_PURCHASE = "휴대폰구매"
+    DEVICE_CHANGE_REQUEST = "기기변경신청"
+    LOST_REPORT = "분실신고"
+    DAMAGE_REPORT = "파손신고"
+    DEVICE_SUSPENSION_REQUEST = "기기정지요청"
+    MICRO_PAYMENT_SETTING = "소액결제설정"
+    DEVICE_INSTALLMENT_CHANGE = "기기할부변경"
+    DEVICE_SETTING_HELP = "기기설정도움"
+    DEVICE_REPLACEMENT_REQUEST = "기기교체신청"
+    
+    # 서비스 관련 요건
+    ADDON_SERVICE_JOIN = "부가서비스가입"
+    ADDON_SERVICE_CANCEL = "부가서비스해지"
+    ADDON_SERVICE_CHANGE = "부가서비스변경"
+    BILLING_PLAN_JOIN = "요금제가입"
+    BILLING_PLAN_CHANGE = "요금제변경"
+    DATA_SERVICE_CHANGE = "데이터서비스변경"
+    CALL_SERVICE_CHANGE = "통화서비스변경"
+    SMS_SERVICE_CHANGE = "문자서비스변경"
+    
+    # 계정 관련 요건
+    NAME_CHANGE_REQUEST = "명의변경신청"
+    NUMBER_CHANGE_REQUEST = "번호변경신청"
+    USIM_REISSUE = "USIM재발급"
+    ACCOUNT_CANCEL_REQUEST = "계정해지신청"
+    NUMBER_PORTABILITY_REQUEST = "번호이동신청"
+    PERSONAL_INFO_CHANGE = "개인정보변경"
+    SECURITY_SETTING_CHANGE = "보안설정변경"
+    LOGIN_HELP = "로그인도움"
+    
+    # 기술 관련 요건
+    NETWORK_ISSUE_RESOLUTION = "네트워크문제해결"
+    APP_INSTALL_HELP = "앱설치도움"
+    SETTING_CHANGE_HELP = "설정변경도움"
+    DATA_RECOVERY_REQUEST = "데이터복구요청"
+    TECHNICAL_SUPPORT_REQUEST = "기술지원요청"
+    INTERNET_CONNECTION_HELP = "인터넷연결도움"
+    WIFI_SETTING_HELP = "WiFi설정도움"
+    
+    # 기타 요건
+    INFO_REQUEST = "정보요청"
+    PROBLEM_RESOLUTION_REQUEST = "문제해결요청"
+    SUGGESTION_DELIVERY = "제안사항전달"
+    OTHER_REQUEST = "기타요청"
+
+class ConsultationContent(Enum):
+    """상담 내용 분류"""
+    # 요금 관련 내용
+    BILLING_DETAIL_INFO = "요금상세안내"
+    BILLING_PLAN_COMPARISON = "요금제비교"
+    BILLING_PAYMENT_METHOD = "요금납부방법"
+    BILLING_DISCOUNT_CONDITION = "요금할인조건"
+    BILLING_SETTLEMENT_DETAIL = "요금정산내역"
+    DATA_USAGE_CONFIRM = "데이터사용량확인"
+    CALL_HISTORY_CONFIRM = "통화내역확인"
+    SMS_HISTORY_CONFIRM = "문자내역확인"
+    
+    # 기기 관련 내용
+    DEVICE_SPEC_INFO = "휴대폰사양안내"
+    DEVICE_CHANGE_PROCEDURE = "기기변경절차"
+    LOST_REPORT_PROCEDURE = "분실신고절차"
+    DAMAGE_REPORT_PROCEDURE = "파손신고절차"
+    DEVICE_SUSPENSION_PROCEDURE = "기기정지절차"
+    MICRO_PAYMENT_SETTING_METHOD = "소액결제설정방법"
+    DEVICE_INSTALLMENT_CHANGE_PROCEDURE = "기기할부변경절차"
+    DEVICE_SETTING_METHOD = "기기설정방법"
+    
+    # 서비스 관련 내용
+    ADDON_SERVICE_LIST = "부가서비스목록"
+    ADDON_SERVICE_JOIN_PROCEDURE = "부가서비스가입절차"
+    ADDON_SERVICE_CANCEL_PROCEDURE = "부가서비스해지절차"
+    BILLING_PLAN_DETAIL_INFO = "요금제상세안내"
+    BILLING_PLAN_CHANGE_PROCEDURE = "요금제변경절차"
+    DATA_SERVICE_SETTING = "데이터서비스설정"
+    CALL_SERVICE_SETTING = "통화서비스설정"
+    
+    # 계정 관련 내용
+    NAME_CHANGE_PROCEDURE = "명의변경절차"
+    NUMBER_CHANGE_PROCEDURE = "번호변경절차"
+    USIM_REISSUE_PROCEDURE = "USIM재발급절차"
+    ACCOUNT_CANCEL_PROCEDURE = "계정해지절차"
+    NUMBER_PORTABILITY_PROCEDURE = "번호이동절차"
+    PERSONAL_INFO_CHANGE_PROCEDURE = "개인정보변경절차"
+    SECURITY_SETTING_METHOD = "보안설정방법"
+    LOGIN_METHOD = "로그인방법"
+    
+    # 기술 관련 내용
+    NETWORK_ISSUE_DIAGNOSIS = "네트워크문제진단"
+    APP_INSTALL_METHOD = "앱설치방법"
+    SETTING_CHANGE_METHOD = "설정변경방법"
+    DATA_RECOVERY_METHOD = "데이터복구방법"
+    TECHNICAL_SUPPORT_PROCEDURE = "기술지원절차"
+    INTERNET_CONNECTION_METHOD = "인터넷연결방법"
+    WIFI_SETTING_METHOD = "WiFi설정방법"
+    
+    # 기타 내용
+    GENERAL_INFO = "일반안내"
+    PROBLEM_RESOLUTION_METHOD = "문제해결방법"
+    SUGGESTION_REVIEW = "제안사항검토"
+    OTHER_INFO = "기타안내"
+
+class ConsultationReason(Enum):
+    """상담 사유 분류"""
+    # 요금 관련 사유
+    BILLING_DISSATISFACTION = "요금불만"
+    BILLING_PLAN_CHANGE_DESIRE = "요금제변경희망"
+    BILLING_PAYMENT_DIFFICULTY = "요금납부어려움"
+    BILLING_DISCOUNT_DESIRE = "요금할인희망"
+    BILLING_SETTLEMENT_ERROR = "요금정산오류"
+    DATA_BILLING_EXCESS = "데이터요금과다"
+    CALL_BILLING_EXCESS = "통화요금과다"
+    SMS_BILLING_EXCESS = "문자요금과다"
+    
+    # 기기 관련 사유
+    DEVICE_PURCHASE_DESIRE = "휴대폰구매희망"
+    DEVICE_CHANGE_DESIRE = "기기변경희망"
+    DEVICE_LOST = "기기분실"
+    DEVICE_DAMAGE = "기기파손"
+    DEVICE_SUSPENSION_REQUEST = "기기정지요청"
+    MICRO_PAYMENT_ISSUE = "소액결제문제"
+    DEVICE_INSTALLMENT_CHANGE_DESIRE = "기기할부변경희망"
+    DEVICE_SETTING_DIFFICULTY = "기기설정어려움"
+    DEVICE_REPLACEMENT_DESIRE = "기기교체희망"
+    
+    # 서비스 관련 사유
+    ADDON_SERVICE_JOIN_DESIRE = "부가서비스가입희망"
+    ADDON_SERVICE_CANCEL_DESIRE = "부가서비스해지희망"
+    ADDON_SERVICE_CHANGE_DESIRE = "부가서비스변경희망"
+    BILLING_PLAN_JOIN_DESIRE = "요금제가입희망"
+    BILLING_PLAN_CHANGE_DESIRE = "요금제변경희망"
+    DATA_SERVICE_CHANGE_DESIRE = "데이터서비스변경희망"
+    CALL_SERVICE_CHANGE_DESIRE = "통화서비스변경희망"
+    SMS_SERVICE_CHANGE_DESIRE = "문자서비스변경희망"
+    
+    # 계정 관련 사유
+    NAME_CHANGE_NEED = "명의변경필요"
+    NUMBER_CHANGE_DESIRE = "번호변경희망"
+    USIM_REISSUE_NEED = "USIM재발급필요"
+    ACCOUNT_CANCEL_DESIRE = "계정해지희망"
+    NUMBER_PORTABILITY_DESIRE = "번호이동희망"
+    PERSONAL_INFO_CHANGE_NEED = "개인정보변경필요"
+    SECURITY_SETTING_CHANGE_NEED = "보안설정변경필요"
+    LOGIN_ISSUE = "로그인문제"
+    
+    # 기술 관련 사유
+    NETWORK_ISSUE_OCCURRENCE = "네트워크문제발생"
+    APP_INSTALL_DIFFICULTY = "앱설치어려움"
+    SETTING_CHANGE_DIFFICULTY = "설정변경어려움"
+    DATA_RECOVERY_NEED = "데이터복구필요"
+    TECHNICAL_SUPPORT_NEED = "기술지원필요"
+    INTERNET_CONNECTION_ISSUE = "인터넷연결문제"
+    WIFI_SETTING_DIFFICULTY = "WiFi설정어려움"
+    
+    # 기타 사유
+    GENERAL_INQUIRY = "일반문의"
+    COMPLAINT = "불만사항"
+    SUGGESTION = "제안사항"
+    OTHER_REASON = "기타사유"
+
+class ConsultationResult(Enum):
+    """상담 결과 분류"""
+    # 성공적 결과
+    BILLING_INFO_COMPLETED = "요금안내완료"
+    BILLING_PLAN_CHANGE_COMPLETED = "요금제변경완료"
+    BILLING_PAYMENT_COMPLETED = "요금납부완료"
+    BILLING_DISCOUNT_APPLIED = "요금할인적용"
+    BILLING_SETTLEMENT_COMPLETED = "요금정산완료"
+    DATA_BILLING_CONFIRM_COMPLETED = "데이터요금확인완료"
+    CALL_BILLING_CONFIRM_COMPLETED = "통화요금확인완료"
+    SMS_BILLING_CONFIRM_COMPLETED = "문자요금확인완료"
+    
+    # 기기 관련 결과
+    DEVICE_PURCHASE_COMPLETED = "휴대폰구매완료"
+    DEVICE_CHANGE_COMPLETED = "기기변경완료"
+    LOST_REPORT_COMPLETED = "분실신고완료"
+    DAMAGE_REPORT_COMPLETED = "파손신고완료"
+    DEVICE_SUSPENSION_COMPLETED = "기기정지완료"
+    MICRO_PAYMENT_SETTING_COMPLETED = "소액결제설정완료"
+    DEVICE_INSTALLMENT_CHANGE_COMPLETED = "기기할부변경완료"
+    DEVICE_SETTING_COMPLETED = "기기설정완료"
+    
+    # 서비스 관련 결과
+    ADDON_SERVICE_JOIN_COMPLETED = "부가서비스가입완료"
+    ADDON_SERVICE_CANCEL_COMPLETED = "부가서비스해지완료"
+    ADDON_SERVICE_CHANGE_COMPLETED = "부가서비스변경완료"
+    BILLING_PLAN_JOIN_COMPLETED = "요금제가입완료"
+    BILLING_PLAN_CHANGE_COMPLETED = "요금제변경완료"
+    DATA_SERVICE_CHANGE_COMPLETED = "데이터서비스변경완료"
+    CALL_SERVICE_CHANGE_COMPLETED = "통화서비스변경완료"
+    SMS_SERVICE_CHANGE_COMPLETED = "문자서비스변경완료"
+    
+    # 계정 관련 결과
+    NAME_CHANGE_COMPLETED = "명의변경완료"
+    NUMBER_CHANGE_COMPLETED = "번호변경완료"
+    USIM_REISSUE_COMPLETED = "USIM재발급완료"
+    ACCOUNT_CANCEL_COMPLETED = "계정해지완료"
+    NUMBER_PORTABILITY_COMPLETED = "번호이동완료"
+    PERSONAL_INFO_CHANGE_COMPLETED = "개인정보변경완료"
+    SECURITY_SETTING_CHANGE_COMPLETED = "보안설정변경완료"
+    LOGIN_RESOLUTION_COMPLETED = "로그인해결완료"
+    
+    # 기술 관련 결과
+    NETWORK_ISSUE_RESOLUTION_COMPLETED = "네트워크문제해결완료"
+    APP_INSTALL_COMPLETED = "앱설치완료"
+    SETTING_CHANGE_COMPLETED = "설정변경완료"
+    DATA_RECOVERY_COMPLETED = "데이터복구완료"
+    TECHNICAL_SUPPORT_COMPLETED = "기술지원완료"
+    INTERNET_CONNECTION_COMPLETED = "인터넷연결완료"
+    WIFI_SETTING_COMPLETED = "WiFi설정완료"
+    
+    # 부분적 결과
+    PARTIALLY_RESOLVED = "부분해결"
+    ADDITIONAL_REVIEW_NEEDED = "추가검토필요"
+    SUPERVISOR_ESCALATION = "상급자이관"
+    RE_REGISTRATION_NEEDED = "재접수필요"
+    
+    # 미해결 결과
+    UNRESOLVABLE = "해결불가"
+    CUSTOMER_REJECTION = "고객거부"
+    SYSTEM_ERROR = "시스템오류"
+    OTHER_UNRESOLVED = "기타미해결"
+
+@dataclass
+class ConsultationClassification:
+    """상담 분류 결과"""
+    subject: Optional[str] = None
+    requirement: Optional[str] = None
+    content: Optional[str] = None
+    reason: Optional[str] = None
+    result: Optional[str] = None
+    confidence: float = 0.0
+    classification_method: str = "hybrid"
+
+class ConsultationClassifier:
+    """상담 분류기 - 키워드 기반 + LLM 하이브리드"""
+    
+    def __init__(self, llm_analyzer: LLMAnalyzer):
+        self.llm_analyzer = llm_analyzer
+        self.keyword_patterns = self._build_keyword_patterns()
+        
+    def _build_keyword_patterns(self) -> Dict[str, Dict[str, List[str]]]:
+        """키워드 패턴 사전 구축"""
+        return {
+            "subject": {
+                "요금문의": ["요금", "비용", "금액", "월정액", "데이터요금", "통화요금", "문자요금"],
+                "요금제변경": ["요금제", "플랜", "변경", "교체", "5G", "4G", "LTE"],
+                "요금납부": ["납부", "결제", "카드", "계좌", "이체", "자동이체"],
+                "요금할인": ["할인", "혜택", "약정", "선택약정", "24개월", "12개월"],
+                "휴대폰문의": ["휴대폰", "폰", "스마트폰", "갤럭시", "아이폰"],
+                "기기변경": ["기기", "변경", "교체", "새폰", "업그레이드"],
+                "기기분실": ["분실", "잃어버림", "도난", "찾을수없음"],
+                "기기파손": ["파손", "깨짐", "고장", "액정", "배터리"],
+                "부가서비스": ["부가서비스", "부가", "서비스", "옵션"],
+                "명의변경": ["명의", "변경", "소유자", "계약자"],
+                "번호변경": ["번호", "변경", "새번호", "번호교체"],
+                "네트워크문제": ["네트워크", "인터넷", "데이터", "연결", "속도"],
+                "일반문의": ["문의", "질문", "궁금", "알고싶음"]
+            },
+            "requirement": {
+                "요금안내요청": ["안내", "알려주세요", "설명", "궁금"],
+                "요금제변경요청": ["변경", "바꾸고싶음", "교체", "신청"],
+                "요금납부도움": ["납부", "결제", "도움", "어려움"],
+                "휴대폰구매": ["구매", "새로", "사고싶음", "계약"],
+                "기기변경신청": ["변경", "신청", "바꾸고싶음"],
+                "분실신고": ["신고", "분실", "도난"],
+                "부가서비스가입": ["가입", "신청", "추가"],
+                "명의변경신청": ["명의", "변경", "신청"],
+                "네트워크문제해결": ["해결", "고치고싶음", "수리"],
+                "정보요청": ["정보", "알려주세요", "궁금"]
+            },
+            "content": {
+                "요금상세안내": ["상세", "자세히", "구체적으로", "안내"],
+                "요금제비교": ["비교", "어떤게", "차이점", "장단점"],
+                "요금납부방법": ["방법", "어떻게", "절차", "순서"],
+                "휴대폰사양안내": ["사양", "스펙", "성능", "기능"],
+                "기기변경절차": ["절차", "순서", "방법", "단계"],
+                "부가서비스목록": ["목록", "종류", "종류별", "리스트"],
+                "명의변경절차": ["절차", "순서", "방법"],
+                "네트워크문제진단": ["진단", "확인", "점검", "체크"],
+                "일반안내": ["안내", "설명", "알려드림"]
+            },
+            "reason": {
+                "요금불만": ["불만", "비싸다", "높다", "부담"],
+                "요금제변경희망": ["변경", "바꾸고싶음", "희망"],
+                "요금납부어려움": ["어려움", "힘들다", "부담"],
+                "휴대폰구매희망": ["구매", "새로", "희망"],
+                "기기변경희망": ["변경", "바꾸고싶음", "희망"],
+                "기기분실": ["분실", "잃어버림"],
+                "기기파손": ["파손", "깨짐", "고장"],
+                "부가서비스가입희망": ["가입", "희망", "원함"],
+                "명의변경필요": ["필요", "해야함", "꼭"],
+                "네트워크문제발생": ["문제", "발생", "생김"],
+                "일반문의": ["문의", "궁금", "알고싶음"]
+            },
+            "result": {
+                "요금안내완료": ["완료", "끝남", "해결"],
+                "요금제변경완료": ["변경", "완료", "처리"],
+                "요금납부완료": ["납부", "완료", "처리"],
+                "휴대폰구매완료": ["구매", "완료", "계약"],
+                "기기변경완료": ["변경", "완료", "처리"],
+                "분실신고완료": ["신고", "완료", "처리"],
+                "부가서비스가입완료": ["가입", "완료", "처리"],
+                "명의변경완료": ["변경", "완료", "처리"],
+                "네트워크문제해결완료": ["해결", "완료", "수리"],
+                "부분해결": ["부분", "일부", "추가"],
+                "해결불가": ["불가", "안됨", "불가능"]
+            }
+        }
+    
+    def text_classify_by_keywords(self, text: str) -> ConsultationClassification:
+        """키워드 기반 분류"""
+        text_lower = text.lower()
+        classification = ConsultationClassification()
+        
+        # 각 분류별로 키워드 매칭
+        for category, patterns in self.keyword_patterns.items():
+            best_match = None
+            best_score = 0
+            
+            for label, keywords in patterns.items():
+                score = sum(1 for keyword in keywords if keyword in text_lower)
+                if score > best_score:
+                    best_score = score
+                    best_match = label
+            
+            if best_match and best_score > 0:
+                setattr(classification, category, best_match)
+                classification.confidence = max(classification.confidence, min(best_score / 3, 0.8))
+        
+        classification.classification_method = "keyword"
+        return classification
+    
+    async def classify_by_llm(self, text: str) -> ConsultationClassification:
+        """LLM 기반 분류"""
+        prompt = f"""
+다음 상담 내용을 분석하여 상담 분류를 해주세요.
+
+상담 내용: {text}
+
+다음 5가지 분류에 대해 각각 가장 적절한 값을 선택해주세요:
+
+1. 상담 주제 (consultation_subject):
+- 요금문의, 요금제변경, 요금납부, 요금할인, 요금정산, 데이터요금, 통화요금, 문자요금, 부가서비스요금
+- 휴대폰문의, 기기변경, 기기분실, 기기파손, 기기정지, 소액결제, 기기할부, 기기설정, 기기교체
+- 부가서비스, 요금제, 데이터서비스, 통화서비스, 문자서비스, 인터넷서비스, TV서비스, 멤버십서비스
+- 명의변경, 번호변경, USIM관리, 계정관리, 번호이동, 개인정보, 보안설정, 로그인문제
+- 네트워크문제, 앱문제, 설정문제, 데이터복구, 기술지원, 인터넷연결, WiFi설정, 블루투스설정
+- 일반문의, 불만사항, 제안사항, 기타
+
+2. 상담 요건 (consultation_requirement):
+- 요금안내요청, 요금제변경요청, 요금납부도움, 요금할인신청, 요금정산요청, 데이터요금확인, 통화요금확인, 문자요금확인
+- 휴대폰구매, 기기변경신청, 분실신고, 파손신고, 기기정지요청, 소액결제설정, 기기할부변경, 기기설정도움, 기기교체신청
+- 부가서비스가입, 부가서비스해지, 부가서비스변경, 요금제가입, 요금제변경, 데이터서비스변경, 통화서비스변경, 문자서비스변경
+- 명의변경신청, 번호변경신청, USIM재발급, 계정해지신청, 번호이동신청, 개인정보변경, 보안설정변경, 로그인도움
+- 네트워크문제해결, 앱설치도움, 설정변경도움, 데이터복구요청, 기술지원요청, 인터넷연결도움, WiFi설정도움
+- 정보요청, 문제해결요청, 제안사항전달, 기타요청
+
+3. 상담 내용 (consultation_content):
+- 요금상세안내, 요금제비교, 요금납부방법, 요금할인조건, 요금정산내역, 데이터사용량확인, 통화내역확인, 문자내역확인
+- 휴대폰사양안내, 기기변경절차, 분실신고절차, 파손신고절차, 기기정지절차, 소액결제설정방법, 기기할부변경절차, 기기설정방법
+- 부가서비스목록, 부가서비스가입절차, 부가서비스해지절차, 요금제상세안내, 요금제변경절차, 데이터서비스설정, 통화서비스설정
+- 명의변경절차, 번호변경절차, USIM재발급절차, 계정해지절차, 번호이동절차, 개인정보변경절차, 보안설정방법, 로그인방법
+- 네트워크문제진단, 앱설치방법, 설정변경방법, 데이터복구방법, 기술지원절차, 인터넷연결방법, WiFi설정방법
+- 일반안내, 문제해결방법, 제안사항검토, 기타안내
+
+4. 상담 사유 (consultation_reason):
+- 요금불만, 요금제변경희망, 요금납부어려움, 요금할인희망, 요금정산오류, 데이터요금과다, 통화요금과다, 문자요금과다
+- 휴대폰구매희망, 기기변경희망, 기기분실, 기기파손, 기기정지요청, 소액결제문제, 기기할부변경희망, 기기설정어려움, 기기교체희망
+- 부가서비스가입희망, 부가서비스해지희망, 부가서비스변경희망, 요금제가입희망, 요금제변경희망, 데이터서비스변경희망, 통화서비스변경희망, 문자서비스변경희망
+- 명의변경필요, 번호변경희망, USIM재발급필요, 계정해지희망, 번호이동희망, 개인정보변경필요, 보안설정변경필요, 로그인문제
+- 네트워크문제발생, 앱설치어려움, 설정변경어려움, 데이터복구필요, 기술지원필요, 인터넷연결문제, WiFi설정어려움
+- 일반문의, 불만사항, 제안사항, 기타사유
+
+5. 상담 결과 (consultation_result):
+- 요금안내완료, 요금제변경완료, 요금납부완료, 요금할인적용, 요금정산완료, 데이터요금확인완료, 통화요금확인완료, 문자요금확인완료
+- 휴대폰구매완료, 기기변경완료, 분실신고완료, 파손신고완료, 기기정지완료, 소액결제설정완료, 기기할부변경완료, 기기설정완료
+- 부가서비스가입완료, 부가서비스해지완료, 부가서비스변경완료, 요금제가입완료, 요금제변경완료, 데이터서비스변경완료, 통화서비스변경완료, 문자서비스변경완료
+- 명의변경완료, 번호변경완료, USIM재발급완료, 계정해지완료, 번호이동완료, 개인정보변경완료, 보안설정변경완료, 로그인해결완료
+- 네트워크문제해결완료, 앱설치완료, 설정변경완료, 데이터복구완료, 기술지원완료, 인터넷연결완료, WiFi설정완료
+- 부분해결, 추가검토필요, 상급자이관, 재접수필요, 해결불가, 고객거부, 시스템오류, 기타미해결
+
+JSON 형태로 응답해주세요:
+{{
+    "consultation_subject": "선택된_주제",
+    "consultation_requirement": "선택된_요건", 
+    "consultation_content": "선택된_내용",
+    "consultation_reason": "선택된_사유",
+    "consultation_result": "선택된_결과",
+    "confidence": 0.85
+}}
+"""
+        
+        try:
+            response = await self.llm_analyzer.analyze_text(prompt)
+            result = json.loads(response)
+            
+            classification = ConsultationClassification(
+                subject=result.get("consultation_subject"),
+                requirement=result.get("consultation_requirement"),
+                content=result.get("consultation_content"),
+                reason=result.get("consultation_reason"),
+                result=result.get("consultation_result"),
+                confidence=result.get("confidence", 0.0),
+                classification_method="llm"
+            )
+            
+            return classification
+            
+        except Exception as e:
+            logger.error(f"LLM 분류 실패: {e}")
+            return ConsultationClassification(classification_method="llm_failed")
+    
+    async def classify_hybrid(self, text: str) -> ConsultationClassification:
+        """하이브리드 분류 (키워드 + LLM)"""
+        # 키워드 기반 분류 먼저 수행
+        keyword_result = self.text_classify_by_keywords(text)
+        
+        # 키워드 분류 결과가 충분히 확실하면 그대로 사용
+        if keyword_result.confidence > 0.7:
+            logger.info(f"키워드 분류 사용 (confidence: {keyword_result.confidence})")
+            return keyword_result
+        
+        # 그렇지 않으면 LLM 분류 수행
+        try:
+            llm_result = await self.classify_by_llm(text)
+            
+            # LLM 결과가 있으면 키워드 결과와 병합
+            if llm_result.confidence > 0:
+                # LLM 결과로 빈 필드 채우기
+                for field in ['subject', 'requirement', 'content', 'reason', 'result']:
+                    keyword_value = getattr(keyword_result, field)
+                    llm_value = getattr(llm_result, field)
+                    
+                    if not keyword_value and llm_value:
+                        setattr(keyword_result, field, llm_value)
+                
+                # 신뢰도는 LLM 결과 사용
+                keyword_result.confidence = llm_result.confidence
+                keyword_result.classification_method = "hybrid"
+                
+                logger.info(f"하이브리드 분류 완료 (confidence: {keyword_result.confidence})")
+                return keyword_result
+            
+        except Exception as e:
+            logger.error(f"LLM 분류 실패, 키워드 결과 사용: {e}")
+        
+        # LLM 실패시 키워드 결과 반환
+        return keyword_result
+    
+    def text_get_classification_summary(self, classification: ConsultationClassification) -> Dict[str, Any]:
+        """분류 결과 요약"""
+        return {
+            "subject": classification.subject,
+            "requirement": classification.requirement,
+            "content": classification.content,
+            "reason": classification.reason,
+            "result": classification.result,
+            "confidence": classification.confidence,
+            "method": classification.classification_method,
+            "timestamp": asyncio.get_event_loop().time() if asyncio.get_event_loop().is_running() else None
+        } 

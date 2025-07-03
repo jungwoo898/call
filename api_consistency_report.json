@@ -1,0 +1,29 @@
+{
+  "timestamp": "2024-07-02T15:30:00Z",
+  "summary": {
+    "total_issues": 0,
+    "by_severity": {},
+    "by_type": {}
+  },
+  "pydantic_models": [
+    "IntegratedAnalysisResult",
+    "MetricsResponse",
+    "SaveResultRequest",
+    "LLMAnalysisRequest",
+    "AudioSegmentRequest",
+    "AudioSegment",
+    "TranscriptionRequest",
+    "TranscriptionResult",
+    "SentimentAnalysisRequest",
+    "IntegratedAnalysisRequest",
+    "SpeakerDiarizationRequest",
+    "BaseResponse",
+    "SpeakerSegment",
+    "HealthResponse",
+    "AudioProcessRequest",
+    "LLMAnalysisResult",
+    "SentimentResult"
+  ],
+  "response_patterns": {},
+  "issues": []
+}

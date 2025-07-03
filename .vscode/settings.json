@@ -1,0 +1,136 @@
+{
+    "python.defaultInterpreter": "./venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    
+    // 마이크로서비스 URL 설정
+    "callytics.services": {
+        "api-gateway": {
+            "url": "http://localhost:8000",
+            "health": "http://localhost:8000/health",
+            "docs": "http://localhost:8000/docs"
+        },
+        "audio-processor": {
+            "url": "http://localhost:8001",
+            "health": "http://localhost:8001/health",
+            "docs": "http://localhost:8001/docs"
+        },
+        "speaker-diarizer": {
+            "url": "http://localhost:8002",
+            "health": "http://localhost:8002/health",
+            "docs": "http://localhost:8002/docs"
+        },
+        "speech-recognizer": {
+            "url": "http://localhost:8003",
+            "health": "http://localhost:8003/health",
+            "docs": "http://localhost:8003/docs"
+        },
+        "punctuation-restorer": {
+            "url": "http://localhost:8004",
+            "health": "http://localhost:8004/health",
+            "docs": "http://localhost:8004/docs"
+        },
+        "sentiment-analyzer": {
+            "url": "http://localhost:8005",
+            "health": "http://localhost:8005/health",
+            "docs": "http://localhost:8005/docs"
+        },
+        "llm-analyzer": {
+            "url": "http://localhost:8006",
+            "health": "http://localhost:8006/health",
+            "docs": "http://localhost:8006/docs"
+        },
+        "database-service": {
+            "url": "http://localhost:8007",
+            "health": "http://localhost:8007/health",
+            "docs": "http://localhost:8007/docs"
+        }
+    },
+    
+    // 환경 변수
+    "terminal.integrated.env.windows": {
+        "TZ": "Asia/Seoul",
+        "LANG": "ko_KR.UTF-8",
+        "LC_ALL": "ko_KR.UTF-8",
+        "PYTHONIOENCODING": "utf-8"
+    },
+    "terminal.integrated.env.linux": {
+        "TZ": "Asia/Seoul",
+        "LANG": "ko_KR.UTF-8", 
+        "LC_ALL": "ko_KR.UTF-8",
+        "PYTHONIOENCODING": "utf-8"
+    },
+    "terminal.integrated.env.osx": {
+        "TZ": "Asia/Seoul",
+        "LANG": "ko_KR.UTF-8",
+        "LC_ALL": "ko_KR.UTF-8", 
+        "PYTHONIOENCODING": "utf-8"
+    },
+    
+    // 파일 연결 설정
+    "files.associations": {
+        "*.yml": "yaml",
+        "*.yaml": "yaml",
+        "Dockerfile*": "dockerfile",
+        "docker-compose*.yml": "yaml"
+    },
+    
+    // 코드 포맷팅
+    "python.formatting.provider": "black",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.pycodestyleEnabled": true,
+    "editor.formatOnSave": true,
+    
+    // REST Client 설정 (API 테스트용)
+    "rest-client.environmentVariables": {
+        "local": {
+            "baseUrl": "http://localhost:8000",
+            "audioProcessor": "http://localhost:8001",
+            "speakerDiarizer": "http://localhost:8002",
+            "speechRecognizer": "http://localhost:8003",
+            "punctuationRestorer": "http://localhost:8004",
+            "sentimentAnalyzer": "http://localhost:8005",
+            "llmAnalyzer": "http://localhost:8006",
+            "databaseService": "http://localhost:8007"
+        }
+    },
+    
+    // 검색 및 파일 제외
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/venv": true,
+        "**/__pycache__": true,
+        "**/logs": true,
+        "**/temp": true,
+        "**/.git": true
+    },
+    
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/venv": true,
+        "**/logs/*.log": true
+    },
+    
+    // 워크스페이스 설정
+    "workbench.colorTheme": "Default Dark+",
+    "editor.rulers": [88, 120],
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    
+    // Docker 설정
+    "docker.host": "",
+    "docker.composeCommand": "docker-compose",
+    "docker.defaultComposeFile": "docker-compose-microservices.yml",
+    
+    // 익스텐션 권장 사항
+    "extensions.recommendations": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker",
+        "humao.rest-client",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json",
+        "ms-python.black-formatter",
+        "ms-python.pylint"
+    ]
+} 

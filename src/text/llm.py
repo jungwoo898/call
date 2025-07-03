@@ -7,7 +7,7 @@ import os
 
 # Related third-party imports
 import yaml
-import openai
+# import openai  # 필요시 주석 해제
 import time
 
 # Local imports
@@ -87,7 +87,7 @@ class LLMOrchestrator:
         return prompts
 
     @staticmethod
-    def extract_json(
+    def text_extract_json(
             response: Annotated[str, "The response string to extract JSON from"]
     ) -> Annotated[Optional[Dict[str, Any]], "Extracted JSON as a dictionary or None if not found"]:
         """
@@ -122,13 +122,13 @@ class LLMOrchestrator:
         Performs the specified LLM task using the selected prompt, supporting both user and optional system contexts.
         """
         if prompt_name not in self.prompts:
-            return {"error": f"Prompt '{prompt_name}' is not defined in prompt.yaml."}
+            return {"status": "error": f"Prompt '{prompt_name}' is not defined in prompt.yaml."}
 
         system_prompt_template = self.prompts[prompt_name].get('system', '')
         user_prompt_template = self.prompts[prompt_name].get('user', '')
 
         if not system_prompt_template or not user_prompt_template:
-            return {"error": f"Prompts for '{prompt_name}' are incomplete."}
+            return {"status": "error": f"Prompts for '{prompt_name}' are incomplete."}
 
         formatted_user_input = Formatter.format_ssm_as_dialogue(user_input)
 
@@ -151,11 +151,11 @@ class LLMOrchestrator:
         )
         print(response)
 
-        dict_obj = self.extract_json(response)
+        dict_obj = self.text_extract_json(response)
         if dict_obj:
             return dict_obj
         else:
-            return {"error": "No valid JSON object found in the response."}
+            return {"status": "error": "No valid JSON object found in the response."}
 
 
 class LLMResultHandler:
@@ -168,11 +168,11 @@ class LLMResultHandler:
 
     Methods
     -------
-    validate_and_fallback(llm_result, ssm)
+    text_validate_and_fallback(llm_result, ssm)
         Validates the LLM result against structured speaker metadata and applies fallback.
     _fallback(ssm)
         Applies fallback formatting to the speaker data.
-    log_result(ssm, llm_result)
+    text_log_result(ssm, llm_result)
         Logs the final processed data and the original LLM result.
     """
 
@@ -182,7 +182,7 @@ class LLMResultHandler:
         """
         pass
 
-    def validate_and_fallback(
+    def text_validate_and_fallback(
             self,
             llm_result: Annotated[Dict[str, str], "LLM result with customer and CSR speaker identifiers"],
             ssm: Annotated[List[Dict[str, Any]], "List of sentences with speaker metadata"]
@@ -208,7 +208,7 @@ class LLMResultHandler:
         >>> result = {"Customer": "Speaker 1", "CSR": "Speaker 2"}
         >>> ssm_ = [{"speaker": "Speaker 1", "text": "Hello!"}, {"speaker": "Speaker 2", "text": "Hi!"}]
         >>> handler = LLMResultHandler()
-        >>> handler.validate_and_fallback(llm_result, ssm)
+        >>> handler.text_validate_and_fallback(llm_result, ssm)
         [{'speaker': 'Customer', 'text': 'Hello!'}, {'speaker': 'CSR', 'text': 'Hi!'}]
         """
         if not isinstance(llm_result, dict):
@@ -273,7 +273,7 @@ class LLMResultHandler:
         return ssm
 
     @staticmethod
-    def log_result(
+    def text_log_result(
             ssm: Annotated[List[Dict[str, Any]], "Final processed speaker metadata"],
             llm_result: Annotated[Dict[str, str], "Original LLM result"]
     ) -> None:
@@ -296,7 +296,7 @@ class LLMResultHandler:
         >>> ssm_ = [{"speaker": "CSR", "text": "Hello!"}, {"speaker": "Customer", "text": "Hi!"}]
         >>> result = {"Customer": "Speaker 1", "CSR": "Speaker 2"}
         >>> handler = LLMResultHandler()
-        >>> handler.log_result(ssm, llm_result)
+        >>> handler.text_log_result(ssm, llm_result)
         Final SSM: [{'speaker': 'CSR', 'text': 'Hello!'}, {'speaker': 'Customer', 'text': 'Hi!'}]
         LLM Result: {'Customer': 'Speaker 1', 'CSR': 'Speaker 2'}
         """
@@ -314,7 +314,7 @@ class LLMHandler:
         LLMHandler 초기화
         """
         self.api_key = os.getenv("OPENAI_API_KEY")
-        self.client = openai.AsyncOpenAI(api_key=self.api_key) if self.api_key else None
+        # self.client = openai.AsyncOpenAI(api_key=self.api_key) if self.api_key else None
         self.max_retries = 3
         self.retry_delay = 1
         
@@ -352,7 +352,7 @@ class LLMHandler:
         
         # 캐시가 만료된 경우 새로운 확인 수행
         try:
-            await self.client.models.list()
+            # await self.client.models.list()
             self._quota_check_cache.update({
                 "last_check": current_time,
                 "is_healthy": True,
@@ -391,12 +391,12 @@ class LLMHandler:
         
         # 캐시가 만료된 경우 새로운 조회 수행
         try:
-            response = await self.client.models.list()
-            models_count = len(response.data) if response.data else 0
+            # response = await self.client.models.list()
+            models_count = len(self._models_cache["models"]) if self._models_cache["models"] else 0
             
             self._models_cache.update({
                 "last_check": current_time,
-                "models": response.data,
+                "models": self._models_cache["models"],
                 "models_count": models_count
             })
             
@@ -453,15 +453,15 @@ class LLMHandler:
                 prompt = self._create_prompt(task_type, user_input, system_input)
                 
                 # API 호출
-                response = await self.client.chat.completions.create(
-                    model="gpt-4.1-nano",
-                    messages=[
-                        {"role": "system", "content": prompt["system"]},
-                        {"role": "user", "content": prompt["user"]}
-                    ],
-                    temperature=0.3,
-                    max_tokens=2000
-                )
+                # response = await self.client.chat.completions.create(
+                #     model="gpt-4.1-nano",
+                #     messages=[
+                #         {"role": "system", "content": prompt["system"]},
+                #         {"role": "user", "content": prompt["user"]}
+                #     ],
+                #     temperature=0.3,
+                #     max_tokens=2000
+                # )
                 
                 # 응답 파싱
                 result = self._parse_response(task_type, response.choices[0].message.content)
@@ -496,7 +496,7 @@ class LLMHandler:
         """
         
         if task_type == "Classification":
-            system_prompt = """당신은 통신사 고객 상담 분석 전문가입니다. 
+            system_prompt = None"당신은 통신사 고객 상담 분석 전문가입니다. 
 화자의 역할을 정확히 분류해주세요.
 
 분류 기준:
@@ -515,7 +515,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담 대화에서 각 화자의 역할을 분류해주세요:\n\n{user_input}"
             
         elif task_type == "Summary":
-            system_prompt = """당신은 통신사 고객 상담 요약 전문가입니다.
+            system_prompt = None"당신은 통신사 고객 상담 요약 전문가입니다.
 상담 내용을 핵심 포인트 중심으로 요약해주세요.
 
 요약 항목:
@@ -536,7 +536,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담 내용을 요약해주세요:\n\n{user_input}"
             
         elif task_type == "ConflictDetection":
-            system_prompt = """당신은 통신사 고객 상담 갈등 감지 전문가입니다.
+            system_prompt = None"당신은 통신사 고객 상담 갈등 감지 전문가입니다.
 상담 중 갈등, 불만, 문제 상황을 정확히 감지해주세요.
 
 갈등 지표:
@@ -580,7 +580,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담의 업무 유형을 분류해주세요:\n\n{user_input}"
             
         elif task_type == "ComplaintAnalysis":
-            system_prompt = """당신은 통신사 민원 분석 전문가입니다.
+            system_prompt = None"당신은 통신사 민원 분석 전문가입니다.
 고객 민원을 종합적으로 분석해주세요.
 
 분석 항목:
@@ -602,7 +602,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 민원을 분석해주세요:\n\n{user_input}"
             
         elif task_type == "ActionItems":
-            system_prompt = """당신은 통신사 상담 후속 조치 전문가입니다.
+            system_prompt = None"당신은 통신사 상담 후속 조치 전문가입니다.
 상담 내용을 바탕으로 구체적인 액션 아이템을 도출해주세요.
 
 액션 아이템 유형:
@@ -626,7 +626,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담의 액션 아이템을 도출해주세요:\n\n{user_input}"
             
         elif task_type == "QualityAssessment":
-            system_prompt = """당신은 통신사 상담 품질 평가 전문가입니다.
+            system_prompt = None"당신은 통신사 상담 품질 평가 전문가입니다.
 상담 품질을 객관적으로 평가해주세요.
 
 평가 기준:
@@ -727,7 +727,7 @@ class LLMHandler:
                     "customer_satisfaction_predicted": 3
                 }
             else:
-                return {"result": response}
+                return {"status": "success", "data": result: response}
                 
         except Exception as e:
             print(f"Error parsing LLM response: {e}")
@@ -769,7 +769,13 @@ class LLMHandler:
         try:
             # API 키 확인
             if not self.api_key:
-                return {"status": "error", "message": "API 키가 설정되지 않음"}
+                {
+    "status": "error",
+    "message": str(error),
+    "error_code": error_code,
+    "details": error_details,
+    "timestamp": get_current_time().isoformat()
+}
             
             # 캐시된 API 연결 테스트
             async def check_health():
@@ -785,9 +791,13 @@ class LLMHandler:
                         }
                     }
                 except Exception as e:
-                    return {
-                        "status": "error", 
-                        "message": f"API 연결 실패: {str(e)}",
+                    {
+    "status": "error",
+    "message": str(error),
+    "error_code": error_code,
+    "details": error_details,
+    "timestamp": get_current_time().isoformat()
+}",
                         "cache_info": {
                             "quota_cache_age": time.time() - self._quota_check_cache["last_check"],
                             "models_cache_age": time.time() - self._models_cache["last_check"]
@@ -797,12 +807,16 @@ class LLMHandler:
             return asyncio.run(check_health())
             
         except Exception as e:
-            return {
-                "status": "error", 
-                "message": f"Health check 실패: {str(e)}"
+            {
+    "status": "error",
+    "message": str(error),
+    "error_code": error_code,
+    "details": error_details,
+    "timestamp": get_current_time().isoformat()
+}"
             }
 
-    def get_usage_stats(self) -> Dict[str, Any]:
+    def text_get_usage_stats(self) -> Dict[str, Any]:
         """
         API 사용 통계를 반환합니다.
         

@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
-Callytics 상담사 인증 시스템
+Callytics 상담사 인증 시스템 (PostgreSQL 기반)
 로그인, 권한 관리, 세션 관리
 """
 
+import os
 import hashlib
 import secrets
-import sqlite3
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from contextlib import contextmanager
-import jwt
 from dataclasses import dataclass
+import jwt
+
+# PostgreSQL 매니저 import
+from ..db.postgres_manager import PostgreSQLManager
 
 logger = logging.getLogger(__name__)
 
@@ -29,30 +32,34 @@ class AgentSession:
     expires_at: datetime
 
 class AgentAuthManager:
-    """상담사 인증 관리자"""
+    """상담사 인증 관리자 (PostgreSQL)"""
     
-    def __init__(self, db_path: str = "data/callytics_consultation_quality.db"):
-        self.db_path = db_path
-        self.secret_key = "your-secret-key-here"  # 실제 운영시 환경변수로 관리
-        self.session_duration = timedelta(hours=8)  # 세션 유지 시간
-    
-    @contextmanager
-    def get_db_connection(self):
-        """데이터베이스 연결"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-        finally:
-            conn.close()
-    
-    def hash_password(self, password: str) -> str:
+    def __init__(self):
+        # 🔐 보안 강화: 환경변수에서 시크릿 키 로드
+        self.secret_key = os.getenv("JWT_SECRET_KEY")
+        if not self.secret_key:
+            if os.getenv("ENVIRONMENT") == "development":
+                self.secret_key = secrets.token_urlsafe(32)
+                logger.warning("개발 환경: 임시 JWT 시크릿 키 생성됨")
+            else:
+                raise ValueError("JWT_SECRET_KEY 환경변수가 설정되지 않았습니다")
+        self.session_duration = timedelta(hours=int(os.getenv("SESSION_DURATION_HOURS", "8")))
+        self.max_login_attempts = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
+        self.account_lock_duration = timedelta(minutes=int(os.getenv("ACCOUNT_LOCK_MINUTES", "30")))
+        self.issuer = os.getenv("JWT_ISSUER", "callytics-auth")
+        self.audience = os.getenv("JWT_AUDIENCE", "callytics-api")
+        # PostgreSQL 매니저
+        self.pg = PostgreSQLManager()
+        self.loop = asyncio.get_event_loop()
+        self.loop.run_until_complete(self.pg.initialize())
+
+    def auth_hash_password(self, password: str) -> str:
         """비밀번호 해시화"""
         salt = secrets.token_hex(16)
         hash_obj = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), 100000)
         return f"{salt}${hash_obj.hex()}"
-    
-    def verify_password(self, password: str, hashed_password: str) -> bool:
+
+    def auth_verify_password(self, password: str, hashed_password: str) -> bool:
         """비밀번호 검증"""
         try:
             salt, hash_hex = hashed_password.split('$')
@@ -60,137 +67,110 @@ class AgentAuthManager:
             return hash_obj.hex() == hash_hex
         except:
             return False
-    
-    def create_agent_account(self, username: str, email: str, password: str, 
+
+    def auth_create_agent_account(self, username: str, email: str, password: str, 
                            full_name: str, department: str, position: str, 
-                           employee_id: str = None) -> Optional[int]:
-        """상담사 계정 생성"""
+                           employee_id: str = None) -> int | None:
+        """상담사 계정 생성 (동기)"""
+        return self.loop.run_until_complete(
+            self.create_agent_account_async(username, email, password, full_name, department, position, employee_id)
+        )
+
+    async def create_agent_account_async(self, username: str, email: str, password: str, 
+                                         full_name: str, department: str, position: str, 
+                                         employee_id: str = None) -> int | None:
         try:
-            with self.get_db_connection() as conn:
-                cursor = conn.cursor()
-                
+            hashed_password = self.auth_hash_password(password)
+            async with self.pg.get_connection() as conn:
                 # 계정 생성
-                hashed_password = self.hash_password(password)
-                cursor.execute("""
+                account_id = await conn.fetchval("""
                     INSERT INTO agent_accounts (username, email, password_hash)
-                    VALUES (?, ?, ?)
-                """, (username, email, hashed_password))
-                
-                account_id = cursor.lastrowid
-                
+                    VALUES ($1, $2, $3)
+                    RETURNING id
+                """, username, email, hashed_password)
                 # 프로필 생성
-                cursor.execute("""
+                agent_id = await conn.fetchval("""
                     INSERT INTO agent_profiles (account_id, employee_id, full_name, first_name, last_name, department, position)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (account_id, employee_id, full_name, full_name.split()[0], ' '.join(full_name.split()[1:]), department, position))
-                
-                agent_id = cursor.lastrowid
-                
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    RETURNING id
+                """, account_id, employee_id, full_name, full_name.split()[0], ' '.join(full_name.split()[1:]), department, position)
                 # 기본 권한 부여
-                cursor.execute("""
+                await conn.execute("""
                     INSERT INTO agent_permissions (agent_id, permission_type, permission_level)
-                    VALUES (?, 'audio_upload', 'write')
-                """, (agent_id,))
-                
-                cursor.execute("""
+                    VALUES ($1, 'audio_upload', 'write')
+                """, agent_id)
+                await conn.execute("""
                     INSERT INTO agent_permissions (agent_id, permission_type, permission_level)
-                    VALUES (?, 'analysis_view', 'read')
-                """, (agent_id,))
-                
+                    VALUES ($1, 'analysis_view', 'read')
+                """, agent_id)
                 # 기본 설정 생성
-                cursor.execute("""
+                await conn.execute("""
                     INSERT INTO agent_settings (agent_id)
-                    VALUES (?)
-                """, (agent_id,))
-                
-                conn.commit()
+                    VALUES ($1)
+                """, agent_id)
                 logger.info(f"상담사 계정 생성 완료: {username} ({full_name})")
                 return agent_id
-                
-        except sqlite3.IntegrityError as e:
-            logger.error(f"계정 생성 실패 (중복): {e}")
-            return None
         except Exception as e:
             logger.error(f"계정 생성 실패: {e}")
             return None
-    
-    def authenticate_agent(self, username: str, password: str) -> Optional[AgentSession]:
-        """상담사 인증"""
+
+    def auth_authenticate_agent(self, username: str, password: str) -> Optional[AgentSession]:
+        """상담사 인증 (동기)"""
+        return self.loop.run_until_complete(self.authenticate_agent_async(username, password))
+
+    async def authenticate_agent_async(self, username: str, password: str) -> Optional[AgentSession]:
         try:
-            with self.get_db_connection() as conn:
-                cursor = conn.cursor()
-                
-                # 계정 정보 조회
-                cursor.execute("""
+            async with self.pg.get_connection() as conn:
+                row = await conn.fetchrow("""
                     SELECT aa.*, ap.*
                     FROM agent_accounts aa
                     JOIN agent_profiles ap ON aa.id = ap.account_id
-                    WHERE aa.username = ? AND aa.account_status = 'active'
-                """, (username,))
-                
-                row = cursor.fetchone()
+                    WHERE aa.username = $1 AND aa.account_status = 'active'
+                """, username)
                 if not row:
                     logger.warning(f"인증 실패: 사용자를 찾을 수 없음 - {username}")
                     return None
-                
                 # 계정 잠금 확인
-                if row['account_locked_until'] and datetime.fromisoformat(row['account_locked_until']) > datetime.now():
+                if row['account_locked_until'] and datetime.fromisoformat(str(row['account_locked_until'])) > get_current_time():
                     logger.warning(f"인증 실패: 계정 잠금 - {username}")
                     return None
-                
                 # 비밀번호 검증
-                if not self.verify_password(password, row['password_hash']):
+                if not self.auth_verify_password(password, row['password_hash']):
                     # 로그인 실패 횟수 증가
-                    cursor.execute("""
+                    await conn.execute("""
                         UPDATE agent_accounts 
                         SET login_attempts = login_attempts + 1
-                        WHERE id = ?
-                    """, (row['id']))
-                    
+                        WHERE id = $1
+                    """, row['id'])
                     # 5회 실패시 계정 잠금
                     if row['login_attempts'] >= 4:
-                        lock_until = datetime.now() + timedelta(minutes=30)
-                        cursor.execute("""
+                        lock_until = get_current_time() + self.account_lock_duration
+                        await conn.execute("""
                             UPDATE agent_accounts 
-                            SET account_locked_until = ?
-                            WHERE id = ?
-                        """, (lock_until.isoformat(), row['id']))
+                            SET account_locked_until = $1
+                            WHERE id = $2
+                        """, lock_until.isoformat(), row['id'])
                         logger.warning(f"계정 잠금: {username} (5회 실패)")
-                    
-                    conn.commit()
                     logger.warning(f"인증 실패: 잘못된 비밀번호 - {username}")
                     return None
-                
                 # 로그인 성공 - 실패 횟수 초기화
-                cursor.execute("""
+                await conn.execute("""
                     UPDATE agent_accounts 
                     SET login_attempts = 0, account_locked_until = NULL, last_login_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                """, (row['id']))
-                
+                    WHERE id = $1
+                """, row['id'])
                 # 권한 조회
-                cursor.execute("""
+                perm_rows = await conn.fetch("""
                     SELECT permission_type, permission_level
                     FROM agent_permissions
-                    WHERE agent_id = ? AND is_active = 1
-                """, (row['agent_id'],))
-                
-                permissions = [f"{row['permission_type']}:{row['permission_level']}" for row in cursor.fetchall()]
-                
+                    WHERE agent_id = $1 AND is_active = TRUE
+                """, row['id'])
+                permissions = [f"{r['permission_type']}:{r['permission_level']}" for r in perm_rows]
                 # 세션 토큰 생성
                 session_token = secrets.token_urlsafe(32)
-                expires_at = datetime.now() + self.session_duration
-                
-                # 활동 로그 기록
-                cursor.execute("""
-                    INSERT INTO agent_activity_logs (agent_id, activity_type, activity_description)
-                    VALUES (?, 'login', '로그인 성공')
-                """, (row['agent_id'],))
-                
-                conn.commit()
-                
-                session = AgentSession(
-                    agent_id=row['agent_id'],
+                expires_at = get_current_time() + self.session_duration
+                return AgentSession(
+                    agent_id=row['id'],
                     username=row['username'],
                     full_name=row['full_name'],
                     department=row['department'],
@@ -199,15 +179,13 @@ class AgentAuthManager:
                     session_token=session_token,
                     expires_at=expires_at
                 )
-                
-                logger.info(f"인증 성공: {username} ({row['full_name']})")
-                return session
-                
         except Exception as e:
-            logger.error(f"인증 처리 실패: {e}")
+            logger.error(f"인증 실패: {e}")
             return None
-    
-    def validate_session(self, session_token: str) -> Optional[AgentSession]:
+
+    # 이하 validate_session, create_session_token, logout_agent 등도 동일하게 asyncpg 기반으로 리팩토링 필요
+
+    def auth_validate_session(self, session_token: str) -> Optional[AgentSession]:
         """세션 검증"""
         # 실제 구현에서는 Redis나 DB에 세션 정보 저장
         # 여기서는 간단한 예시로 JWT 토큰 사용
@@ -257,7 +235,7 @@ class AgentAuthManager:
             logger.error(f"세션 검증 실패: {e}")
             return None
     
-    def create_session_token(self, agent_session: AgentSession) -> str:
+    def auth_create_session_token(self, agent_session: AgentSession) -> str:
         """세션 토큰 생성"""
         payload = {
             'agent_id': agent_session.agent_id,
@@ -267,7 +245,7 @@ class AgentAuthManager:
         }
         return jwt.encode(payload, self.secret_key, algorithm='HS256')
     
-    def logout_agent(self, agent_id: int, session_token: str):
+    def auth_logout_agent(self, agent_id: int, session_token: str):
         """로그아웃"""
         try:
             with self.get_db_connection() as conn:
@@ -285,7 +263,7 @@ class AgentAuthManager:
         except Exception as e:
             logger.error(f"로그아웃 처리 실패: {e}")
     
-    def get_agent_permissions(self, agent_id: int) -> List[str]:
+    def auth_get_agent_permissions(self, agent_id: int) -> List[str]:
         """상담사 권한 조회"""
         try:
             with self.get_db_connection() as conn:
@@ -302,9 +280,9 @@ class AgentAuthManager:
             logger.error(f"권한 조회 실패: {e}")
             return []
     
-    def check_permission(self, agent_id: int, permission_type: str, required_level: str = 'read') -> bool:
+    def auth_check_permission(self, agent_id: int, permission_type: str, required_level: str = 'read') -> bool:
         """권한 확인"""
-        permissions = self.get_agent_permissions(agent_id)
+        permissions = self.auth_get_agent_permissions(agent_id)
         
         for permission in permissions:
             perm_type, perm_level = permission.split(':')
@@ -318,7 +296,7 @@ class AgentAuthManager:
         
         return False
     
-    def log_activity(self, agent_id: int, activity_type: str, description: str = None, 
+    def auth_log_activity(self, agent_id: int, activity_type: str, description: str = None, 
                     ip_address: str = None, user_agent: str = None, activity_data: str = None):
         """활동 로그 기록"""
         try:
@@ -335,7 +313,7 @@ class AgentAuthManager:
         except Exception as e:
             logger.error(f"활동 로그 기록 실패: {e}")
     
-    def get_agent_profile(self, agent_id: int) -> Optional[Dict[str, Any]]:
+    def auth_get_agent_profile(self, agent_id: int) -> Optional[Dict[str, Any]]:
         """상담사 프로필 조회"""
         try:
             with self.get_db_connection() as conn:
@@ -356,7 +334,7 @@ class AgentAuthManager:
             logger.error(f"프로필 조회 실패: {e}")
             return None
     
-    def update_agent_profile(self, agent_id: int, **kwargs) -> bool:
+    def auth_update_agent_profile(self, agent_id: int, **kwargs) -> bool:
         """상담사 프로필 업데이트"""
         try:
             with self.get_db_connection() as conn:

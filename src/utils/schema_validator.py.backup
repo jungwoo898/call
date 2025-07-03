@@ -1,0 +1,336 @@
+#!/usr/bin/env python3
+"""
+API 스키마 검증 및 OpenAPI 문서 생성 도구
+타입 불일치, null vs empty 문제 감지
+"""
+
+import json
+import yaml
+import logging
+from typing import Dict, Any, List, Optional, Union
+from pathlib import Path
+import requests
+from dataclasses import dataclass
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+class ValidationIssueType(str, Enum):
+    """검증 이슈 유형"""
+    TYPE_MISMATCH = "type_mismatch"
+    NULL_VS_EMPTY = "null_vs_empty"
+    MISSING_FIELD = "missing_field"
+    EXTRA_FIELD = "extra_field"
+    SCHEMA_VIOLATION = "schema_violation"
+
+@dataclass
+class ValidationIssue:
+    """검증 이슈"""
+    issue_type: ValidationIssueType
+    field_path: str
+    expected: Any
+    actual: Any
+    message: str
+    severity: str = "warning"  # warning, error, critical
+
+class APISchemaValidator:
+    """API 스키마 검증기"""
+    
+    def __init__(self, service_urls: Dict[str, str]):
+        self.service_urls = service_urls
+        self.schemas = {}
+        self.validation_issues = []
+    
+    async def collect_openapi_schemas(self) -> Dict[str, Any]:
+        """모든 서비스의 OpenAPI 스키마 수집"""
+        schemas = {}
+        
+        for service_name, base_url in self.service_urls.items():
+            try:
+                # OpenAPI 스키마 다운로드
+                openapi_url = f"{base_url}/openapi.json"
+                response = requests.get(openapi_url, timeout=10)
+                
+                if response.status_code == 200:
+                    schemas[service_name] = response.json()
+                    logger.info(f"✅ {service_name} OpenAPI 스키마 수집 완료")
+                else:
+                    logger.warning(f"⚠️ {service_name} OpenAPI 스키마 수집 실패: {response.status_code}")
+                    
+            except Exception as e:
+                logger.error(f"❌ {service_name} 스키마 수집 오류: {e}")
+        
+        self.schemas = schemas
+        return schemas
+    
+    def validate_response_format(self, service_name: str, endpoint: str, 
+                                response_data: Dict[str, Any]) -> List[ValidationIssue]:
+        """응답 형식 검증"""
+        issues = []
+        
+        # 공통 응답 형식 검증
+        required_fields = ["status", "message", "timestamp"]
+        for field in required_fields:
+            if field not in response_data:
+                issues.append(ValidationIssue(
+                    issue_type=ValidationIssueType.MISSING_FIELD,
+                    field_path=f"{service_name}.{endpoint}.{field}",
+                    expected=field,
+                    actual="missing",
+                    message=f"필수 필드 '{field}'가 누락됨",
+                    severity="error"
+                ))
+        
+        # 타입 검증
+        if "status" in response_data:
+            status = response_data["status"]
+            valid_statuses = ["success", "error", "processing", "pending"]
+            if status not in valid_statuses:
+                issues.append(ValidationIssue(
+                    issue_type=ValidationIssueType.TYPE_MISMATCH,
+                    field_path=f"{service_name}.{endpoint}.status",
+                    expected=valid_statuses,
+                    actual=status,
+                    message=f"잘못된 status 값: {status}",
+                    severity="error"
+                ))
+        
+        return issues
+    
+    def check_null_vs_empty_issues(self, data: Any, path: str = "") -> List[ValidationIssue]:
+        """null vs empty 문제 감지"""
+        issues = []
+        
+        if isinstance(data, dict):
+            for key, value in data.items():
+                current_path = f"{path}.{key}" if path else key
+                
+                # null vs empty string 검사
+                if value == "" or value is None:
+                    issues.append(ValidationIssue(
+                        issue_type=ValidationIssueType.NULL_VS_EMPTY,
+                        field_path=current_path,
+                        expected="consistent null/empty handling",
+                        actual=repr(value),
+                        message=f"필드 '{current_path}'에서 null/empty 일관성 확인 필요: {repr(value)}",
+                        severity="warning"
+                    ))
+                
+                # 빈 리스트 vs null 검사
+                if isinstance(value, list) and len(value) == 0:
+                    issues.append(ValidationIssue(
+                        issue_type=ValidationIssueType.NULL_VS_EMPTY,
+                        field_path=current_path,
+                        expected="consistent empty list handling",
+                        actual="[]",
+                        message=f"빈 리스트 '{current_path}': null vs [] 일관성 확인 필요",
+                        severity="warning"
+                    ))
+                
+                # 재귀적으로 검사
+                if isinstance(value, (dict, list)):
+                    issues.extend(self.check_null_vs_empty_issues(value, current_path))
+        
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                current_path = f"{path}[{i}]"
+                if isinstance(item, (dict, list)):
+                    issues.extend(self.check_null_vs_empty_issues(item, current_path))
+        
+        return issues
+    
+    def check_type_consistency(self, service_responses: Dict[str, Dict[str, Any]]) -> List[ValidationIssue]:
+        """서비스 간 타입 일관성 검사"""
+        issues = []
+        
+        # 모든 서비스의 공통 필드 수집
+        common_fields = {}
+        for service_name, endpoints in service_responses.items():
+            for endpoint, response in endpoints.items():
+                for field, value in response.items():
+                    field_key = f"common.{field}"
+                    if field_key not in common_fields:
+                        common_fields[field_key] = []
+                    common_fields[field_key].append({
+                        "service": service_name,
+                        "endpoint": endpoint,
+                        "value": value,
+                        "type": type(value).__name__
+                    })
+        
+        # 타입 일관성 검사
+        for field_key, field_data in common_fields.items():
+            if len(field_data) > 1:
+                types = set(item["type"] for item in field_data)
+                if len(types) > 1:
+                    issues.append(ValidationIssue(
+                        issue_type=ValidationIssueType.TYPE_MISMATCH,
+                        field_path=field_key,
+                        expected="consistent type across services",
+                        actual=f"다중 타입: {types}",
+                        message=f"서비스 간 '{field_key.split('.')[1]}' 필드 타입 불일치: {types}",
+                        severity="error"
+                    ))
+        
+        return issues
+    
+    def generate_openapi_summary(self) -> Dict[str, Any]:
+        """OpenAPI 스키마 요약 생성"""
+        summary = {
+            "services": {},
+            "common_schemas": {},
+            "inconsistencies": []
+        }
+        
+        for service_name, schema in self.schemas.items():
+            service_summary = {
+                "title": schema.get("info", {}).get("title", "Unknown"),
+                "version": schema.get("info", {}).get("version", "Unknown"),
+                "endpoints": [],
+                "schemas": {}
+            }
+            
+            # 엔드포인트 정보
+            paths = schema.get("paths", {})
+            for path, methods in paths.items():
+                for method, details in methods.items():
+                    if method.upper() in ["GET", "POST", "PUT", "DELETE"]:
+                        endpoint_info = {
+                            "path": path,
+                            "method": method.upper(),
+                            "summary": details.get("summary", ""),
+                            "request_schema": self._extract_request_schema(details),
+                            "response_schema": self._extract_response_schema(details)
+                        }
+                        service_summary["endpoints"].append(endpoint_info)
+            
+            # 스키마 정보
+            components = schema.get("components", {})
+            schemas = components.get("schemas", {})
+            service_summary["schemas"] = list(schemas.keys())
+            
+            summary["services"][service_name] = service_summary
+        
+        return summary
+    
+    def _extract_request_schema(self, endpoint_details: Dict[str, Any]) -> Optional[str]:
+        """요청 스키마 추출"""
+        request_body = endpoint_details.get("requestBody", {})
+        content = request_body.get("content", {})
+        json_content = content.get("application/json", {})
+        schema_ref = json_content.get("schema", {}).get("$ref", "")
+        
+        if schema_ref:
+            return schema_ref.split("/")[-1]
+        return None
+    
+    def _extract_response_schema(self, endpoint_details: Dict[str, Any]) -> Optional[str]:
+        """응답 스키마 추출"""
+        responses = endpoint_details.get("responses", {})
+        success_response = responses.get("200", {})
+        content = success_response.get("content", {})
+        json_content = content.get("application/json", {})
+        schema_ref = json_content.get("schema", {}).get("$ref", "")
+        
+        if schema_ref:
+            return schema_ref.split("/")[-1]
+        return None
+    
+    def export_validation_report(self, output_path: str = "api_validation_report.json"):
+        """검증 보고서 내보내기"""
+        report = {
+            "timestamp": "2024-07-02T15:30:00Z",
+            "summary": {
+                "total_issues": len(self.validation_issues),
+                "by_severity": {
+                    "critical": len([i for i in self.validation_issues if i.severity == "critical"]),
+                    "error": len([i for i in self.validation_issues if i.severity == "error"]),
+                    "warning": len([i for i in self.validation_issues if i.severity == "warning"])
+                },
+                "by_type": {}
+            },
+            "services": list(self.service_urls.keys()),
+            "issues": [
+                {
+                    "type": issue.issue_type,
+                    "field_path": issue.field_path,
+                    "expected": issue.expected,
+                    "actual": issue.actual,
+                    "message": issue.message,
+                    "severity": issue.severity
+                }
+                for issue in self.validation_issues
+            ],
+            "openapi_summary": self.generate_openapi_summary()
+        }
+        
+        # 타입별 통계
+        for issue in self.validation_issues:
+            issue_type = issue.issue_type
+            if issue_type not in report["summary"]["by_type"]:
+                report["summary"]["by_type"][issue_type] = 0
+            report["summary"]["by_type"][issue_type] += 1
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"📋 검증 보고서 생성 완료: {output_path}")
+        return report
+
+# 사용 예시
+def create_validator() -> APISchemaValidator:
+    """검증기 인스턴스 생성"""
+    service_urls = {
+        "api-gateway": "http://localhost:8000",
+        "audio-processor": "http://localhost:8001",
+        "speaker-diarizer": "http://localhost:8002",
+        "speech-recognizer": "http://localhost:8003",
+        "punctuation-restorer": "http://localhost:8004",
+        "sentiment-analyzer": "http://localhost:8005",
+        "llm-analyzer": "http://localhost:8006",
+        "database-service": "http://localhost:8007"
+    }
+    
+    return APISchemaValidator(service_urls)
+
+async def run_schema_validation():
+    """스키마 검증 실행"""
+    validator = create_validator()
+    
+    # 1. OpenAPI 스키마 수집
+    print("📥 OpenAPI 스키마 수집 중...")
+    schemas = await validator.collect_openapi_schemas()
+    
+    # 2. 샘플 응답 테스트 (실제로는 각 서비스에 요청)
+    sample_responses = {
+        "audio-processor": {
+            "health": {"status": "healthy", "service": "audio-processor", "version": "1.0.0"},
+            "preprocess": {"status": "success", "original_path": "/path/to/audio.wav", "processed_path": "/path/to/processed.wav"}
+        }
+    }
+    
+    # 3. 검증 실행
+    for service_name, endpoints in sample_responses.items():
+        for endpoint, response in endpoints.items():
+            issues = validator.validate_response_format(service_name, endpoint, response)
+            validator.validation_issues.extend(issues)
+            
+            null_empty_issues = validator.check_null_vs_empty_issues(response, f"{service_name}.{endpoint}")
+            validator.validation_issues.extend(null_empty_issues)
+    
+    # 4. 타입 일관성 검사
+    type_issues = validator.check_type_consistency(sample_responses)
+    validator.validation_issues.extend(type_issues)
+    
+    # 5. 보고서 생성
+    report = validator.export_validation_report()
+    
+    print(f"🔍 검증 완료: {len(validator.validation_issues)}개 이슈 발견")
+    for issue in validator.validation_issues:
+        print(f"  {issue.severity.upper()}: {issue.message}")
+    
+    return report
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(run_schema_validation()) 

@@ -1,0 +1,622 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+========================================================================
+🚀 Callytics SQLite → PostgreSQL 완전 마이그레이션 도구
+========================================================================
+목적: 기존 SQLite 데이터를 PostgreSQL로 무손실 이전
+특징: 
+- 컬럼 형식 변환 (SQLite → PostgreSQL)
+- 데이터 타입 최적화 
+- 인덱스 및 제약조건 적용
+- 트랜잭션 안전성 보장
+- 진행 상황 실시간 모니터링
+"""
+
+import os
+import sys
+import sqlite3
+import asyncio
+import asyncpg
+import json
+import logging
+from datetime import datetime, date
+from decimal import Decimal
+from typing import Dict, List, Any, Optional, Tuple
+from dataclasses import dataclass
+import uuid
+from pathlib import Path
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('migration.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+
+@dataclass
+class MigrationStats:
+    """마이그레이션 통계"""
+    total_tables: int = 0
+    completed_tables: int = 0
+    total_records: int = 0
+    migrated_records: int = 0
+    errors: List[str] = None
+    start_time: datetime = None
+    end_time: datetime = None
+    
+    def __post_init__(self):
+        if self.errors is None:
+            self.errors = []
+        if self.start_time is None:
+            self.start_time = get_current_time()
+
+class DatabaseMigrator:
+    """데이터베이스 마이그레이션 메인 클래스"""
+    
+    def __init__(self, sqlite_path: str, postgres_config: Dict[str, Any]):
+        self.sqlite_path = sqlite_path
+        self.postgres_config = postgres_config
+        self.stats = MigrationStats()
+        
+        # 테이블 매핑 (SQLite → PostgreSQL)
+        self.table_mappings = {
+            # 기존 호환성 테이블들 (우선 마이그레이션)
+            'consultation_analysis': 'consultation_analysis',
+            'utterances': 'utterances', 
+            'topics': 'topics',
+            'audio_properties': 'audio_properties',
+            
+            # 새로운 정규화된 테이블들
+            'audio_files': 'audio_files',
+            'speaker_segments': 'speaker_segments',
+            'transcriptions': 'transcriptions',
+            'audio_metrics': 'audio_metrics',
+            'consultation_sessions': 'consultation_sessions',
+            'quality_metrics': 'quality_metrics',
+            'sentiment_analysis': 'sentiment_analysis',
+            'communication_patterns': 'communication_patterns',
+            'improvement_suggestions': 'improvement_suggestions',
+            'consultation_keywords': 'consultation_keywords',
+            'agent_performance': 'agent_performance',
+            'analysis_history': 'analysis_history',
+            'processing_logs': 'processing_logs'
+        }
+        
+        # 데이터 타입 변환 매핑
+        self.type_conversions = {
+            'INTEGER': 'INTEGER',
+            'TEXT': 'TEXT',
+            'REAL': 'DECIMAL',
+            'DATETIME': 'TIMESTAMPTZ',
+            'DATE': 'DATE',
+            'BOOLEAN': 'BOOLEAN'
+        }
+
+    async def migrate_all(self) -> MigrationStats:
+        """전체 마이그레이션 실행"""
+        logger.info("🚀 Callytics 데이터베이스 마이그레이션 시작")
+        logger.info(f"SQLite: {self.sqlite_path}")
+        logger.info(f"PostgreSQL: {self.postgres_config['host']}:{self.postgres_config['port']}")
+        
+        try:
+            # 1. SQLite 연결 확인
+            await self._check_sqlite_connection()
+            
+            # 2. PostgreSQL 연결 및 스키마 생성
+            pg_pool = await self._setup_postgresql()
+            
+            # 3. 테이블별 데이터 마이그레이션
+            await self._migrate_tables(pg_pool)
+            
+            # 4. 데이터 무결성 검증
+            await self._verify_migration(pg_pool)
+            
+            # 5. 인덱스 재생성 및 최적화
+            await self._optimize_database(pg_pool)
+            
+            await pg_pool.close()
+            
+        except Exception as e:
+            logger.error(f"❌ 마이그레이션 실패: {e}")
+            self.stats.errors.append(str(e))
+            raise
+        
+        finally:
+            self.stats.end_time = get_current_time()
+            self._print_final_stats()
+        
+        return self.stats
+
+    async def _check_sqlite_connection(self):
+        """SQLite 연결 및 구조 확인"""
+        logger.info("📋 SQLite 데이터베이스 분석 중...")
+        
+        if not os.path.exists(self.sqlite_path):
+            raise FileNotFoundError(f"SQLite 파일이 없습니다: {self.sqlite_path}")
+        
+        conn = sqlite3.connect(self.sqlite_path)
+        cursor = conn.cursor()
+        
+        try:
+            # 테이블 목록 조회
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            tables = [row[0] for row in cursor.fetchall()]
+            
+            logger.info(f"✅ SQLite 테이블 발견: {len(tables)}개")
+            
+            # 각 테이블의 레코드 수 계산
+            total_records = 0
+            for table in tables:
+                if table in self.table_mappings:
+                    cursor.execute(f"SELECT COUNT(*) FROM {table}")
+                    count = cursor.fetchone()[0]
+                    total_records += count
+                    logger.info(f"  📊 {table}: {count:,}개 레코드")
+            
+            self.stats.total_tables = len([t for t in tables if t in self.table_mappings])
+            self.stats.total_records = total_records
+            
+        finally:
+            conn.close()
+
+    async def _setup_postgresql(self) -> asyncpg.Pool:
+        """PostgreSQL 연결 및 스키마 생성"""
+        logger.info("🐘 PostgreSQL 데이터베이스 설정 중...")
+        
+        # 연결 풀 생성
+        pool = await asyncpg.create_pool(
+            host=self.postgres_config['host'],
+            port=self.postgres_config['port'],
+            user=self.postgres_config['user'],
+            password=self.postgres_config['password'],
+            database=self.postgres_config['database'],
+            min_size=5,
+            max_size=20
+        )
+        
+        # 스키마 파일 실행
+        schema_path = Path(__file__).parent / 'sql' / 'postgresql_migration_schema.sql'
+        if schema_path.exists():
+            async with pool.acquire() as conn:
+                with open(schema_path, 'r', encoding='utf-8') as f:
+                    schema_sql = f.read()
+                
+                # ENUM 타입 부터 생성 (충돌 방지)
+                try:
+                    await conn.execute(schema_sql)
+                    logger.info("✅ PostgreSQL 스키마 생성 완료")
+                except Exception as e:
+                    logger.warning(f"⚠️ 스키마 생성 중 일부 오류 (정상): {e}")
+        
+        return pool
+
+    async def _migrate_tables(self, pg_pool: asyncpg.Pool):
+        """테이블별 데이터 마이그레이션"""
+        logger.info("📋 데이터 마이그레이션 시작...")
+        
+        # SQLite 연결
+        sqlite_conn = sqlite3.connect(self.sqlite_path)
+        sqlite_conn.row_factory = sqlite3.Row  # 딕셔너리 형태로 반환
+        
+        try:
+            # 마이그레이션 순서 (참조 무결성 고려)
+            migration_order = [
+                # 1단계: 독립적인 테이블들
+                'consultation_analysis',
+                'audio_files',
+                
+                # 2단계: 기본 테이블들
+                'consultation_sessions',
+                'speaker_segments', 
+                'transcriptions',
+                'audio_metrics',
+                
+                # 3단계: 연관 테이블들
+                'quality_metrics',
+                'sentiment_analysis',
+                'communication_patterns',
+                'improvement_suggestions',
+                'consultation_keywords',
+                'agent_performance',
+                'analysis_history',
+                'processing_logs',
+                
+                # 4단계: 호환성 테이블들
+                'utterances',
+                'topics', 
+                'audio_properties'
+            ]
+            
+            for table_name in migration_order:
+                if await self._table_exists_in_sqlite(sqlite_conn, table_name):
+                    await self._migrate_single_table(sqlite_conn, pg_pool, table_name)
+                    self.stats.completed_tables += 1
+                else:
+                    logger.info(f"⏭️ 테이블 건너뛰기 (없음): {table_name}")
+                    
+        finally:
+            sqlite_conn.close()
+
+    async def _table_exists_in_sqlite(self, sqlite_conn: sqlite3.Connection, table_name: str) -> bool:
+        """SQLite에 테이블이 존재하는지 확인"""
+        cursor = sqlite_conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", 
+            (table_name,)
+        )
+        return cursor.fetchone() is not None
+
+    async def _migrate_single_table(self, sqlite_conn: sqlite3.Connection, 
+                                   pg_pool: asyncpg.Pool, table_name: str):
+        """단일 테이블 마이그레이션"""
+        logger.info(f"📋 마이그레이션 중: {table_name}")
+        
+        cursor = sqlite_conn.cursor()
+        
+        # SQLite 테이블 구조 분석
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        columns_info = cursor.fetchall()
+        
+        # 데이터 조회
+        cursor.execute(f"SELECT * FROM {table_name}")
+        rows = cursor.fetchall()
+        
+        if not rows:
+            logger.info(f"  ⏭️ 빈 테이블: {table_name}")
+            return
+        
+        logger.info(f"  📊 {len(rows):,}개 레코드 마이그레이션 중...")
+        
+        # PostgreSQL에 데이터 삽입
+        async with pg_pool.acquire() as pg_conn:
+            # 트랜잭션 시작
+            async with pg_conn.transaction():
+                
+                # 특별 처리가 필요한 테이블들
+                if table_name == 'audio_files':
+                    await self._migrate_audio_files(pg_conn, rows)
+                elif table_name == 'consultation_sessions':
+                    await self._migrate_consultation_sessions(pg_conn, rows)
+                elif table_name == 'consultation_analysis':
+                    await self._migrate_consultation_analysis(pg_conn, rows)
+                else:
+                    # 일반적인 테이블 마이그레이션
+                    await self._migrate_generic_table(pg_conn, table_name, rows)
+        
+        logger.info(f"  ✅ {table_name} 완료: {len(rows):,}개 레코드")
+        self.stats.migrated_records += len(rows)
+
+    async def _migrate_audio_files(self, pg_conn: asyncpg.Connection, rows: List[sqlite3.Row]):
+        """audio_files 테이블 특별 처리"""
+        insert_sql = None"
+        INSERT INTO audio_files (
+            file_path, file_name, file_size, duration_seconds, 
+            sample_rate, channels, format, upload_timestamp,
+            processing_status, processing_started_at, processing_completed_at,
+            error_message, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ON CONFLICT (file_path) DO UPDATE SET
+            file_name = EXCLUDED.file_name,
+            updated_at = CURRENT_TIMESTAMP
+        """
+        
+        for row in rows:
+            try:
+                # 상태 변환 (SQLite → PostgreSQL ENUM)
+                status = row.get('processing_status', 'pending')
+                if status not in ('pending', 'processing', 'completed', 'failed', 'reprocessing'):
+                    status = 'pending'
+                
+                await pg_conn.execute(insert_sql,
+                    row['file_path'],
+                    row['file_name'] or Path(row['file_path']).name,
+                    row.get('file_size'),
+                    row.get('duration_seconds'),
+                    row.get('sample_rate'),
+                    row.get('channels', 1),
+                    row.get('format', 'mp3'),
+                    self._convert_timestamp(row.get('upload_timestamp')),
+                    status,
+                    self._convert_timestamp(row.get('processing_started_at')),
+                    self._convert_timestamp(row.get('processing_completed_at')),
+                    row.get('error_message'),
+                    self._convert_timestamp(row.get('created_at')),
+                    self._convert_timestamp(row.get('updated_at'))
+                )
+            except Exception as e:
+                logger.error(f"  ❌ audio_files 레코드 오류: {e}")
+                self.stats.errors.append(f"audio_files: {e}")
+
+    async def _migrate_consultation_sessions(self, pg_conn: asyncpg.Connection, rows: List[sqlite3.Row]):
+        """consultation_sessions 테이블 특별 처리"""
+        insert_sql = None"
+        INSERT INTO consultation_sessions (
+            audio_file_id, session_date, duration_minutes, agent_name,
+            customer_id, consultation_type, overall_quality_score,
+            analysis_status, analysis_started_at, analysis_completed_at,
+            analysis_error_message, summary, key_issues, resolution_status,
+            customer_satisfaction_score, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        """
+        
+        for row in rows:
+            try:
+                await pg_conn.execute(insert_sql,
+                    row.get('audio_file_id'),
+                    self._convert_date(row.get('session_date')),
+                    row.get('duration_minutes'),
+                    row.get('agent_name'),
+                    row.get('customer_id'),
+                    self._convert_enum(row.get('consultation_type'), 
+                                     ['inquiry', 'complaint', 'support', 'sales', 'technical', 'billing', 'other']),
+                    row.get('overall_quality_score'),
+                    self._convert_enum(row.get('analysis_status', 'pending'),
+                                     ['pending', 'processing', 'completed', 'failed', 'reprocessing']),
+                    self._convert_timestamp(row.get('analysis_started_at')),
+                    self._convert_timestamp(row.get('analysis_completed_at')),
+                    row.get('analysis_error_message'),
+                    row.get('summary'),
+                    self._convert_to_jsonb(row.get('key_issues')),
+                    self._convert_enum(row.get('resolution_status'),
+                                     ['resolved', 'partially_resolved', 'unresolved', 'escalated']),
+                    row.get('customer_satisfaction_score'),
+                    self._convert_timestamp(row.get('created_at')),
+                    self._convert_timestamp(row.get('updated_at'))
+                )
+            except Exception as e:
+                logger.error(f"  ❌ consultation_sessions 레코드 오류: {e}")
+                self.stats.errors.append(f"consultation_sessions: {e}")
+
+    async def _migrate_consultation_analysis(self, pg_conn: asyncpg.Connection, rows: List[sqlite3.Row]):
+        """consultation_analysis 테이블 (호환성)"""
+        insert_sql = None"
+        INSERT INTO consultation_analysis (
+            consultation_id, audio_path, business_type, classification_type,
+            detail_classification, consultation_result, summary, customer_request,
+            solution, additional_info, sentiment_score, topic_keywords,
+            quality_score, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        ON CONFLICT (consultation_id) DO UPDATE SET
+            summary = EXCLUDED.summary,
+            quality_score = EXCLUDED.quality_score
+        """
+        
+        for row in rows:
+            try:
+                await pg_conn.execute(insert_sql,
+                    row['consultation_id'],
+                    row['audio_path'],
+                    row.get('business_type'),
+                    row.get('classification_type'),
+                    row.get('detail_classification'),
+                    row.get('consultation_result'),
+                    row.get('summary'),
+                    row.get('customer_request'),
+                    row.get('solution'),
+                    self._convert_to_jsonb(row.get('additional_info')),
+                    row.get('sentiment_score'),
+                    self._convert_to_jsonb(row.get('topic_keywords')),
+                    row.get('quality_score'),
+                    self._convert_timestamp(row.get('created_at'))
+                )
+            except Exception as e:
+                logger.error(f"  ❌ consultation_analysis 레코드 오류: {e}")
+                self.stats.errors.append(f"consultation_analysis: {e}")
+
+    async def _migrate_generic_table(self, pg_conn: asyncpg.Connection, 
+                                   table_name: str, rows: List[sqlite3.Row]):
+        """일반적인 테이블 마이그레이션"""
+        if not rows:
+            return
+        
+        # 첫 번째 행으로 컬럼 구조 파악
+        first_row = rows[0]
+        columns = list(first_row.keys())
+        
+        # id 컬럼 제외 (SERIAL 자동 생성)
+        insert_columns = [col for col in columns if col != 'id']
+        placeholders = [f"${i+1}" for i in range(len(insert_columns))]
+        
+        insert_sql = f"""
+        INSERT INTO {table_name} ({', '.join(insert_columns)})
+        VALUES ({', '.join(placeholders)})
+        """
+        
+        for row in rows:
+            try:
+                values = []
+                for col in insert_columns:
+                    value = row[col]
+                    
+                    # 데이터 타입 변환
+                    if col.endswith('_at') or col.endswith('timestamp'):
+                        value = self._convert_timestamp(value)
+                    elif col.endswith('_date'):
+                        value = self._convert_date(value)
+                    elif isinstance(value, str) and value.startswith('{'):
+                        value = self._convert_to_jsonb(value)
+                    
+                    values.append(value)
+                
+                await pg_conn.execute(insert_sql, *values)
+                
+            except Exception as e:
+                logger.error(f"  ❌ {table_name} 레코드 오류: {e}")
+                self.stats.errors.append(f"{table_name}: {e}")
+
+    def _convert_timestamp(self, value: Any) -> Optional[datetime]:
+        """타임스탬프 변환"""
+        if not value:
+            return None
+        
+        if isinstance(value, datetime):
+            return value
+        
+        try:
+            if isinstance(value, str):
+                # SQLite의 다양한 날짜 형식 처리
+                for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f', 
+                           '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f']:
+                    try:
+                        return datetime.strptime(value, fmt)
+                    except ValueError:
+                        continue
+            
+            return datetime.fromisoformat(str(value))
+        except:
+            logger.warning(f"타임스탬프 변환 실패: {value}")
+            return None
+
+    def _convert_date(self, value: Any) -> Optional[date]:
+        """날짜 변환"""
+        if not value:
+            return None
+        
+        if isinstance(value, date):
+            return value
+        
+        try:
+            if isinstance(value, str):
+                return datetime.strptime(value, '%Y-%m-%d').date()
+            return date.fromisoformat(str(value))
+        except:
+            logger.warning(f"날짜 변환 실패: {value}")
+            return None
+
+    def _convert_enum(self, value: Any, allowed_values: List[str]) -> str | None:
+        """ENUM 값 변환"""
+        if not value:
+            return None
+        
+        str_value = str(value).lower()
+        if str_value in allowed_values:
+            return str_value
+        
+        # 매핑 시도
+        mapping = {
+            'pending': 'pending',
+            'processing': 'processing', 
+            'completed': 'completed',
+            'failed': 'failed',
+            'error': 'failed'
+        }
+        
+        return mapping.get(str_value, allowed_values[0] if allowed_values else None)
+
+    def _convert_to_jsonb(self, value: Any) -> Optional[dict]:
+        """JSONB 형식으로 변환"""
+        if not value:
+            return None
+        
+        if isinstance(value, dict):
+            return value
+        
+        try:
+            if isinstance(value, str):
+                return json.loads(value)
+            return json.loads(str(value))
+        except:
+            # JSON이 아닌 경우 문자열로 래핑
+            return {"content": str(value)}
+
+    async def _verify_migration(self, pg_pool: asyncpg.Pool):
+        """데이터 무결성 검증"""
+        logger.info("🔍 데이터 무결성 검증 중...")
+        
+        async with pg_pool.acquire() as conn:
+            # 주요 테이블 레코드 수 확인
+            verification_queries = [
+                ("SELECT COUNT(*) FROM audio_files", "audio_files"),
+                ("SELECT COUNT(*) FROM consultation_sessions", "consultation_sessions"),
+                ("SELECT COUNT(*) FROM consultation_analysis", "consultation_analysis"),
+                ("SELECT COUNT(*) FROM transcriptions", "transcriptions"),
+                ("SELECT COUNT(*) FROM sentiment_analysis", "sentiment_analysis"),
+            ]
+            
+            for query, table_name in verification_queries:
+                try:
+                    result = await conn.fetchval(query)
+                    logger.info(f"  ✅ {table_name}: {result:,}개 레코드")
+                except Exception as e:
+                    logger.warning(f"  ⚠️ {table_name} 검증 실패: {e}")
+
+    async def _optimize_database(self, pg_pool: asyncpg.Pool):
+        """데이터베이스 최적화"""
+        logger.info("⚡ 데이터베이스 최적화 중...")
+        
+        async with pg_pool.acquire() as conn:
+            # 통계 업데이트
+            await conn.execute("ANALYZE;")
+            
+            # 시퀀스 재설정 (auto increment)
+            sequence_reset_queries = [
+                "SELECT setval('audio_files_id_seq', COALESCE((SELECT MAX(id) FROM audio_files), 1), true);",
+                "SELECT setval('consultation_sessions_id_seq', COALESCE((SELECT MAX(id) FROM consultation_sessions), 1), true);",
+                "SELECT setval('consultation_analysis_id_seq', COALESCE((SELECT MAX(id) FROM consultation_analysis), 1), true);"
+            ]
+            
+            for query in sequence_reset_queries:
+                try:
+                    await conn.execute(query)
+                except Exception as e:
+                    logger.warning(f"시퀀스 재설정 실패: {e}")
+            
+            logger.info("✅ 데이터베이스 최적화 완료")
+
+    def _print_final_stats(self):
+        """최종 통계 출력"""
+        duration = (self.stats.end_time - self.stats.start_time).total_seconds()
+        
+        print("\n" + "="*60)
+        print("🎉 Callytics PostgreSQL 마이그레이션 완료!")
+        print("="*60)
+        print(f"📋 처리된 테이블: {self.stats.completed_tables}/{self.stats.total_tables}")
+        print(f"📊 마이그레이션된 레코드: {self.stats.migrated_records:,}개")
+        print(f"⏱️ 소요 시간: {duration:.1f}초")
+        print(f"⚡ 처리 속도: {self.stats.migrated_records/max(duration, 1):.0f} 레코드/초")
+        
+        if self.stats.errors:
+            print(f"⚠️ 오류 발생: {len(self.stats.errors)}건")
+            for error in self.stats.errors[:5]:  # 최대 5개만 표시
+                print(f"   - {error}")
+        else:
+            print("✅ 오류 없이 완료!")
+        
+        print("="*60)
+
+async def main():
+    """메인 실행 함수"""
+    # 환경변수에서 PostgreSQL 설정 읽기
+    postgres_config = {
+        'host': os.getenv('POSTGRES_HOST', 'localhost'),
+        'port': int(os.getenv('POSTGRES_PORT', '5432')),
+        'user': os.getenv('POSTGRES_USER', 'callytics'),
+        'password': os.getenv('POSTGRES_PASSWORD', '1234'),
+        'database': os.getenv('POSTGRES_DB', 'callytics')
+    }
+    
+    # SQLite 파일 경로
+    sqlite_path = os.getenv('SQLITE_PATH', 'Callytics_new.sqlite')
+    
+    # 마이그레이션 실행
+    migrator = DatabaseMigrator(sqlite_path, postgres_config)
+    stats = await migrator.migrate_all()
+    
+    # 성공 여부 반환
+    return len(stats.errors) == 0
+
+if __name__ == "__main__":
+    try:
+        success = asyncio.run(main())
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        logger.info("⚠️ 사용자에 의해 중단됨")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ 마이그레이션 실패: {e}")
+        sys.exit(1)

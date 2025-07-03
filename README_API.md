@@ -185,4 +185,42 @@ docker stats callytics
 
 ---
 
-**🎯 목표**: 로컬 모델 없이 API만으로 완전한 음성 분석 시스템 구축 
+**🎯 목표**: 로컬 모델 없이 API만으로 완전한 음성 분석 시스템 구축
+
+# Callytics API 통합 명세 및 연동 가이드
+
+## 1. OpenAPI 명세
+- `openapi.json` 파일 참고 (Swagger Editor에서 시각화 가능)
+- 주요 엔드포인트: `/preprocess`, `/enhance`, `/segment`, `/analyze`, `/sentiment`, `/punctuation`, `/health`, `/save_result`, `/process` 등
+
+## 2. JSON Schema
+- `schemas/` 디렉토리 내 각 API별 입력/출력 스키마(JSON Schema) 제공
+- 예시: `schemas/audioinput.json`, `schemas/textinput.json`, `schemas/analysisresult.json` 등
+
+## 3. Null/빈값/타입 정책
+- **문자열**: 값이 없으면 `None` (빈 문자열 "" 사용 금지)
+- **리스트**: 값이 없으면 `[]` (None 사용 금지)
+- **숫자**: 값이 없으면 `None` 또는 `0` (혼용 금지, 명세에 따름)
+- **타입**: 명세와 100% 일치 (예: int, str, list, object 등)
+- **응답 구조**: `{ "status": "success|error", "message": str, "data": object, ... }` 고정
+
+## 4. 연동 가이드
+- 모든 서비스는 명세/스키마에 맞춰 request/response를 구현해야 함
+- 신규 API 추가 시 반드시 명세(OpenAPI/JSON Schema)부터 작성
+- 서비스 간 연동 시 명세/스키마를 기준으로 값 전달/수신
+- Swagger Editor(https://editor.swagger.io/)에서 `openapi.json` 업로드하여 예시 확인 가능
+
+## 5. 테스트 방법
+- `test_api_contracts.py` 실행 (Python 3.8+ 필요, `requests` 패키지 필요)
+- 실제 각 마이크로서비스가 실행 중이어야 함
+- 실행 예시:
+
+```bash
+python test_api_contracts.py
+```
+
+- 모든 테스트가 통과하면 명세/정책이 실제 서비스에 잘 적용된 것임
+
+## 6. 참고/공유
+- 본 문서와 명세/스키마 파일을 모든 개발자 및 연동팀과 공유
+- 정책 위반/불일치 발견 시 즉시 수정 및 명세 동기화 

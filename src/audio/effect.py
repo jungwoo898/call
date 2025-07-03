@@ -75,7 +75,7 @@ class AdvancedDemucsVocalSeparator:
         """캐시 메타데이터 로드"""
         try:
             if self.cache_metadata_file.exists():
-                with open(self.cache_metadata_file, 'r') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 로드 실패: {e}")
@@ -84,7 +84,7 @@ class AdvancedDemucsVocalSeparator:
     def _save_cache_metadata(self):
         """캐시 메타데이터 저장"""
         try:
-            with open(self.cache_metadata_file, 'w') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(self.cache_metadata, f, indent=2)
         except Exception as e:
             print(f"⚠️ 캐시 메타데이터 저장 실패: {e}")
@@ -99,7 +99,7 @@ class AdvancedDemucsVocalSeparator:
         cache_key = f"{file_hash.hexdigest()}_{self.model_name}_{self.two_stems}"
         return cache_key
     
-    def _is_cached(self, audio_file: str) -> Optional[str]:
+    def _is_cached(self, audio_file: str) -> str | None:
         """캐시된 결과 확인"""
         if not self.enable_cache:
             return None
@@ -186,7 +186,7 @@ class AdvancedDemucsVocalSeparator:
             print(f"⚠️ 음성 감지 실패: {e}")
             return True  # 실패하면 분리 진행
     
-    def separate_vocals_advanced(self, audio_file: str, output_dir: str) -> Optional[str]:
+    def audio_separate_vocals_advanced(self, audio_file: str, output_dir: str) -> str | None:
         """
         고성능 보컬 분리
         
@@ -199,7 +199,7 @@ class AdvancedDemucsVocalSeparator:
             
         Returns
         -------
-        Optional[str]
+        str | None
             분리된 보컬 파일 경로 또는 None
         """
         try:
@@ -261,7 +261,7 @@ class AdvancedDemucsVocalSeparator:
             print(f"⚠️ 보컬 분리 오류: {e}")
             return audio_file
     
-    def cleanup_cache(self, max_age_hours: int = 24):
+    def audio_cleanup_cache(self, max_age_hours: int = 24):
         """오래된 캐시 정리"""
         try:
             current_time = time.time()
@@ -311,7 +311,7 @@ class DemucsVocalSeparator:
 
     Methods
     -------
-    separate_vocals(audio_file: str, output_dir: str) -> Optional[str]
+    audio_separate_vocals(audio_file: str, output_dir: str) -> str | None
         Separates vocals (or other specified stem) from the audio file and returns the path to the separated file.
 
     """
@@ -334,7 +334,7 @@ class DemucsVocalSeparator:
         self.model_name = model_name
         self.two_stems = two_stems
 
-    def separate_vocals(self, audio_file: str, output_dir: str) -> Optional[str]:
+    def audio_separate_vocals(self, audio_file: str, output_dir: str) -> str | None:
         """
         Separates vocals (or other specified stem) from the audio file.
 
@@ -350,7 +350,7 @@ class DemucsVocalSeparator:
 
         Returns
         -------
-        Optional[str]
+        str | None
             Path to the separated vocal file if successful, or the original audio file path if not.
 
         Raises
@@ -361,7 +361,7 @@ class DemucsVocalSeparator:
         Examples
         --------
         >>> separator = DemucsVocalSeparator()
-        >>> vocal_path = separator.separate_vocals("path/to/audio/file.mp3", "output_dir")
+        >>> vocal_path = separator.audio_separate_vocals("path/to/audio/file.mp3", "output_dir")
         Vocal separation successful! Outputs saved in WAV format at 'output_dir' directory.
         """
         if not DEMUCS_AVAILABLE:
@@ -403,5 +403,5 @@ if __name__ == "__main__":
     file = "example_audio.mp3"
     output_directory = "separated_outputs"
     vocal_separator = DemucsVocalSeparator()
-    separated_file_path = vocal_separator.separate_vocals(file, output_directory)
+    separated_file_path = vocal_separator.audio_separate_vocals(file, output_directory)
     print(f"Separated file path: {separated_file_path}")

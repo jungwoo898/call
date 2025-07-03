@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "text": {
+      "type": "string",
+      "description": "분석할 텍스트"
+    },
+    "language": {
+      "type": "string",
+      "description": "언어 코드",
+      "default": "ko"
+    },
+    "options": {
+      "type": "object",
+      "description": "추가 옵션"
+    }
+  },
+  "required": [
+    "text"
+  ]
+}
