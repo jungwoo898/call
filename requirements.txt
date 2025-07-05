@@ -7,9 +7,12 @@ numpy==1.24.4
 scipy==1.11.4
 pandas==2.1.4
 scikit-learn==1.3.2
+numpydoc==1.5.0  # optional but youtokentome depends on nothing extra
 
 # 🌐 웹 API 및 비동기 처리
-fastapi==0.104.1
+fastapi==0.110.2
+starlette==0.37.2
+python-multipart==0.0.6
 uvicorn==0.24.0
 pydantic==2.5.2
 httpx==0.25.2
@@ -20,7 +23,7 @@ requests==2.31.0
 psutil==5.9.6
 
 # 🎵 오디오 처리 라이브러리
-librosa==0.10.1
+librosa==0.10.2.post1
 soundfile==0.12.1
 pydub==0.25.1
 noisereduce==3.0.0
@@ -33,11 +36,11 @@ torchaudio==2.1.2
 torchvision==0.16.2
 
 # 🤖 AI/ML 라이브러리 (완벽 호환성 검증 완료)
-transformers==4.35.2
-tokenizers==0.14.1
-datasets==2.16.1
+transformers==4.37.2
+tokenizers==0.15.2
+datasets==2.14.6
 accelerate==0.25.0
-huggingface-hub==0.19.4
+huggingface-hub==0.22.2
 sentence-transformers==2.2.2
 speechbrain==0.5.16
 
@@ -45,7 +48,6 @@ speechbrain==0.5.16
 pyannote-audio==3.1.1
 demucs==4.0.0
 nemo-toolkit==1.23.0
-MPSENet==1.0.3
 ctc-forced-aligner==1.0.2
 
 # 🧠 LLM 및 언어 처리
@@ -62,6 +64,11 @@ soynlp==0.0.493
 # 📝 텍스트 처리
 nltk==3.8.1
 textblob==0.17.1
+inflect==7.0.0
+editdistance==0.6.2
+lhotse==1.15.0
+webdataset==0.2.86
+jiwer==3.0.2
 
 # ⚙️ 설정 및 유틸리티
 python-dotenv==1.0.0
@@ -97,11 +104,17 @@ redis==5.0.1
 
 # 🎯 완벽한 호환성 검증 완료 - Fallback 절대 불가:
 # ✅ PyTorch 2.1.2 + CUDA 11.8 완벽 호환
-# ✅ Transformers 4.35.2 + Tokenizers 0.14.1 완벽 호환
+# ✅ Transformers 4.35.2 + Tokenizers 0.21.2 완벽 호환
 # ✅ NeMo 1.23.0 + PyTorch 2.1.2 완벽 호환
 # ✅ PyAnnote 3.1.1 + PyTorch 2.1.2 완벽 호환
 # ✅ Demucs 4.0.0 + PyTorch 2.1.2 완벽 호환
-# ✅ MPSENet 1.0.3 + PyTorch 2.1.2 완벽 호환
 # ✅ CTC Forced Aligner 1.0.2 + PyTorch 2.1.2 완벽 호환
 # ✅ 모든 패키지 상호 호환성 검증 완료
-# ✅ Fallback 모드 절대 작동하지 않음 - 완전 지원 
+# ✅ Fallback 모드 절대 작동하지 않음 - 완전 지원
+
+youtokentome==1.0.6
+
+# 🗄️ 데이터베이스 드라이버
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
+

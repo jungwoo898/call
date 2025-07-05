@@ -51,19 +51,20 @@ class MultiDatabaseManager:
             
             if postgres_configured:
                 logger.info("PostgreSQL 설정 발견 - PostgreSQL 연결 시도")
-                self.postgres_manager = PostgreSQLManager()
-                # 비동기 초기화 실행
-                self.loop.run_until_complete(self.postgres_manager.initialize())
-                logger.info("✅ PostgreSQL 연결 풀 초기화 완료")
+                try:
+                    self.postgres_manager = PostgreSQLManager()
+                    # 비동기 초기화 실행
+                    self.loop.run_until_complete(self.postgres_manager.initialize())
+                    logger.info("✅ PostgreSQL 연결 풀 초기화 완료")
+                except Exception as e:
+                    logger.error(f"PostgreSQL 연결에 실패했지만 애플리케이션은 SQLite 모드로 계속 실행됩니다: {e}")
+                    self.postgres_manager = None
             else:
-                logger.error("❌ PostgreSQL 설정 부족 - 필수 환경변수가 없습니다")
-                logger.error("다음 환경변수를 설정하세요:")
-                logger.error("POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD")
-                raise ValueError("PostgreSQL 설정이 완료되지 않았습니다")
+                logger.warning("PostgreSQL 환경변수가 설정되지 않았습니다. SQLite 전용 모드로 실행합니다.")
+                # postgresql 비활성화 모드로 넘어감
             
         except Exception as e:
-            logger.error(f"PostgreSQL 초기화 실패: {e}")
-            raise
+            logger.error(f"PostgreSQL 초기화 중 알 수 없는 오류: {e}. 애플리케이션은 PostgreSQL 기능 없이 계속됩니다.")
     
     async def _ensure_connection(self):
         """PostgreSQL 연결 확인"""
@@ -83,6 +84,11 @@ class MultiDatabaseManager:
         """PostgreSQL 사용 가능 여부 확인"""
         return self.postgres_manager is not None and self.postgres_manager.is_connected
     
+    # 레거시 메서드명 유지(호환성용)
+    def is_postgresql_available(self) -> bool:  # pragma: no cover
+        """alias for db_is_postgresql_available (deprecated)"""
+        return self.db_is_postgresql_available()
+    
     # 🎵 오디오 분석 DB 메서드들 (PostgreSQL 호환)
     
     async def save_audio_file_async(self, file_path: str, file_name: str, file_size: int, 
@@ -91,7 +97,7 @@ class MultiDatabaseManager:
         """오디오 파일 정보 저장 (비동기)"""
         await self._ensure_connection()
         
-        query = None"
+        query = """
         INSERT INTO audio_files (file_path, file_name, file_size, duration_seconds, 
                                sample_rate, channels, format)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -176,7 +182,7 @@ class MultiDatabaseManager:
         """오디오 품질 지표 저장 (비동기)"""
         await self._ensure_connection()
         
-        query = None"
+        query = """
         INSERT INTO audio_metrics (audio_file_id, snr_db, clarity_score, volume_level,
                                  background_noise_level, speech_rate, pause_frequency, audio_quality_score)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -208,13 +214,13 @@ class MultiDatabaseManager:
         await self._ensure_connection()
         
         if status == 'completed':
-            query = None"
+            query = """
                 UPDATE audio_files 
             SET processing_status = $1, processing_completed_at = CURRENT_TIMESTAMP, error_message = $2
             WHERE id = $3
             """
         else:
-            query = None"
+            query = """
                 UPDATE audio_files 
             SET processing_status = $1, error_message = $2
             WHERE id = $3
@@ -238,7 +244,7 @@ class MultiDatabaseManager:
         """상담 세션 생성 (비동기)"""
         await self._ensure_connection()
         
-        query = None"
+        query = """
         INSERT INTO consultation_sessions (audio_file_id, session_date, duration_minutes,
                                          agent_name, customer_id, consultation_type)
         VALUES ($1, $2, $3, $4, $5, $6)
@@ -388,7 +394,7 @@ class MultiDatabaseManager:
         """상담 분석 상태 업데이트 (비동기)"""
         await self._ensure_connection()
         
-        query = None"
+        query = """
         UPDATE consultation_sessions 
         SET analysis_status = $1, analysis_completed_at = CURRENT_TIMESTAMP,
             overall_quality_score = $2, customer_satisfaction_score = $3,
@@ -459,7 +465,7 @@ class MultiDatabaseManager:
         audio_result = await self.postgres_manager.execute_query(audio_query, audio_file_id, fetch_mode="one")
         
         if not audio_result:
-            return {"status": "error": "오디오 파일을 찾을 수 없습니다"}
+            return {"status": "error", "message": "오디오 파일을 찾을 수 없습니다"}
         
         result = {
             "audio_file": dict(audio_result),
@@ -681,7 +687,7 @@ class MultiDatabaseManager:
         """커뮤니케이션 품질 분석 결과 저장 (비동기)"""
         await self._ensure_connection()
         
-        query = None"
+        query = """
         INSERT INTO communication_quality (
             audio_file_id, consultation_id,
             honorific_ratio, positive_word_ratio, negative_word_ratio,

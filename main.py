@@ -1,6 +1,10 @@
 # Standard library imports
 import os
 import asyncio
+import json
+import logging
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -51,7 +55,7 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 from src.text.korean_models import KoreanModels
 
-from src.integrated_analyzer_advanced import AdvancedIntegratedAnalyzer
+from src.text.integrated_analyzer import IntegratedAnalyzer as AdvancedIntegratedAnalyzer
 
 # FastAPI 앱 생성
 app = FastAPI(title="Callytics API", version="1.0.0")
@@ -66,6 +70,9 @@ processing_status = {
 
 # PostgreSQL 우선 데이터베이스 매니저 전역 인스턴스
 db_manager = MultiDatabaseManager()
+
+# 로거 설정
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -168,13 +175,15 @@ async def analyze_audio(
                 logger.warning("메타데이터 JSON 파싱 실패")
         
         # 고성능 통합 분석기 사용
-        analyzer = AdvancedIntegratedAnalyzer(
-            config_path="config/config.yaml",
-            enable_cache=True,
-            enable_parallel=True,
-            enable_async=True,
-            max_workers=4
-        )
+        db_config = {
+            'host': os.getenv('POSTGRES_HOST', 'postgres'),
+            'port': int(os.getenv('POSTGRES_PORT', '5432')),
+            'database': os.getenv('POSTGRES_DB', 'callytics'),
+            'user': os.getenv('POSTGRES_USER', 'callytics_user'),
+            'password': os.getenv('POSTGRES_PASSWORD', 'callytics_pass')
+        }
+
+        analyzer = AdvancedIntegratedAnalyzer(db_config=db_config)
         
         # 분석 실행
         result = await analyzer.analyze_audio_comprehensive(file_path)

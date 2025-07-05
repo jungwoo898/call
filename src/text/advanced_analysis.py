@@ -1264,9 +1264,7 @@ class AdvancedAnalysisManager:
             
         except Exception as e:
             print(f"⚠️ 병렬 의사소통 품질 분석 실패: {e}")
-            return {"status": "error": str(e),
-                "method": "fallback"
-            }
+            return {"status": "error", "message": str(e), "method": "fallback"}
     
     def _analyze_clarity(self, text: str) -> float:
         """명확성 분석 (통신사 상담사 수준)"""
@@ -1417,7 +1415,9 @@ class AdvancedAnalysisManager:
             
         except Exception as e:
             print(f"⚠️ 종합 분석 실패: {e}")
-            return {"status": "error": str(e),
+            return {
+                "status": "error",
+                "message": str(e),
                 "analysis_metadata": {
                     "text_length": len(text),
                     "processing_time": 0,
@@ -1830,7 +1830,7 @@ def text_analyze_communication_quality_with_trend(utterances_data: List[Dict[str
         
     except Exception as e:
         print(f"⚠️ 통신 품질 + 감정 추세 분석 실패: {e}")
-        return {"status": "error": str(e),
+        return {"status": "error", "message": str(e),
             "communication_quality": {},
             "honorific_ratio": 0.0,
             "positive_word_ratio": 0.0,

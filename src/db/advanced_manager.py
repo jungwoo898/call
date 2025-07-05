@@ -179,7 +179,7 @@ class AdvancedDatabaseManager:
             cursor = connection.cursor()
             
             # Bulk insert 쿼리 구성
-            query = None"
+            query = """
                 INSERT INTO audio_analysis (
                     file_path, duration, sample_rate, channels, 
                     transcription, language, confidence_score,
@@ -226,7 +226,7 @@ class AdvancedDatabaseManager:
             cursor = connection.cursor()
             
             # Bulk insert 쿼리 구성
-            query = None"
+            query = """
                 INSERT INTO consultation_quality (
                     audio_analysis_id, clarity_score, politeness_score,
                     empathy_score, professionalism_score, response_quality_score,
@@ -277,7 +277,7 @@ class AdvancedDatabaseManager:
             cursor = connection.cursor()
             
             # Bulk insert 쿼리 구성
-            query = None"
+            query = """
                 INSERT INTO llm_analysis (
                     audio_analysis_id, analysis_type, analysis_result,
                     confidence_score, model_used, processing_time,
@@ -479,7 +479,7 @@ class SimplifiedDBManager:
                 session_date = date.today()
             
             # consultation_sessions 테이블에 저장
-            insert_query = None"
+            insert_query = """
                 INSERT INTO consultation_sessions (
                     audio_file_id, session_date, duration_minutes,
                     business_area, consultation_subject, consultation_requirement,
@@ -536,7 +536,7 @@ class SimplifiedDBManager:
             
             # 새 지표 저장
             for metric_name, metric_value in metrics.items():
-                insert_query = None"
+                insert_query = """
                     INSERT INTO quality_metrics (
                         session_id, metric_name, metric_value, metric_description, category
                     ) VALUES (%s, %s, %s, %s, %s)
@@ -573,7 +573,7 @@ class SimplifiedDBManager:
             
             # 새 감정 분석 저장
             for sentiment in sentiment_data:
-                insert_query = None"
+                insert_query = """
                     INSERT INTO sentiment_analysis (
                         session_id, speaker_type, time_segment_start, time_segment_end,
                         sentiment_score, emotion_category, confidence, emotion_intensity
@@ -609,7 +609,7 @@ class SimplifiedDBManager:
             conn = self.db_connect()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             
-            query = None"
+            query = """
                 SELECT 
                     cs.*,
                     af.file_name,
@@ -645,7 +645,7 @@ class SimplifiedDBManager:
             conn = self.db_connect()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             
-            query = None"
+            query = """
                 SELECT 
                     business_area,
                     COUNT(*) as total_sessions,
@@ -679,7 +679,7 @@ class SimplifiedDBManager:
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             
             # 상담 주제별 분포
-            subject_query = None"
+            subject_query = """
                 SELECT 
                     consultation_subject,
                     COUNT(*) as count,
@@ -694,7 +694,7 @@ class SimplifiedDBManager:
             subject_stats = [dict(row) for row in cursor.fetchall()]
             
             # 상담 결과별 분포
-            result_query = None"
+            result_query = """
                 SELECT 
                     consultation_result,
                     COUNT(*) as count,
@@ -709,7 +709,7 @@ class SimplifiedDBManager:
             result_stats = [dict(row) for row in cursor.fetchall()]
             
             # 전체 통계
-            total_query = None"
+            total_query = """
                 SELECT 
                     COUNT(*) as total_sessions,
                     AVG(overall_quality_score) as avg_quality,
@@ -741,14 +741,14 @@ class SimplifiedDBManager:
             cursor = conn.cursor()
             
             if status == 'completed':
-                query = None"
+                query = """
                     UPDATE audio_files 
                     SET processing_status = %s, processing_completed_at = %s
                     WHERE id = %s
                 """
                 cursor.execute(query, (status, get_current_time(), audio_file_id))
             else:
-                query = None"
+                query = """
                     UPDATE audio_files 
                     SET processing_status = %s, error_message = %s
                     WHERE id = %s

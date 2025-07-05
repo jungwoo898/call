@@ -8,6 +8,7 @@ import psutil
 from typing import Dict, Any, Optional
 from datetime import datetime
 import logging
+from src.utils.locale_config import get_current_time
 
 logger = logging.getLogger(__name__)
 
@@ -175,4 +176,7 @@ def util_get_common_endpoints(service_name: str, service_version: str = "1.0.0")
     if service_name not in _common_endpoints:
         _common_endpoints[service_name] = CommonEndpoints(service_name, service_version)
     
-    return _common_endpoints[service_name] 
+    return _common_endpoints[service_name]
+
+# 레거시 이름 호환성 유지
+get_common_endpoints = util_get_common_endpoints 

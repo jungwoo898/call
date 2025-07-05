@@ -225,3 +225,98 @@ if __name__ == "__main__":
         print(word_timestamp)
     except FileNotFoundError as e:
         print(e)
+
+# ---------------------------------------------------------------------------
+# torchaudio 기반 Fallback 구현
+# ---------------------------------------------------------------------------
+# ctc-forced-aligner 를 사용할 수 없을 때, torchaudio 2.1+ 의
+# functional.forced_align 을 이용해 동일한 결과(단어 단위 타임스탬프)를
+# 산출하는 헬퍼들을 정의한다. 기존 코드가 `load_alignment_model`,
+# `generate_emissions`, `preprocess_text` 등 함수를 기대하므로 동일한
+# 시그니처를 맞춰주면 다른 부분을 수정하지 않아도 된다.
+
+try:
+    import torchaudio
+    import torchaudio.functional as ta_F
+    from torchaudio.pipelines import MMS_FA as _MMS_FA_BUNDLE
+
+    _bundle = _MMS_FA_BUNDLE  # 다국어 1B CTC 모델
+    _LABELS = _bundle.get_labels(star=None)
+    _DICT = _bundle.get_dict(star=None)
+
+    def _load_alignment_model_ta(device: str = 'cpu', dtype=torch.float32):
+        """torchaudio wav2vec2 CTC 모델 + tokenizer 로드 (CPU/GPU)."""
+        model = _bundle.get_model(with_star=False).to(device, dtype=dtype)
+        tokenizer = _DICT  # char->idx dict 그대로 반환 (기존 코드 호환용)
+        return model, tokenizer
+
+    def _generate_emissions_ta(model, waveform: torch.Tensor, batch_size: int = 8):
+        """모델 forward 로 emission(logits) 및 stride(=index duration) 계산"""
+        with torch.inference_mode():
+            emissions, _ = model(waveform)
+        # stride 계산: torchaudio 모델은 20ms/stride 4 => 640/16000=0.04? 안전하게
+        # index_duration = waveform_len / num_frames / sample_rate
+        index_duration = waveform.shape[-1] / emissions.shape[1] / _bundle.sample_rate
+        return emissions[0].cpu(), index_duration  # (frames, vocab), float
+
+    def _preprocess_text_ta(text: str):
+        """공백 단위로 단어 분할, 각 단어를 문자 index 시퀀스로 변환."""
+        words = text.lower().strip().split()
+        tokens = [ _DICT[c] for w in words for c in w ]
+        word_lengths = [len(w) for w in words]
+        return tokens, word_lengths, words
+
+    def _postprocess_to_words_ta(token_spans, word_lengths, words, index_duration):
+        """TokenSpan 리스트를 단어 단위 time dict 로 변환."""
+        def _unflatten(lst, lens):
+            out = []
+            i = 0
+            for l in lens:
+                out.append(lst[i:i+l])
+                i += l
+            return out
+
+        grouped = _unflatten(token_spans, word_lengths)
+        results = []
+        for w, spans in zip(words, grouped):
+            start_fr = spans[0].start
+            end_fr = spans[-1].end
+            results.append({
+                'word': w,
+                'start': round(start_fr * index_duration, 3),
+                'end': round(end_fr * index_duration, 3)
+            })
+        return results
+
+    # fallback 전역 함수 alias 연결
+    if load_alignment_model is None:
+        load_alignment_model = _load_alignment_model_ta
+        generate_emissions = _generate_emissions_ta
+        preprocess_text = _preprocess_text_ta
+
+        # torchaudio 의 merge_tokens 를 그대로 사용 (TokenSpan 클래스 포함)
+        merge_tokens = ta_F.merge_tokens  # type: ignore
+        forced_align = ta_F.forced_align   # type: ignore
+
+        def _get_alignments_ta(emissions, tokens, _tokenizer):
+            # emissions: (frames, vocab)
+            targets = torch.tensor([tokens], dtype=torch.int32)
+            alignments, scores = forced_align(emissions, targets, blank=0)
+            return alignments[0], scores[0].exp(), 0  # align seq, scores, blank idx
+
+        def _get_spans_ta(tokens, segments, blank_token):
+            return merge_tokens(segments, blank_token)
+
+        def _postprocess_results_ta(text_starred, spans, index_duration, scores):
+            # text_starred 미사용.
+            tokens, word_lengths, words = _preprocess_text_ta(text_starred)
+            return _postprocess_to_words_ta(spans, word_lengths, words, index_duration)
+
+        get_alignments = _get_alignments_ta
+        get_spans = _get_spans_ta
+        postprocess_results = _postprocess_results_ta
+
+        print("✅ torchaudio fallback alignment enabled (Python 3.8 compatible)")
+
+except Exception as _ta_e:
+    print(f"⚠️ torchaudio fallback initialisation failed: {_ta_e}")

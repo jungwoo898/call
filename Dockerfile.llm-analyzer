@@ -1,20 +1,25 @@
 # 🤖 LLM 분석 서비스 - Python 3.11 + GPU 전용
 FROM nvidia/cuda:11.8.0-runtime-ubuntu20.04
 
-# 시스템 패키지 업데이트 및 필수 패키지 설치
+# 시스템 패키지 업데이트 및 Python 3.11 설치
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update \
     && apt-get install -y \
     python3.11 \
-    python3.11-pip \
     python3.11-dev \
+    python3.11-venv \
+    python3.11-distutils \
+    python3-pip \
     build-essential \
     cmake \
     locales \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+# Python 3.11 pip 설정 및 최신화
+RUN python3.11 -m ensurepip --upgrade && python3.11 -m pip install --upgrade pip
 
 # 로케일 및 시간대 설정
 ENV TZ=Asia/Seoul
@@ -34,16 +39,16 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_VISIBLE_DEVICES=0
 
-# 공통 requirements 설치
-COPY requirements_common.txt .
-RUN pip install --no-cache-dir -r requirements_common.txt
+# Python 3.11용 공통 requirements 설치
+COPY requirements_common_py311.txt .
+RUN python3.11 -m pip install --no-cache-dir -r requirements_common_py311.txt
 
 # 서비스별 requirements 설치
 COPY requirements.llm-analyzer.txt .
-RUN pip install --no-cache-dir -r requirements.llm-analyzer.txt
+RUN python3.11 -m pip install --no-cache-dir -r requirements.llm-analyzer.txt
 
 # spaCy 한국어 모델 다운로드
-RUN python -m spacy download ko_core_news_sm
+RUN python3.11 -m spacy download ko_core_news_sm
 
 # 애플리케이션 코드 복사
 COPY src/ ./src/
@@ -57,4 +62,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8002/health || exit 1
 
 # 실행 명령
-CMD ["python", "-m", "src.text.main"] 
+CMD ["python3.11", "-m", "src.text.main"] 

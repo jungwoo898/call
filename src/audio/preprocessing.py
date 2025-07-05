@@ -7,7 +7,7 @@ import shutil
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Annotated, List, Dict, Optional
+from typing import Annotated, List, Dict, Optional, Tuple, Any
 from pathlib import Path
 
 # Related third-party imports
@@ -16,11 +16,13 @@ import soundfile as sf
 from librosa.feature import rms
 from omegaconf import OmegaConf
 from noisereduce import reduce_noise
+import numpy as np
+from scipy import signal
+import warnings
 
 # MPSENet 안전 import
 MPSENet = None
 try:
-    import warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
     from MPSENet import MPSENet
@@ -131,7 +133,7 @@ class AudioPreprocessor:
         
         return results
     
-    def _normalize_single_audio(self, audio_file: str, output_dir: str) -> str | None:
+    def _normalize_single_audio(self, audio_file: str, output_dir: str) -> Optional[str]:
         """
         단일 오디오 파일 정규화
         
@@ -144,7 +146,7 @@ class AudioPreprocessor:
             
         Returns
         -------
-        str | None
+        Optional[str]
             정규화된 파일 경로 또는 None
         """
         try:
@@ -199,6 +201,97 @@ class AudioPreprocessor:
                 except Exception as e:
                     print(f"⚠️ 임시파일 삭제 실패: {temp_file}, {e}")
             self.temp_files.clear()
+
+    def audio_normalize_audio(self, 
+                             audio_data: np.ndarray, 
+                             target_level: float = -20.0,
+                             normalization_type: str = "loudness") -> Tuple[np.ndarray, Dict[str, Any]]:
+        """오디오 정규화"""
+        try:
+            if normalization_type == "loudness":
+                normalized_audio = self._loudness_normalization(audio_data, target_level)
+            elif normalization_type == "peak":
+                normalized_audio = self._peak_normalization(audio_data, target_level)
+            elif normalization_type == "rms":
+                normalized_audio = self._rms_normalization(audio_data, target_level)
+            else:
+                raise ValueError(f"지원하지 않는 정규화 타입: {normalization_type}")
+            
+            # 품질 메트릭 계산
+            quality_metrics = self._calculate_normalization_metrics(audio_data, normalized_audio)
+            
+            return normalized_audio, quality_metrics
+            
+        except Exception as e:
+            print(f"⚠️ 오디오 정규화 실패: {e}")
+            return audio_data, {"error": str(e)}
+
+    def audio_resample_audio(self, 
+                            audio_data: np.ndarray, 
+                            original_sr: int, 
+                            target_sr: int,
+                            resampling_method: str = "kaiser_best") -> Tuple[np.ndarray, Dict[str, Any]]:
+        """오디오 리샘플링"""
+        try:
+            if original_sr == target_sr:
+                return audio_data, {"resampling_applied": False}
+            
+            # 리샘플링 실행
+            resampled_audio = librosa.resample(
+                audio_data, 
+                orig_sr=original_sr, 
+                target_sr=target_sr,
+                res_type=resampling_method
+            )
+            
+            # 품질 메트릭 계산
+            quality_metrics = self._calculate_resampling_metrics(audio_data, resampled_audio, original_sr, target_sr)
+            quality_metrics["resampling_applied"] = True
+            
+            return resampled_audio, quality_metrics
+            
+        except Exception as e:
+            print(f"⚠️ 오디오 리샘플링 실패: {e}")
+            return audio_data, {"error": str(e)}
+
+    def audio_apply_filters(self, 
+                           audio_data: np.ndarray, 
+                           sample_rate: int,
+                           filter_config: Optional[Dict[str, Any]] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """오디오 필터 적용"""
+        try:
+            if filter_config is None:
+                filter_config = self._get_default_filter_config()
+            
+            filtered_audio = audio_data.copy()
+            filter_metrics = {}
+            
+            # 고역 통과 필터
+            if filter_config.get("highpass", {}).get("enabled", False):
+                highpass_config = filter_config["highpass"]
+                cutoff_freq = highpass_config.get("cutoff_freq", 80)
+                filtered_audio = self._apply_highpass_filter(filtered_audio, sample_rate, cutoff_freq)
+                filter_metrics["highpass"] = {"cutoff_freq": cutoff_freq}
+            
+            # 저역 통과 필터
+            if filter_config.get("lowpass", {}).get("enabled", False):
+                lowpass_config = filter_config["lowpass"]
+                cutoff_freq = lowpass_config.get("cutoff_freq", 8000)
+                filtered_audio = self._apply_lowpass_filter(filtered_audio, sample_rate, cutoff_freq)
+                filter_metrics["lowpass"] = {"cutoff_freq": cutoff_freq}
+            
+            # 노치 필터 (전원선 노이즈 제거)
+            if filter_config.get("notch", {}).get("enabled", False):
+                notch_config = filter_config["notch"]
+                notch_freq = notch_config.get("notch_freq", 60)
+                filtered_audio = self._apply_notch_filter(filtered_audio, sample_rate, notch_freq)
+                filter_metrics["notch"] = {"notch_freq": notch_freq}
+            
+            return filtered_audio, filter_metrics
+            
+        except Exception as e:
+            print(f"⚠️ 오디오 필터 적용 실패: {e}")
+            return audio_data, {"error": str(e)}
 
 
 class Denoiser:
@@ -360,7 +453,6 @@ class SpeechEnhancement:
             self.model = None
         else:
             try:
-                import warnings
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                 self.model = MPSENet.from_pretrained(self.model_name).to(self.device)

@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+"""
+고급 문장 부호 복원 시스템
+캐싱, 배치 처리, 성능 최적화 지원
+"""
+
 # Standard library imports
 import os
 import re
@@ -105,7 +111,7 @@ class AdvancedPunctuationRestorer:
         text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
         return f"{text_hash}_{self.language}"
     
-    def _is_cached(self, text: str) -> str | None:
+    def _is_cached(self, text: str) -> Optional[str]:
         """캐시된 결과 확인"""
         if not self.enable_cache:
             return None

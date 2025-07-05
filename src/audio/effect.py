@@ -5,7 +5,7 @@ import hashlib
 import json
 import time
 import threading
-from typing import Annotated, Optional, Dict, Any
+from typing import Annotated, Optional, Dict, Any, List, Tuple
 from pathlib import Path
 
 # Related third-party imports
@@ -99,7 +99,7 @@ class AdvancedDemucsVocalSeparator:
         cache_key = f"{file_hash.hexdigest()}_{self.model_name}_{self.two_stems}"
         return cache_key
     
-    def _is_cached(self, audio_file: str) -> str | None:
+    def _is_cached(self, audio_file: str) -> Optional[str]:
         """캐시된 결과 확인"""
         if not self.enable_cache:
             return None
@@ -186,7 +186,7 @@ class AdvancedDemucsVocalSeparator:
             print(f"⚠️ 음성 감지 실패: {e}")
             return True  # 실패하면 분리 진행
     
-    def audio_separate_vocals_advanced(self, audio_file: str, output_dir: str) -> str | None:
+    def audio_separate_vocals_advanced(self, audio_file: str, output_dir: str) -> Optional[str]:
         """
         고성능 보컬 분리
         
@@ -199,7 +199,7 @@ class AdvancedDemucsVocalSeparator:
             
         Returns
         -------
-        str | None
+        Optional[str]
             분리된 보컬 파일 경로 또는 None
         """
         try:
@@ -334,7 +334,7 @@ class DemucsVocalSeparator:
         self.model_name = model_name
         self.two_stems = two_stems
 
-    def audio_separate_vocals(self, audio_file: str, output_dir: str) -> str | None:
+    def audio_separate_vocals(self, audio_file: str, output_dir: str) -> Optional[str]:
         """
         Separates vocals (or other specified stem) from the audio file.
 

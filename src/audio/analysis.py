@@ -1,7 +1,7 @@
 # Standard library imports
 import os
 import wave
-from typing import List, Dict, Annotated, Union, Tuple, Any
+from typing import List, Dict, Annotated, Union, Tuple, Any, Optional
 
 # Related third-party imports
 import nltk
@@ -684,7 +684,7 @@ class Audio:
         self.duration = self.samples / self.rate
 
     def audio_properties(self) -> Tuple[
-        str, str, str, int, float, float, int | None, int, float, float, Dict[str, float]]:
+        str, str, str, int, float, float, Optional[int], int, float, float, Dict[str, float]]:
         """
         Extract various properties and features from the audio file.
 

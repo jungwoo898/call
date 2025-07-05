@@ -1,5 +1,5 @@
 # 멀티스테이지 빌드로 이미지 크기 최적화 - 고정 버전
-FROM ubuntu:20.04.6 AS builder
+FROM ubuntu:20.04 AS builder
 
 # 환경 변수 설정 (최우선)
 ENV DEBIAN_FRONTEND=noninteractive
@@ -60,8 +60,14 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && \
     python -m pip install --no-cache-dir --upgrade setuptools wheel && \
     rm /tmp/get-pip.py
 
+# 빌드 격리 해제 (youtokentome가 Cython에 의존하지만 pyproject 설정이 없어 빌드 격리 시 실패)
+ENV PIP_NO_BUILD_ISOLATION=1
+
 # PyTorch 설치 (완벽한 호환성 버전으로 통일)
 RUN pip install --no-cache-dir torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu118
+
+# youtokentome 빌드를 위한 Cython 선행 설치
+RUN pip install --no-cache-dir cython==3.0.6
 
 # mamba-ssm 설치 제거 (현재 사용하지 않음)
 
@@ -85,7 +91,8 @@ RUN python -c "import torch; print(f'PyTorch: {torch.__version__}')" && \
     python -c "import pyannote.audio; print('PyAnnote.audio import successful')" && \
     python -c "import demucs; print('Demucs import successful')" && \
     python -c "import deepmultilingualpunctuation; print('DeepMultilingualPunctuation import successful')" && \
-    python -c "import MPSENet; print('MPSENet import successful')" && \
+    # MPSENet는 스텁 패키지가 애플리케이션 코드에 포함되어 있어 런타임 이후 단계에서만 필요
+    # python -c "import MPSENet; print('MPSENet import successful')" && \
     python -c "import ctc_forced_aligner; print('CTC Forced Aligner import successful')" && \
     python -c "from nemo.collections.asr.models.msdd_models import NeuralDiarizer; print('NeuralDiarizer import successful')" && \
     python -c "from pyannote.audio import Pipeline; print('PyAnnote Pipeline import successful')" && \
@@ -96,7 +103,7 @@ RUN python -c "import torch; print(f'PyTorch: {torch.__version__}')" && \
 RUN python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('stopwords', quiet=True)"
 
 # 런타임 스테이지 - 고정 버전
-FROM ubuntu:20.04.6
+FROM ubuntu:20.04
 
 # 환경 변수 설정
 ENV DEBIAN_FRONTEND=noninteractive

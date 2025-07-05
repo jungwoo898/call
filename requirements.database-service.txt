@@ -1,9 +1,9 @@
-# database-service 서비스 전용 라이브러리
-# 공통 라이브러리는 requirements_common.txt에서 관리
+# database-service 서비스 전용 라이브러리 (Python 3.11 호환)
+# 공통 라이브러리는 requirements_common_py311.txt에서 관리
 
 # 공통 라이브러리 포함
--r requirements_common.txt
+-r requirements_common_py311.txt
 
-# 서비스 전용 라이브러리
-aiosqlite==0.19.0
-sqlalchemy==2.0.23
+# 서비스 전용 라이브러리 (최신 버전)
+aiosqlite==0.20.0
+sqlalchemy==2.0.27

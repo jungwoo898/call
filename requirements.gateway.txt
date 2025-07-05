@@ -1,10 +1,9 @@
-# gateway 서비스 전용 라이브러리
-# 공통 라이브러리는 requirements_common.txt에서 관리
+# gateway 서비스 전용 라이브러리 (Python 3.11 호환)
+# 공통 라이브러리는 requirements_common_py311.txt에서 관리
 
 # 공통 라이브러리 포함
--r requirements_common.txt
+-r requirements_common_py311.txt
 
-# 서비스 전용 라이브러리
-redis==5.0.1
-aioredis==2.0.1
+# 서비스 전용 라이브러리 (최신 버전)
+redis[hiredis]==5.0.1  # aioredis 통합됨
 aiofiles==23.2.1

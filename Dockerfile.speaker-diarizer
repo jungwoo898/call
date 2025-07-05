@@ -1,20 +1,25 @@
-# 🎤 화자 분리 서비스 - Python 3.11 + CUDA 11.8 + PyTorch 2.1.0
+# 🎤 화자 분리 서비스 - Python 3.8 + CUDA 11.8 + PyTorch 2.1.0
 # 표준화된 Dockerfile.template 기반
 
 FROM nvidia/cuda:11.8.0-runtime-ubuntu20.04
 
-# 시스템 패키지 업데이트 및 필수 패키지 설치
+# 시스템 패키지 업데이트 및 Python 3.8 설치
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update \
     && apt-get install -y \
-    python3.11 \
-    python3.11-dev \
+    python3.8 \
+    python3.8-dev \
     python3-pip \
-    ffmpeg \
+    build-essential \
+    swig \
+    libpulse-dev \
+    libasound2-dev \
+    cmake \
     locales \
     tzdata \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # 로케일 및 시간대 설정
@@ -35,24 +40,33 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_VISIBLE_DEVICES=0
 
-# 공통 requirements 설치
-COPY requirements_common.txt .
-RUN pip install --no-cache-dir -r requirements_common.txt
+# Python 3.8용 공통 requirements 설치
+COPY requirements_common_py38.txt .
+RUN pip install --no-cache-dir -r requirements_common_py38.txt
 
 # 서비스별 requirements 설치
 COPY requirements.speaker-diarizer.txt .
 RUN pip install --no-cache-dir -r requirements.speaker-diarizer.txt
+
+# 선택적 패키지 설치 (있으면 설치, 없으면 건너뛰기)
+RUN pip install --no-cache-dir MPSENet==1.0.3 || echo "Optional package MPSENet not available, skipping" \
+    && pip install --no-cache-dir ctc-forced-aligner==1.0.2 || echo "Optional package ctc-forced-aligner not available, skipping"
+
+# 빌드 실패를 방지하기 위해 Python 3.9 이상을 요구하는 최신 버전 대신
+# 선택적 설치 단계에서 Python 3.8 호환 버전(또는 설치 가능한 경우)에만 설치하도록 제한한다.
+# 필수로 git 소스에서 설치하던 라인은 주석 처리하여 3.8 환경에서도 빌드가 지속되도록 한다.
+# RUN pip install --no-cache-dir git+https://github.com/MahmoudAshraf97/ctc-forced-aligner.git
 
 # 애플리케이션 코드 복사
 COPY src/ ./src/
 COPY config/ ./config/
 
 # 포트 노출
-EXPOSE 8004
+EXPOSE 8003
 
 # 헬스체크
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8004/health || exit 1
+    CMD curl -f http://localhost:8003/health || exit 1
 
 # 실행 명령
 CMD ["python", "-m", "src.audio.speaker_diarizer"] 

@@ -41,22 +41,22 @@ class LogContext:
     service_name: str
     service_version: str = "1.0.0"
     environment: str = "development"
-    trace_id: str | None = None
-    span_id: str | None = None
-    user_id: str | None = None
-    session_id: str | None = None
-    request_id: str | None = None
-    correlation_id: str | None = None
+    trace_id: Optional[str] = None
+    span_id: Optional[str] = None
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
+    request_id: Optional[str] = None
+    correlation_id: Optional[str] = None
 
 @dataclass
 class PerformanceMetrics:
     """성능 메트릭"""
     duration_ms: float
-    memory_usage_mb: float | None = None
-    cpu_usage_percent: float | None = None
-    db_query_count: int | None = None
-    cache_hit_count: int | None = None
-    cache_miss_count: int | None = None
+    memory_usage_mb: Optional[float] = None
+    cpu_usage_percent: Optional[float] = None
+    db_query_count: Optional[int] = None
+    cache_hit_count: Optional[int] = None
+    cache_miss_count: Optional[int] = None
 
 class StructuredLogger:
     """구조화된 로거"""

@@ -122,13 +122,13 @@ class LLMOrchestrator:
         Performs the specified LLM task using the selected prompt, supporting both user and optional system contexts.
         """
         if prompt_name not in self.prompts:
-            return {"status": "error": f"Prompt '{prompt_name}' is not defined in prompt.yaml."}
+            return {"status": "error", "message": f"Prompt '{prompt_name}' is not defined in prompt.yaml."}
 
         system_prompt_template = self.prompts[prompt_name].get('system', '')
         user_prompt_template = self.prompts[prompt_name].get('user', '')
 
         if not system_prompt_template or not user_prompt_template:
-            return {"status": "error": f"Prompts for '{prompt_name}' are incomplete."}
+            return {"status": "error", "message": f"Prompts for '{prompt_name}' are incomplete."}
 
         formatted_user_input = Formatter.format_ssm_as_dialogue(user_input)
 
@@ -155,7 +155,7 @@ class LLMOrchestrator:
         if dict_obj:
             return dict_obj
         else:
-            return {"status": "error": "No valid JSON object found in the response."}
+            return {"status": "error", "message": "No valid JSON object found in the response."}
 
 
 class LLMResultHandler:
@@ -439,7 +439,10 @@ class LLMHandler:
             try:
                 # API 키 재검증
                 if not self.api_key:
-                    raise ValueError("OpenAI API key is missing")
+                    return {
+                        "status": "error",
+                        "message": "API key not configured",
+                    }
                 
                 # API 할당량 확인 (캐시된 방식)
                 if attempt == 0:
@@ -496,7 +499,7 @@ class LLMHandler:
         """
         
         if task_type == "Classification":
-            system_prompt = None"당신은 통신사 고객 상담 분석 전문가입니다. 
+            system_prompt = """당신은 통신사 고객 상담 분석 전문가입니다. 
 화자의 역할을 정확히 분류해주세요.
 
 분류 기준:
@@ -515,7 +518,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담 대화에서 각 화자의 역할을 분류해주세요:\n\n{user_input}"
             
         elif task_type == "Summary":
-            system_prompt = None"당신은 통신사 고객 상담 요약 전문가입니다.
+            system_prompt = """당신은 통신사 고객 상담 요약 전문가입니다.
 상담 내용을 핵심 포인트 중심으로 요약해주세요.
 
 요약 항목:
@@ -536,7 +539,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담 내용을 요약해주세요:\n\n{user_input}"
             
         elif task_type == "ConflictDetection":
-            system_prompt = None"당신은 통신사 고객 상담 갈등 감지 전문가입니다.
+            system_prompt = """당신은 통신사 고객 상담 갈등 감지 전문가입니다.
 상담 중 갈등, 불만, 문제 상황을 정확히 감지해주세요.
 
 갈등 지표:
@@ -580,7 +583,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담의 업무 유형을 분류해주세요:\n\n{user_input}"
             
         elif task_type == "ComplaintAnalysis":
-            system_prompt = None"당신은 통신사 민원 분석 전문가입니다.
+            system_prompt = """당신은 통신사 민원 분석 전문가입니다.
 고객 민원을 종합적으로 분석해주세요.
 
 분석 항목:
@@ -602,7 +605,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 민원을 분석해주세요:\n\n{user_input}"
             
         elif task_type == "ActionItems":
-            system_prompt = None"당신은 통신사 상담 후속 조치 전문가입니다.
+            system_prompt = """당신은 통신사 상담 후속 조치 전문가입니다.
 상담 내용을 바탕으로 구체적인 액션 아이템을 도출해주세요.
 
 액션 아이템 유형:
@@ -626,7 +629,7 @@ class LLMHandler:
             user_prompt = f"다음 통신사 상담의 액션 아이템을 도출해주세요:\n\n{user_input}"
             
         elif task_type == "QualityAssessment":
-            system_prompt = None"당신은 통신사 상담 품질 평가 전문가입니다.
+            system_prompt = """당신은 통신사 상담 품질 평가 전문가입니다.
 상담 품질을 객관적으로 평가해주세요.
 
 평가 기준:
@@ -727,7 +730,7 @@ class LLMHandler:
                     "customer_satisfaction_predicted": 3
                 }
             else:
-                return {"status": "success", "data": result: response}
+                return {"status": "success", "data": response}
                 
         except Exception as e:
             print(f"Error parsing LLM response: {e}")
@@ -769,13 +772,10 @@ class LLMHandler:
         try:
             # API 키 확인
             if not self.api_key:
-                {
-    "status": "error",
-    "message": str(error),
-    "error_code": error_code,
-    "details": error_details,
-    "timestamp": get_current_time().isoformat()
-}
+                return {
+                    "status": "error",
+                    "message": "API key not configured",
+                }
             
             # 캐시된 API 연결 테스트
             async def check_health():
@@ -791,29 +791,17 @@ class LLMHandler:
                         }
                     }
                 except Exception as e:
-                    {
-    "status": "error",
-    "message": str(error),
-    "error_code": error_code,
-    "details": error_details,
-    "timestamp": get_current_time().isoformat()
-}",
-                        "cache_info": {
-                            "quota_cache_age": time.time() - self._quota_check_cache["last_check"],
-                            "models_cache_age": time.time() - self._models_cache["last_check"]
-                        }
+                    return {
+                        "status": "error",
+                        "message": str(e),
                     }
             
             return asyncio.run(check_health())
             
         except Exception as e:
-            {
-    "status": "error",
-    "message": str(error),
-    "error_code": error_code,
-    "details": error_details,
-    "timestamp": get_current_time().isoformat()
-}"
+            return {
+                "status": "error",
+                "message": str(e),
             }
 
     def text_get_usage_stats(self) -> Dict[str, Any]:
