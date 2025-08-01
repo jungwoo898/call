@@ -15,6 +15,7 @@ import psycopg2.extras
 from psycopg2.extensions import connection, cursor
 from datetime import datetime, date
 import uuid
+from src.utils.locale_config import get_current_time
 
 # Local imports
 from src.db.multi_database_manager import MultiDatabaseManager
@@ -153,6 +154,7 @@ class AdvancedDatabaseManager:
     
     def _perform_save_operation(self, operation_type: str, data: Dict[str, Any]) -> bool:
         """실제 저장 작업 수행"""
+        cursor = None
         try:
             if operation_type == "audio_analysis":
                 return self._save_audio_analysis_bulk(data)
@@ -171,6 +173,7 @@ class AdvancedDatabaseManager:
     
     def _save_audio_analysis_bulk(self, data_list: List[Dict[str, Any]]) -> bool:
         """오디오 분석 결과 bulk 저장"""
+        cursor = None
         try:
             if not data_list:
                 return True
@@ -218,6 +221,7 @@ class AdvancedDatabaseManager:
     
     def _save_quality_analysis_bulk(self, data_list: List[Dict[str, Any]]) -> bool:
         """품질 분석 결과 bulk 저장"""
+        cursor = None
         try:
             if not data_list:
                 return True
@@ -269,6 +273,7 @@ class AdvancedDatabaseManager:
     
     def _save_llm_analysis_bulk(self, data_list: List[Dict[str, Any]]) -> bool:
         """LLM 분석 결과 bulk 저장"""
+        cursor = None
         try:
             if not data_list:
                 return True
@@ -378,6 +383,7 @@ class AdvancedDatabaseManager:
     
     def db_bulk_save_audio_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
         """오디오 분석 결과 bulk 저장"""
+        cursor = None
         try:
             success = self._perform_save_operation("audio_analysis", data_list)
             if success:
@@ -389,6 +395,7 @@ class AdvancedDatabaseManager:
     
     def db_bulk_save_quality_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
         """품질 분석 결과 bulk 저장"""
+        cursor = None
         try:
             success = self._perform_save_operation("quality_analysis", data_list)
             if success:
@@ -400,6 +407,7 @@ class AdvancedDatabaseManager:
     
     def db_bulk_save_llm_analysis(self, data_list: List[Dict[str, Any]]) -> bool:
         """LLM 분석 결과 bulk 저장"""
+        cursor = None
         try:
             success = self._perform_save_operation("llm_analysis", data_list)
             if success:
@@ -415,6 +423,7 @@ class AdvancedDatabaseManager:
     
     def db_get_recovery_log(self, limit: int = 100) -> List[str]:
         """복구 로그 조회"""
+        cursor = None
         try:
             if not self.recovery_log_file.exists():
                 return []
@@ -451,9 +460,11 @@ class SimplifiedDBManager:
         
     def db_connect(self) -> connection:
         """DB 연결"""
+        cursor = None
         try:
             if not self.conn or self.conn.closed:
-                self.conn = psycopg2.db_connect(**self.connection_params)
+                import psycopg2
+                self.conn = psycopg2.connect(**self.connection_params)
                 self.conn.autocommit = False
             return self.conn
         except Exception as e:
@@ -470,6 +481,8 @@ class SimplifiedDBManager:
                                        classification_result: Dict[str, Any],
                                        session_date: date = None) -> int:
         """상담 분류 결과 저장"""
+        cursor = None
+        conn = None
         try:
             conn = self.db_connect()
             cursor = conn.cursor()
@@ -527,6 +540,8 @@ class SimplifiedDBManager:
     
     def db_save_quality_metrics(self, session_id: int, metrics: Dict[str, float]):
         """품질 지표 저장"""
+        cursor = None
+        conn = None
         try:
             conn = self.db_connect()
             cursor = conn.cursor()
@@ -564,6 +579,8 @@ class SimplifiedDBManager:
     
     def db_save_sentiment_analysis(self, session_id: int, sentiment_data: List[Dict[str, Any]]):
         """감정 분석 결과 저장"""
+        cursor = None
+        conn = None
         try:
             conn = self.db_connect()
             cursor = conn.cursor()
@@ -605,6 +622,8 @@ class SimplifiedDBManager:
     
     def db_get_consultation_summary(self, session_id: int) -> Dict[str, Any]:
         """상담 요약 정보 조회"""
+        cursor = None
+        conn = None
         try:
             conn = self.db_connect()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -641,6 +660,8 @@ class SimplifiedDBManager:
     
     def db_get_business_area_statistics(self) -> List[Dict[str, Any]]:
         """업무 분야별 통계 조회"""
+        cursor = None
+        conn = None
         try:
             conn = self.db_connect()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -674,6 +695,8 @@ class SimplifiedDBManager:
     
     def db_get_classification_accuracy_report(self) -> Dict[str, Any]:
         """분류 정확도 리포트"""
+        cursor = None
+        conn = None
         try:
             conn = self.db_connect()
             cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -736,6 +759,8 @@ class SimplifiedDBManager:
     
     def db_update_audio_processing_status(self, audio_file_id: int, status: str, error_message: str = None):
         """오디오 처리 상태 업데이트"""
+        cursor = None
+        conn = None
         try:
             conn = self.db_connect()
             cursor = conn.cursor()
@@ -766,6 +791,30 @@ class SimplifiedDBManager:
         finally:
             if cursor:
                 cursor.close()
+
+    # -----------------------------------------------------------------
+    # 🔄 레거시 메서드명 호환 (IntegratedAnalyzer 등 기존 코드 지원)
+    # -----------------------------------------------------------------
+    # 저장 계열
+    def save_consultation_classification(self, audio_file_id: int, classification_result: Dict[str, Any]):
+        return self.db_save_consultation_classification(audio_file_id, classification_result)
+
+    def save_quality_metrics(self, session_id: int, metrics: Dict[str, float]):
+        return self.db_save_quality_metrics(session_id, metrics)
+
+    def save_sentiment_analysis(self, session_id: int, sentiment_data: List[Dict[str, Any]]):
+        return self.db_save_sentiment_analysis(session_id, sentiment_data)
+
+    # 업데이트 계열
+    def update_audio_processing_status(self, audio_file_id: int, status: str, error_message: str = None):
+        return self.db_update_audio_processing_status(audio_file_id, status, error_message)
+
+    # 조회 계열
+    def get_business_area_statistics(self):
+        return self.db_get_business_area_statistics()
+
+    def get_classification_accuracy_report(self):
+        return self.db_get_classification_accuracy_report()
 
 # 사용 예시
 if __name__ == "__main__":

@@ -192,12 +192,12 @@ class StructuredLogger:
     def util_info(self, message: str, **kwargs):
         """정보 로그"""
         record = self._create_log_record(LogLevel.INFO, message, **kwargs)
-        self.logger.util_info(json.dumps(record, ensure_ascii=False))
+        self.logger.info(json.dumps(record, ensure_ascii=False))
     
     def util_error(self, message: str, error: Exception = None, **kwargs):
         """에러 로그"""
         record = self._create_log_record(LogLevel.ERROR, message, error=error, **kwargs)
-        self.logger.util_error(json.dumps(record, ensure_ascii=False))
+        self.logger.error(json.dumps(record, ensure_ascii=False))
     
     @contextmanager
     def util_performance_context(self, operation: str, **kwargs):
@@ -222,6 +222,17 @@ class StructuredLogger:
                 **kwargs
             )
             self.logger.util_info(json.dumps(record, ensure_ascii=False))
+
+    # ------------------------------------------------------------------
+    # 🌐 표준 logging 스타일 호환 (info, error 등)
+    # ------------------------------------------------------------------
+    def info(self, message: str, extra_data: Dict[str, Any] = None):  # pragma: no cover
+        """logging.Logger API 호환 info"""
+        self.util_info(message, extra_data=extra_data)
+
+    def error(self, message: str, extra_data: Dict[str, Any] = None):  # pragma: no cover
+        """logging.Logger API 호환 error"""
+        self.util_error(message, extra_data=extra_data)
 
 class JSONFormatter(logging.Formatter):
     """JSON 포매터"""

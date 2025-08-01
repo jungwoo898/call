@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime, date
 import json
+import uuid
 
 from src.text.advanced_analysis import SimplifiedClassifier, ClassificationResult
 from src.db.advanced_manager import SimplifiedDBManager
@@ -21,7 +22,7 @@ class IntegratedAnalyzer:
     def __init__(self, db_config: Dict[str, str]):
         self.classifier = SimplifiedClassifier()
         self.db_manager = SimplifiedDBManager(db_config)
-        self.logger = StructuredLogger()
+        self.logger = StructuredLogger(service_name="integrated-analyzer")
         
     async def analyze_audio_file(self, audio_file_path: str, audio_file_id: int) -> Dict[str, Any]:
         """오디오 파일 통합 분석"""
@@ -363,6 +364,15 @@ class IntegratedAnalyzer:
         except Exception as e:
             logger.error(f"분석 리포트 생성 실패: {e}")
             return {}
+
+    # -------------------------------------------------------------
+    # 🔄 레거시 호환: 기존 코드에서 사용하던 메서드명 유지
+    # -------------------------------------------------------------
+    async def analyze_audio_comprehensive(self, audio_file_path: str) -> Dict[str, Any]:
+        """analyze_audio_file 의 래퍼 (audio_file_id 자동 생성)"""
+        # 간단히 UUID 기반 임시 ID 생성 또는 0 사용
+        temp_id = int(uuid.uuid4().int >> 96)  # 32비트 정도 추출
+        return await self.analyze_audio_file(audio_file_path, temp_id)
 
 # 사용 예시
 async def main():
